@@ -163,6 +163,9 @@ Requirements:
 - Round-trip tests for fragment encoding/decoding, including oversized and
   malformed input.
 - A check that lists keys missing from non-English translation catalogs.
+Committed code and tests never contain personal data from the fixtures (names,
+PDGA numbers, event ids, event names or results); fixture-specific expected
+values live in the git-ignored tests/fixtures/expected.json.
 
 ## Process
 Start with a plan for my approval. Build in this order and commit after each
