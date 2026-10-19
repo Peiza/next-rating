@@ -1,0 +1,329 @@
+/*
+ * Built for reading in direct sunlight. Colours are hex tokens on :root,
+ * redefined for dark mode, and tests/app/contrast.test.ts checks that
+ * every text colour reaches 7:1 (WCAG AAA) on every background. Status is
+ * never shown by colour alone.
+ */
+
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --surface: #eeeeee;
+  --text: #000000;
+  --text-muted: #2e2e2e;
+  --border: #4d4d4d;
+  --accent: #003a9e;
+  --on-accent: #ffffff;
+  --good: #00561d;
+  --bad: #9e0000;
+  --warn-bg: #fff1b8;
+  --focus: #003a9e;
+  --tab-height: 3.75rem;
+  --gutter: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --surface: #1a1a1a;
+    --text: #ffffff;
+    --text-muted: #d9d9d9;
+    --border: #b3b3b3;
+    --accent: #9cc2ff;
+    --on-accent: #000000;
+    --good: #7ee2a0;
+    --bad: #ff9c9c;
+    --warn-bg: #3d3000;
+    --focus: #ffd60a;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-muted: var(--text);
+    --border: var(--text);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* 17px when the browser default is 16px; rem keeps the user's text size. */
+html {
+  font-size: 106.25%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* On iPhone, follow the Dynamic Type text size. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  html {
+    font: -apple-system-body;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--gutter);
+  padding-left: max(var(--gutter), env(safe-area-inset-left));
+  padding-right: max(var(--gutter), env(safe-area-inset-right));
+  padding-bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 2rem);
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0.5rem 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 1.75rem 0 0.75rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+.lead {
+  font-size: 1.1rem;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.15em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Numbered steps */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: step;
+}
+
+.step {
+  counter-increment: step;
+  position: relative;
+  margin: 0 0 0.75rem;
+  padding: 1rem 1rem 0.25rem 3.5rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0.875rem;
+  top: 0.875rem;
+  display: grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 800;
+}
+
+.step-title {
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.step > :last-child {
+  margin-bottom: 0.75rem;
+}
+
+/* Forms and buttons. 3rem is at least 48px, a comfortable tap target. */
+
+.field {
+  margin: 0 0 1rem;
+}
+
+.label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.375rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.row > .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.input[aria-invalid='true'] {
+  border: 3px solid var(--bad);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.5rem 1.25rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--text);
+  border-radius: 0.5rem;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.button-primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.button-block {
+  display: flex;
+  width: 100%;
+}
+
+/* Dashed rather than faded, so it stays readable in sunlight. */
+.button:disabled {
+  color: var(--text-muted);
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+a.button[target='_blank']::after {
+  content: '\2197' / '';
+  margin-left: 0.4em;
+}
+
+.status {
+  min-height: 1.45em;
+  margin: 0.5rem 0 0;
+  font-weight: 700;
+}
+
+.status.error {
+  color: var(--bad);
+}
+
+.hint {
+  margin: 0.5rem 0 1rem;
+  color: var(--text-muted);
+}
+
+.warning {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--warn-bg);
+  border: 2px solid var(--text);
+  border-radius: 0.5rem;
+}
+
+.notice {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  border-top: 2px solid var(--border);
+}
+
+/* Tab bar, at the bottom where the thumb reaches it. */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--bg);
+  border-top: 2px solid var(--text);
+}
+
+.tab {
+  flex: 1;
+  max-width: 20rem;
+  min-height: var(--tab-height);
+  font: inherit;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-top: 4px solid transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tab[aria-current='page'] {
+  color: var(--accent);
+  background: var(--surface);
+  border-top-color: var(--accent);
+}
+
+@media (forced-colors: active) {
+  .step::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+    color: Canvas;
+  }
+
+  .tab[aria-current='page'] {
+    color: Highlight;
+    border-top-color: Highlight;
+  }
+
+  .button:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+}
