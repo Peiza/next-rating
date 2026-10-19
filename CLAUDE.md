@@ -124,6 +124,9 @@ single build-time setting.
 - Minimal, pinned dependencies with a lockfile; prefer zero runtime dependencies.
 - When adding or upgrading a dependency, pick a version that was published at
   least 14 days ago, and run npm audit afterwards.
+- Never let npx or npm exec download packages. Run tools only through npm
+  scripts or packages already pinned in package.json, and stop background
+  servers by stopping the task directly.
 - Bookmarklet source kept readable in the repo, minified by a build script,
   with a version number the app can display.
 - GitHub Actions: least-privilege permissions per job, every action pinned to

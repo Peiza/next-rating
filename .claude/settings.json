@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(npx:*)",
+      "Bash(npm exec:*)",
+      "Bash(npm x:*)",
+      "PowerShell(npx:*)",
+      "PowerShell(npm exec:*)",
+      "PowerShell(npm x:*)"
+    ]
+  }
+}
