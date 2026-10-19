@@ -1,8 +1,18 @@
 import './styles.css';
-import { resolveLanguage, setLanguage, t } from '../i18n';
+import type { PlainDate } from '../engine';
+import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
+import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
+import type { RawEvent } from '../parsers/types';
+import { ParseError, toPdgaDate } from '../parsers/values';
 import { el } from './dom';
+import { applyImport, takeFragment } from './import';
+import { buildModel } from './model';
+import { readPaste } from './paste';
 import { browserStorage, createStore } from './storage';
+import { BANNER_ID, bannerView, type Banner } from './views/banner';
+import { EVENT_DATE_ID, importView, PASTE_ID, type PasteMessage } from './views/import';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
+import { ratingView } from './views/rating';
 import { settingsView } from './views/settings';
 import { startView } from './views/start';
 
@@ -11,13 +21,31 @@ import { startView } from './views/start';
  * path-based routing, so tabs switch in memory only.
  */
 
-const TABS = ['rating', 'settings'] as const;
+const TABS = ['rating', 'import', 'settings'] as const;
 type Tab = (typeof TABS)[number];
+
+const STATUS_BANNERS: Record<HandoffStatus, Pick<Banner, 'message' | 'tone'>> = {
+  ok: { message: 'import.status.ok', tone: 'info' },
+  partial: { message: 'import.status.partial', tone: 'warning' },
+  challenge: { message: 'import.status.challenge', tone: 'warning' },
+  'unsupported-page': { message: 'import.status.unsupported-page', tone: 'error' },
+  error: { message: 'import.status.error', tone: 'error' },
+};
+
+const ERROR_MESSAGES: Record<HandoffErrorCode, MessageKey> = {
+  'too-large': 'import.error.too-large',
+  malformed: 'import.error.malformed',
+  version: 'import.error.version',
+  unsupported: 'import.error.unsupported',
+};
 
 const store = createStore(browserStorage());
 const root = document.getElementById('app')!;
 let tab: Tab = 'rating';
 let flash: PdgaFlash = null;
+let banner: Banner | null = null;
+let pendingEvent: RawEvent | null = null;
+let pasteMessage: PasteMessage | null = null;
 
 function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -36,6 +64,11 @@ function savePdgaNumber(pdgaNumber: number | null): void {
   render(PDGA_SAVE_ID);
 }
 
+function makeDefault(pdgaNumber: number): void {
+  store.update({ pdgaNumber });
+  render(`tab-${tab}`);
+}
+
 function setLanguageOverride(language: string | null): void {
   store.update({ language });
   applyLanguage();
@@ -44,8 +77,74 @@ function setLanguageOverride(language: string | null): void {
 
 function selectTab(next: Tab): void {
   tab = next;
+  pasteMessage = null;
   render(`tab-${next}`);
   window.scrollTo(0, 0);
+}
+
+function saveImport(parts: ImportParts): void {
+  const { lastImport } = store.get();
+  store.update({ lastImport: applyImport(lastImport, parts, new Date().toISOString()) });
+}
+
+/** Shows the result of an import on the Rating tab, with focus on the message. */
+function showBanner(next: Banner): void {
+  banner = next;
+  tab = 'rating';
+  render(BANNER_ID);
+  window.scrollTo(0, 0);
+}
+
+function closeBanner(): void {
+  banner = null;
+  render(`tab-${tab}`);
+}
+
+async function receiveHandoff(payload: string): Promise<void> {
+  try {
+    const envelope = await decodeHandoff(payload);
+    saveImport(envelope);
+    showBanner({ ...STATUS_BANNERS[envelope.status], failed: envelope.failed ?? [] });
+  } catch (error) {
+    if (!(error instanceof HandoffError)) console.error(error);
+    showBanner({ message: ERROR_MESSAGES[error instanceof HandoffError ? error.code : 'malformed'], tone: 'error' });
+  }
+}
+
+function pasted(html: string, text: string): void {
+  let result: ReturnType<typeof readPaste>;
+  try {
+    result = readPaste(html, text);
+  } catch (error) {
+    const tooLarge = error instanceof ParseError && error.code === 'too-large';
+    pasteMessage = { key: tooLarge ? 'paste.tooLarge' : 'paste.malformed', error: true };
+    render(PASTE_ID);
+    return;
+  }
+  pasteMessage = null;
+  if (result.kind === 'none') {
+    pasteMessage = { key: 'paste.none', error: true };
+    render(PASTE_ID);
+  } else if (result.kind === 'event') {
+    pendingEvent = result.event;
+    render(EVENT_DATE_ID);
+  } else {
+    saveImport({ details: result.details, ...(result.player && { player: result.player }) });
+    showBanner({ message: 'paste.details', params: { count: result.rounds }, tone: 'info' });
+  }
+}
+
+function addPastedEvent(date: PlainDate, name: string): void {
+  if (!pendingEvent) return;
+  const event: RawEvent = { ...pendingEvent, date: toPdgaDate(date), name };
+  pendingEvent = null;
+  saveImport({ events: [event] });
+  showBanner({ message: 'paste.eventAdded', tone: 'info' });
+}
+
+function cancelPastedEvent(): void {
+  pendingEvent = null;
+  render(PASTE_ID);
 }
 
 function tabBar(): HTMLElement {
@@ -81,12 +180,36 @@ function currentView(): HTMLElement {
       onLanguage: setLanguageOverride,
     });
   }
-  return startView({ pdgaNumber: data.pdgaNumber, flash, onSavePdgaNumber: savePdgaNumber });
+  if (tab === 'import') {
+    return importView({
+      pendingEvent,
+      message: pasteMessage,
+      onPaste: pasted,
+      onAddEvent: addPastedEvent,
+      onCancelEvent: cancelPastedEvent,
+    });
+  }
+  if (data.lastImport) {
+    return ratingView({
+      model: buildModel(data.lastImport, data.pdgaNumber),
+      defaultPdgaNumber: data.pdgaNumber,
+      onMakeDefault: makeDefault,
+    });
+  }
+  return startView({
+    pdgaNumber: data.pdgaNumber,
+    flash,
+    onSavePdgaNumber: savePdgaNumber,
+    onOpenImport: () => selectTab('import'),
+  });
 }
 
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
-  root.replaceChildren(el('main', { class: 'main' }, currentView()), tabBar());
+  root.replaceChildren(
+    el('main', { class: 'main' }, banner && bannerView(banner, closeBanner), currentView()),
+    tabBar(),
+  );
   flash = null;
   if (focusId) document.getElementById(focusId)?.focus();
 }
@@ -96,5 +219,13 @@ window.addEventListener('languagechange', () => {
   render();
 });
 
+// A hand-off into a page that is already open only changes the fragment.
+window.addEventListener('hashchange', () => {
+  const payload = takeFragment();
+  if (payload !== null) void receiveHandoff(payload);
+});
+
+const payload = takeFragment();
 applyLanguage();
 render();
+if (payload !== null) void receiveHandoff(payload);

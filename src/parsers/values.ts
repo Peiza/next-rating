@@ -81,3 +81,10 @@ export function parsePdgaDate(value: string): PlainDate | null {
   const date = `${last[3]}-${String(month).padStart(2, '0')}-${last[1]!.padStart(2, '0')}`;
   return month > 0 && isPlainDate(date) ? date : null;
 }
+
+/** Writes a date the way pdga.com does, "6-Aug-2026", so parsePdgaDate reads it back. */
+export function toPdgaDate(date: PlainDate): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  const name = MONTHS[month - 1]!;
+  return `${day}-${name[0]!.toUpperCase()}${name.slice(1)}-${year}`;
+}

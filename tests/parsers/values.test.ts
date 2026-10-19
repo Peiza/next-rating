@@ -8,6 +8,7 @@ import {
   asText,
   parseInteger,
   parsePdgaDate,
+  toPdgaDate,
 } from '../../src/parsers/values';
 
 describe('parsePdgaDate', () => {
@@ -39,6 +40,14 @@ describe('parsePdgaDate', () => {
     expect(parsePdgaDate('30-Feb-2026')).toBeNull();
     expect(parsePdgaDate('2026-08-06')).toBeNull();
     expect(parsePdgaDate('')).toBeNull();
+  });
+});
+
+describe('toPdgaDate', () => {
+  it('writes dates the way pdga.com does, so they read back', () => {
+    expect(toPdgaDate('2026-08-06')).toBe('6-Aug-2026');
+    expect(toPdgaDate('2025-12-31')).toBe('31-Dec-2025');
+    for (const date of ['2026-01-01', '2024-02-29', '2026-09-30']) expect(parsePdgaDate(toPdgaDate(date))).toBe(date);
   });
 });
 

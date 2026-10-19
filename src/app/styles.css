@@ -275,6 +275,164 @@ a.button[target='_blank']::after {
   border-top: 2px solid var(--border);
 }
 
+.row > .grow {
+  flex: 1;
+}
+
+.paste {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+/* Import messages */
+
+.banner {
+  margin: 0 0 1.5rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-left-width: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.banner-warning {
+  background: var(--warn-bg);
+  border-color: var(--text);
+}
+
+/* --accent is not checked against --warn-bg; underlined text colour is. */
+.banner-warning a {
+  color: var(--text);
+}
+
+.banner-error {
+  border-color: var(--bad);
+}
+
+.banner-message {
+  font-weight: 700;
+}
+
+.links {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.links li {
+  margin-bottom: 0.5rem;
+}
+
+/* Results */
+
+.player {
+  margin-bottom: 0.25rem;
+  font-weight: 700;
+}
+
+.predicted {
+  margin: 0;
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.change {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.official {
+  margin-bottom: 0.25rem;
+}
+
+.stats {
+  margin: 1.5rem 0;
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.stats summary {
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stats dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  padding: 0 1rem 1rem;
+}
+
+.stats dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rounds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.round {
+  padding: 0.75rem 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.round p {
+  margin: 0;
+}
+
+.round-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.round-rating {
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.round-status {
+  font-weight: 700;
+  text-align: right;
+}
+
+.round-symbol {
+  display: inline-block;
+  min-width: 1.5em;
+  text-align: center;
+}
+
+.round-doubled .round-status {
+  color: var(--good);
+}
+
+.round-dropped .round-status {
+  color: var(--bad);
+}
+
+.round-dropped .round-rating,
+.round-outside-window .round-rating,
+.round-dnf .round-rating {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.round-outside-window .round-status,
+.round-meta {
+  color: var(--text-muted);
+}
+
 /* Tab bar, at the bottom where the thumb reaches it. */
 
 .tabbar {

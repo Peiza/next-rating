@@ -66,7 +66,7 @@ export function extractRatingsDetails(root: ParentNode): RawDetailsRow[] {
   return [];
 }
 
-const RAW_DETAILS_KEYS = [
+export const RAW_DETAILS_KEYS = [
   'eventId',
   'eventName',
   'tier',

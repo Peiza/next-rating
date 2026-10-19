@@ -1,14 +1,20 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el } from '../../src/app/dom';
+import type { StoredImport } from '../../src/app/import';
+import { buildModel } from '../../src/app/model';
+import { bannerView } from '../../src/app/views/banner';
+import { importView, type ImportProps } from '../../src/app/views/import';
+import { ratingView } from '../../src/app/views/rating';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { startView } from '../../src/app/views/start';
 import { setLanguage } from '../../src/i18n';
+import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
 
 afterEach(() => setLanguage('en'));
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
-  return startView({ pdgaNumber, flash: null, onSavePdgaNumber });
+  return startView({ pdgaNumber, flash: null, onSavePdgaNumber, onOpenImport: vi.fn() });
 }
 
 function submit(form: HTMLFormElement) {
@@ -93,6 +99,136 @@ describe('settings view', () => {
 
   it('ends with the unofficial notice', () => {
     expect(settingsView(props).lastElementChild!.textContent).toMatch(/not affiliated with/);
+  });
+});
+
+describe('getting-started paste step', () => {
+  it('opens the Import tab', () => {
+    const onOpenImport = vi.fn();
+    const view = startView({ pdgaNumber: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport });
+    view.querySelector<HTMLButtonElement>('#open-import')!.click();
+    expect(onOpenImport).toHaveBeenCalled();
+  });
+});
+
+describe('rating view', () => {
+  const stored: StoredImport = {
+    at: '2026-10-01T10:00:00.000Z',
+    player: rawPlayer({ currentRating: '950' }),
+    details: [
+      rawDetailsRow({ rating: '970', round: '2', roundLabel: '2' }),
+      rawDetailsRow({ rating: '960', round: 'Finals', roundLabel: 'Finals' }),
+      rawDetailsRow({ eventId: '900000', date: '1-Jul-2024', rating: '900' }),
+    ],
+    events: [rawEvent()],
+  };
+
+  function ratingPage(defaultPdgaNumber: number | null = 100001, onMakeDefault = vi.fn()) {
+    return ratingView({ model: buildModel(stored, defaultPdgaNumber), defaultPdgaNumber, onMakeDefault });
+  }
+
+  it('shows the prediction, the change and the official rating', () => {
+    const view = ratingPage();
+    expect(view.querySelector('#predicted')!.textContent).toBe('962');
+    expect(view.querySelector('.change')!.textContent).toBe('+12 vs official rating');
+    expect(view.querySelector('.official')!.textContent).toContain('950');
+    expect(view.textContent).toContain('Last import:');
+  });
+
+  it('lists rounds newest first with a text label and a symbol for each status', () => {
+    const rounds = [...ratingPage().querySelectorAll('.round')];
+    expect(rounds.map((round) => round.querySelector('.round-rating')!.textContent)).toEqual([
+      '960',
+      '955',
+      '970',
+      '960',
+      '900',
+    ]);
+    const status = rounds[4]!.querySelector('.round-status')!;
+    expect(status.textContent).toContain('Outside window');
+    expect(status.querySelector('[aria-hidden="true"]')!.textContent).toBe('○');
+    expect(rounds[1]!.textContent).toContain('9 holes');
+    expect(rounds[1]!.textContent).toContain('Unofficial');
+    expect(rounds[0]!.textContent).not.toContain('holes');
+    expect(rounds[3]!.querySelector('.round-event')!.textContent).toBe('Example Open, Finals');
+  });
+
+  it('has a stats panel', () => {
+    const stats = ratingPage().querySelector('details#stats')!;
+    expect(stats.querySelector('summary')!.textContent).toBe('Statistics');
+    expect(stats.querySelectorAll('dt').length).toBe(stats.querySelectorAll('dd').length);
+  });
+
+  it('offers to make the imported player the default player', () => {
+    const onMakeDefault = vi.fn();
+    expect(ratingPage(100001).querySelector('#make-default')).toBeNull();
+    ratingPage(100009, onMakeDefault).querySelector<HTMLButtonElement>('#make-default')!.click();
+    expect(onMakeDefault).toHaveBeenCalledWith(100001);
+  });
+
+  it('ends with the unofficial notice', () => {
+    expect(ratingPage().lastElementChild!.textContent).toMatch(/not affiliated with/);
+  });
+});
+
+describe('import banner', () => {
+  it('links to the pages that could not be fetched', () => {
+    const failed = ['https://www.pdga.com/player/100001/details', 'https://www.pdga.com/tour/event/900003'];
+    const banner = bannerView({ message: 'import.status.challenge', tone: 'warning', failed }, () => {});
+    expect(banner.getAttribute('role')).toBe('alert');
+    const links = [...banner.querySelectorAll('a')];
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(failed);
+    expect(links.map((link) => link.textContent)).toEqual(['Ratings details on pdga.com', 'Event 900003 on pdga.com']);
+    expect(banner.textContent).toContain('run the bookmarklet on each of them');
+  });
+
+  it('closes', () => {
+    const onClose = vi.fn();
+    bannerView({ message: 'import.status.ok', tone: 'info' }, onClose).querySelector('button')!.click();
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('import view', () => {
+  const props: ImportProps = {
+    pendingEvent: null,
+    message: null,
+    onPaste: () => {},
+    onAddEvent: () => {},
+    onCancelEvent: () => {},
+  };
+
+  it('reads both clipboard forms on paste', () => {
+    const onPaste = vi.fn();
+    const target = importView({ ...props, onPaste }).querySelector('#paste-target')!;
+    const event = new Event('paste', { cancelable: true });
+    const clipboard = { 'text/html': '<table></table>', 'text/plain': 'a\tb' } as Record<string, string>;
+    Object.defineProperty(event, 'clipboardData', { value: { getData: (type: string) => clipboard[type] ?? '' } });
+    target.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(onPaste).toHaveBeenCalledWith('<table></table>', 'a\tb');
+  });
+
+  it('asks for the date of pasted event results', () => {
+    const onAddEvent = vi.fn();
+    const view = importView({ ...props, pendingEvent: rawEvent({ eventId: '', name: '' }), onAddEvent });
+    const date = view.querySelector<HTMLInputElement>('#paste-date')!;
+    expect(date.type).toBe('date');
+    expect(date.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    date.value = '2026-09-07';
+    view.querySelector<HTMLInputElement>('#paste-name')!.value = '  Example   Cup ';
+    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(onAddEvent).toHaveBeenCalledWith('2026-09-07', 'Example Cup');
+  });
+
+  it('refuses an empty date', () => {
+    const onAddEvent = vi.fn();
+    const view = importView({ ...props, pendingEvent: rawEvent(), onAddEvent });
+    document.body.replaceChildren(view);
+    view.querySelector<HTMLInputElement>('#paste-date')!.value = '';
+    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(onAddEvent).not.toHaveBeenCalled();
+    expect(view.querySelector('#paste-status')!.textContent).toBe('Pick a date.');
   });
 });
 

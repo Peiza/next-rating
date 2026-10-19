@@ -8,6 +8,9 @@ node_modules/
 # Build output, built by GitHub Actions instead
 dist/
 
+# Bundled development helpers (npm run handoff)
+.cache/
+
 # Test coverage reports
 coverage/
 

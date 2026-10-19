@@ -1,8 +1,9 @@
 # Step 3 plan: the web app
 
-Step 3 is split into three commits, each done in one session. Commit 1 (app
-shell, theme, translations and settings) is done; this document holds the
-approved plan for the remaining two.
+Step 3 is split into three commits, each done in one session. Commits 1 (app
+shell, theme, translations and settings) and 2 (import and results) are done;
+this document holds the approved plan, updated with the decisions made while
+building commit 2.
 
 ## Already in place (commit 1)
 
@@ -56,11 +57,16 @@ approved plan for the remaining two.
 **Import flow (`src/app/import.ts`)**:
 - On start, if `location.hash` starts with `#d=`, decode it and call
   `history.replaceState` straight away, whether decoding succeeded or not.
-- A details or profile import replaces the stored import. An event-page
-  import adds that event to it, replacing an earlier copy of the same event
-  id. Rows are picked by the imported player's number, or by the default PDGA
-  number for an event-only import. If the imported player is not the default
-  player, offer "Make this my default player".
+- An import never erases data it does not contain. For the same player (or
+  an import without a player, such as an event page or a paste), it replaces
+  only the fields it brings, so a partial import keeps the stored ratings
+  details and profile events. An import for a different player replaces
+  everything. An event-page import adds that event, replacing an earlier copy
+  of the same event (by id, or by name and date without one). Events that the
+  ratings details now include are dropped. Rows are picked by the imported
+  player's number, or by the default PDGA number; with neither, the event is
+  stored and the Rating tab asks for a number. If the imported player is not
+  the default player, offer "Make this my default player".
 - Store the validated raw records plus a timestamp as `lastImport`, and
   re-normalize them when reading back.
 - A translated status banner from the status code. For `partial` and
@@ -72,8 +78,9 @@ approved plan for the remaining two.
   it with `DOMParser` (an inert document: no scripts, no loading), trying
   `parseRatingsDetails`, then `parseEvent`, then the TSV extractors on
   `text/plain`.
-- Pasted event results have no date, so ask for one (default today) and pass
-  it to `eventToRounds`.
+- Pasted event results have no date, so ask for one (default today) and an
+  optional event name, so two pasted events on the same date stay apart. The
+  date is stored in the event record in pdga.com format.
 - Add step 3, "Paste the table", to the getting-started view, linking to the
   Import tab.
 

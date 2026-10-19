@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { predictRating } from '../../src/engine/rating';
-import type { RoundInput } from '../../src/engine/types';
-import { detailsToRounds, eventToRounds, mergeRounds } from '../../src/parsers/rounds';
+import { detailsToRounds, eventToRounds, mergeRounds, type ListedRound } from '../../src/parsers/rounds';
 import type { DetailsRound, EventResults } from '../../src/parsers/types';
 
 function detailsRound(extra: Partial<DetailsRound> = {}): DetailsRound {
@@ -58,14 +57,35 @@ describe('detailsToRounds', () => {
   it('groups rounds by event id and keeps hole counts', () => {
     const rounds = detailsToRounds([detailsRound(), detailsRound({ round: 2, holes: null })]);
     expect(rounds).toEqual([
-      { id: 'o:e:900001:MA1:1', rating: 950, date: '2026-08-02', eventKey: 'e:900001', holes: 18, source: 'official' },
-      { id: 'o:e:900001:MA1:2', rating: 950, date: '2026-08-02', eventKey: 'e:900001', source: 'official' },
+      {
+        id: 'o:e:900001:MA1:1',
+        rating: 950,
+        date: '2026-08-02',
+        eventKey: 'e:900001',
+        holes: 18,
+        source: 'official',
+        eventName: 'Example Open',
+        roundLabel: '1',
+      },
+      {
+        id: 'o:e:900001:MA1:2',
+        rating: 950,
+        date: '2026-08-02',
+        eventKey: 'e:900001',
+        source: 'official',
+        eventName: 'Example Open',
+        roundLabel: '1',
+      },
     ]);
   });
 
   it('groups by name and date without an event id', () => {
     const [round] = detailsToRounds([detailsRound({ eventId: null, round: null, roundLabel: 'Finals' })]);
-    expect(round).toMatchObject({ id: 'o:n:Example Open|2026-08-02:MA1:Finals', eventKey: 'n:Example Open|2026-08-02' });
+    expect(round).toMatchObject({
+      id: 'o:n:Example Open|2026-08-02:MA1:Finals',
+      eventKey: 'n:Example Open|2026-08-02',
+      roundLabel: 'Finals',
+    });
   });
 
   it('keeps ids unique', () => {
@@ -77,10 +97,11 @@ describe('detailsToRounds', () => {
 
 describe('eventToRounds', () => {
   it('takes only the given player rounds, with hole counts and DNF', () => {
+    const event = { date: '2026-09-06', eventKey: 'e:900002', source: 'unofficial', eventName: 'Example Cup' };
     expect(eventToRounds(results(), 100001)).toEqual([
-      { id: 'u:e:900002:MA1:1', rating: 950, date: '2026-09-06', eventKey: 'e:900002', holes: 18, source: 'unofficial' },
-      { id: 'u:e:900002:MA1:2', rating: 960, date: '2026-09-06', eventKey: 'e:900002', holes: 9, source: 'unofficial' },
-      { id: 'u:e:900002:MA1:3', rating: null, date: '2026-09-06', eventKey: 'e:900002', dnf: true, source: 'unofficial' },
+      { ...event, id: 'u:e:900002:MA1:1', rating: 950, holes: 18, roundLabel: '1' },
+      { ...event, id: 'u:e:900002:MA1:2', rating: 960, holes: 9, roundLabel: '2' },
+      { ...event, id: 'u:e:900002:MA1:3', rating: null, dnf: true, roundLabel: '3' },
     ]);
   });
 
@@ -123,7 +144,15 @@ describe('mergeRounds', () => {
   });
 
   it('gives the engine valid input', () => {
-    const manual: RoundInput = { id: 'm1', rating: 1000, date: '2026-09-10', eventKey: 'm1', source: 'manual' };
+    const manual: ListedRound = {
+      id: 'm1',
+      rating: 1000,
+      date: '2026-09-10',
+      eventKey: 'm1',
+      source: 'manual',
+      eventName: '',
+      roundLabel: '',
+    };
     const prediction = predictRating(mergeRounds(official, eventToRounds(results(), 100001), [manual]));
     expect(prediction.rounds.map((round) => round.status)).toEqual([
       'included',

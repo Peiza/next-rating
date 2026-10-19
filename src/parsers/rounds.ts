@@ -2,13 +2,20 @@ import type { PlainDate } from '../engine/dates';
 import type { RoundInput } from '../engine/types';
 import type { DetailsRound, EventResults } from './types';
 
+/** A round with what the round list shows. The engine ignores the extra fields. */
+export type ListedRound = RoundInput & {
+  eventName: string;
+  /** Round label as pdga.com shows it, such as "2" or "Finals". */
+  roundLabel: string;
+};
+
 /** Groups rounds by pdga.com event id, or by name and date when the id is unknown. */
-function eventKeyOf(eventId: number | null, name: string, date: PlainDate | null): string {
+export function eventKeyOf(eventId: number | null, name: string, date: PlainDate | null): string {
   return eventId !== null ? `e:${eventId}` : `n:${name}|${date ?? ''}`;
 }
 
 /** Makes ids unique by appending the position when one repeats. */
-function uniqueIds(rounds: RoundInput[]): RoundInput[] {
+function uniqueIds<T extends RoundInput>(rounds: T[]): T[] {
   const seen = new Set<string>();
   return rounds.map((round, i) => {
     const id = seen.has(round.id) ? `${round.id}:${i}` : round.id;
@@ -18,7 +25,7 @@ function uniqueIds(rounds: RoundInput[]): RoundInput[] {
 }
 
 /** Rounds from the ratings details page, in page order (newest first). */
-export function detailsToRounds(rounds: readonly DetailsRound[]): RoundInput[] {
+export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] {
   return uniqueIds(
     rounds.map((round) => {
       const eventKey = eventKeyOf(round.eventId, round.eventName, round.date);
@@ -29,6 +36,8 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): RoundInput[] {
         eventKey,
         ...(round.holes !== null && { holes: round.holes }),
         source: 'official',
+        eventName: round.eventName,
+        roundLabel: round.roundLabel,
       };
     }),
   );
@@ -43,10 +52,10 @@ export function eventToRounds(
   results: EventResults,
   pdgaNumber: number,
   date: PlainDate | null = results.date,
-): RoundInput[] {
+): ListedRound[] {
   if (date === null) return [];
   const eventKey = eventKeyOf(results.eventId, results.name, date);
-  const rounds: RoundInput[] = [];
+  const rounds: ListedRound[] = [];
   for (const division of results.divisions) {
     for (const row of division.rows) {
       if (row.pdgaNumber !== pdgaNumber) continue;
@@ -61,6 +70,8 @@ export function eventToRounds(
           ...(holes !== null && { holes }),
           ...(round.dnf && { dnf: true }),
           source: 'unofficial',
+          eventName: results.name,
+          roundLabel: String(i + 1),
         });
       });
     }
@@ -72,10 +83,7 @@ export function eventToRounds(
  * Adds rounds from event pages to the official rounds, leaving out events
  * that are already in the ratings details and rounds seen before.
  */
-export function mergeRounds(
-  official: readonly RoundInput[],
-  ...others: (readonly RoundInput[])[]
-): RoundInput[] {
+export function mergeRounds<T extends RoundInput>(official: readonly T[], ...others: (readonly T[])[]): T[] {
   const officialEvents = new Set(official.map((round) => round.eventKey));
   const ids = new Set(official.map((round) => round.id));
   const merged = [...official];

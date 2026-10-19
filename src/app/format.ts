@@ -25,6 +25,17 @@ export function formatDate(date: PlainDate, locale = deviceLocale()): string {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+/** A point in time, such as an import timestamp, in the device's time zone. */
+export function formatDateTime(timestamp: string, locale = deviceLocale()): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));
+}
+
+/** Today's date in the device's time zone. */
+export function today(now = new Date()): PlainDate {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 /** A whole rating, such as "1024". */
 export function formatRating(rating: number, locale = deviceLocale()): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0, useGrouping: false }).format(rating);
