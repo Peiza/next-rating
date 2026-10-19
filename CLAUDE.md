@@ -122,6 +122,8 @@ single build-time setting.
   Pages cannot send custom headers: default-src 'self'. No third-party
   scripts, fonts, CDNs or analytics.
 - Minimal, pinned dependencies with a lockfile; prefer zero runtime dependencies.
+- When adding or upgrading a dependency, pick a version that was published at
+  least 14 days ago, and run npm audit afterwards.
 - Bookmarklet source kept readable in the repo, minified by a build script,
   with a version number the app can display.
 - GitHub Actions: least-privilege permissions per job, every action pinned to
