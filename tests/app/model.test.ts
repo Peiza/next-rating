@@ -71,6 +71,28 @@ describe('buildModel', () => {
     expect(model.prediction.stats.roundsCounted).toBe(8);
   });
 
+  it('explains the change with the rounds that are new since the official update', () => {
+    const model = buildModel(stored({ player: rawPlayer({ currentRating: '960' }), details, events: [rawEvent()] }), 100001);
+    expect(model.changes!.map(({ round, item }) => [round.rating, round.source, item.kind])).toEqual([
+      [955, 'unofficial', 'new'],
+      [960, 'unofficial', 'new'],
+    ]);
+    // The official rounds give 960: a 960 round changes nothing, a 955 one lowers it.
+    expect(model.changes![0]!.item.effect).toBeLessThan(0);
+    expect(model.changes![1]!.item.effect).toBe(0);
+    expect(model.officialMismatch).toBeNull();
+  });
+
+  it('has no explanation without ratings details', () => {
+    expect(buildModel(stored({ events: [rawEvent()] }), 100001).changes).toBeNull();
+  });
+
+  it('reports when the official rounds do not give the official rating', () => {
+    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details }), 100001);
+    expect(model.officialMismatch).toBe(960);
+    expect(buildModel(stored({ details }), 100001).officialMismatch).toBeNull();
+  });
+
   it('adds manual rounds', () => {
     const manual: ListedRound = {
       id: 'm:1',

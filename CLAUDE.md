@@ -171,7 +171,40 @@ single build-time setting.
    - Estimate each effect with the engine, mark it with an arrow for up or
      down, and show the largest effects first. Example: a 985 round that no
      longer counts twice can outweigh a new 938 round.
-7. Target calculator, on the Rating tab:
+   - Each effect is the round's weight change times its distance from the
+     official unrounded average, over the new total weight, so the effects
+     add up exactly to the unrounded change (docs/plan-change-explanation.md).
+7. Polish after favorites:
+   1. Links to pdga.com (ratings details, events, player search) open in the
+      same tab, not a new one. The bookmarklet brings the user back to the
+      app in that same tab, so repeated imports don't pile up tabs.
+   2. Main page header: show the data age as relative time ("58 minutes
+      ago") right after the player's name and number; keep the exact import
+      date further down.
+   3. Main page: a "Refresh on pdga.com" button that opens the shown player's
+      ratings details page, like the link in the players list.
+   4. Players list: "me" always first; the others sorted A to Z by default,
+      with a switch for "last updated".
+   5. Round list: each official or unofficial round's event name links to its
+      pdga.com event page. A plain link; the app loads nothing itself.
+   6. Player search by name: one name field in the players panel that opens
+      pdga.com's player search in this format:
+      https://www.pdga.com/players?FirstName=Anna&LastName=Svensson. With one
+      word, search it as the last name; with two or more words, the first
+      word is the first name and the rest the last name. The search matches
+      parts of names, so partial names work. The user picks the player there
+      and runs the bookmarklet.
+   7. Text size: on laptop-sized screens the text is too large; scale the
+      type down from tablet width and up.
+   8. Remove paste import completely: the Import tab, the phone hint and the
+      tab-separated parsing. It doesn't work from a computer either, because
+      of how pdga.com marks up the table headers. The page parsers stay,
+      since bookmarklet hand-offs use them. This replaces the paste import
+      text in 2, 4 and 5 and in Security, which is removed when this is
+      built.
+   9. Next to the prediction, show the expected date of the next ratings
+      update: the second Tuesday of the month.
+8. Target calculator, on the Rating tab:
    - Input: a target rating (for example 1000) and a number of upcoming
      rounds (default 3). Output: the average round rating needed in those
      rounds to reach the target at the next update.
@@ -182,7 +215,7 @@ single build-time setting.
      weighting are then all applied as in the prediction.
    - Say so when the target is already reached without new rounds, or out of
      reach within a plausible rating range.
-8. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+9. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
    - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
@@ -197,8 +230,8 @@ single build-time setting.
      the same 24-month fallback.
    - With fewer than 8 rounds, show how many were found and the average of
      those.
-9. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
-   on Web Page") reusing the same extractor, with setup instructions in the app.
+10. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
+    on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
 - Treat all imported data (URL fragment, paste) as untrusted: strict schema
@@ -274,6 +307,8 @@ order, committing after each working step:
 - Favorites (docs/plan-favorites.md; before manual entry, so manual rounds
   are stored per player from the start) (done)
 - Change explanation: why the prediction differs from the official rating
+  (docs/plan-change-explanation.md) (done)
+- Polish after favorites (Architecture 7)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
 - Target calculator

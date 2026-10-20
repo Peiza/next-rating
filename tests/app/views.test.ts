@@ -13,7 +13,7 @@ import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
 import type { StoredPlayer } from '../../src/app/storage';
 import { setLanguage } from '../../src/i18n';
-import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
 
 afterEach(() => setLanguage('en'));
 
@@ -232,6 +232,57 @@ describe('rating view', () => {
     expect(months!.textContent).toBe('24 months');
     expect(range!.className).toBe('stat-detail');
     expect(range!.textContent).toMatch(/^\S+ to \S+$/);
+  });
+
+  describe('why it changed', () => {
+    function why(extra: Partial<StoredImport> = {}): HTMLElement | null {
+      const model = buildModel({ ...stored, ...extra }, 100001);
+      return ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('#why');
+    }
+
+    it('follows the summary with the new rounds, largest effect first', () => {
+      const view = ratingPage();
+      const section = view.querySelector('#why')!;
+      expect(section.previousElementSibling!.classList.contains('summary')).toBe(true);
+      expect(section.querySelector('h2')!.textContent).toBe('Why it changed');
+      const items = [...section.querySelectorAll('.reason')];
+      expect(items.map((item) => item.querySelector('.reason-text')!.textContent)).toEqual([
+        'New round 960',
+        'New round 955',
+      ]);
+      expect(items[1]!.querySelector('.reason-meta')!.textContent).toMatch(/^Example Cup · Round 2 · \S+$/);
+    });
+
+    it('marks each effect with an arrow and a sign, not colour alone', () => {
+      const effect = why()!.querySelector('.reason-effect')!;
+      // The official rounds give 965; both new rounds lower it by 5 / 3.5.
+      expect(effect.textContent).toBe('↓−1.4');
+      expect(effect.classList.contains('change-down')).toBe(true);
+      expect(effect.querySelector('.reason-arrow')!.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('puts lines after the fifth under "Show all"', () => {
+      const ratings = ['960', '955', '950', '945', '940', '935'];
+      const event = rawEvent({}, [rawEventRow('100001', ratings)]);
+      event.divisions[0]!.holes = ratings.map(() => '18');
+      const section = why({ events: [event] })!;
+      expect(section.querySelectorAll(':scope > ul > .reason')).toHaveLength(5);
+      const more = section.querySelector('details.reasons-more')!;
+      expect(more.querySelector('summary')!.textContent).toBe('Show all 6');
+      expect(more.querySelectorAll('.reason')).toHaveLength(1);
+    });
+
+    it('says when the official rounds do not give the official rating', () => {
+      expect(why()!.querySelector('.hint')!.textContent).toBe(
+        'The official rounds give 965, not the official 950. Import the ratings details again for exact effects.',
+      );
+      expect(why({ player: rawPlayer({ currentRating: '965' }) })!.querySelector('.hint')).toBeNull();
+    });
+
+    it('is hidden when nothing changed or the official rating is unknown', () => {
+      expect(why({ events: [] })).toBeNull();
+      expect(why({ player: undefined })).toBeNull();
+    });
   });
 
   it('offers to save the unsaved player as a favorite', () => {

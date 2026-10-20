@@ -75,3 +75,15 @@ export function formatChange(change: number, locale = deviceLocale()): string {
     .format(change)
     .replace('-', '−');
 }
+
+/** A round's effect on the prediction, with one decimal and its sign: "+1.4", "−0,6" in Swedish. */
+export function formatEffect(effect: number, locale = deviceLocale()): string {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    useGrouping: false,
+    signDisplay: 'exceptZero',
+  })
+    .format(effect)
+    .replace('-', '−');
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAge, formatAverage, formatChange, formatDate, formatRating } from '../../src/app/format';
+import { formatAge, formatAverage, formatChange, formatDate, formatEffect, formatRating } from '../../src/app/format';
 
 describe('formatting', () => {
   it('formats dates in the locale', () => {
@@ -30,6 +30,14 @@ describe('formatting', () => {
     expect(formatChange(-3, 'en-US')).toBe('−3');
     expect(formatChange(-3, 'sv-SE')).toBe('−3');
     expect(formatChange(0, 'en-US')).toBe('0');
+  });
+
+  it('shows an effect with one decimal and its sign', () => {
+    expect(formatEffect(1.44, 'en-US')).toBe('+1.4');
+    expect(formatEffect(-0.6, 'sv-SE')).toBe('−0,6');
+    expect(formatEffect(0, 'en-US')).toBe('0.0');
+    // Too small to show gets no sign.
+    expect(formatEffect(-0.04, 'en-US')).toBe('0.0');
   });
 });
 
