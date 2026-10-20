@@ -52,17 +52,29 @@ function detailsEventKeys(details: readonly RawDetailsRow[]): Set<string> {
  * event page replaces an earlier copy of the same event. An import for a
  * different player replaces everything. Events that the ratings details now
  * include are dropped, since the details already hold their rounds.
+ * `owner` is the player of an import without a player record, such as a
+ * pasted ratings details table, as the user gave it.
  * Returns the stored import unchanged when the import holds no data.
  */
-export function applyImport(stored: StoredImport | null, parts: ImportParts, at: string): StoredImport | null {
+export function applyImport(
+  stored: StoredImport | null,
+  parts: ImportParts,
+  at: string,
+  owner: number | null = null,
+): StoredImport | null {
   if (!hasParts(parts)) return stored;
   const before = playerNumber(stored?.player);
-  const after = playerNumber(parts.player);
+  const after = playerNumber(parts.player) ?? owner;
   const otherPlayer = before !== null && after !== null && before !== after;
   const base: StoredImport = stored && !otherPlayer ? stored : { at, events: [] };
 
   const next: StoredImport = { ...base, at };
-  if (parts.player) next.player = parts.player;
+  if (parts.player) {
+    next.player = parts.player;
+  } else if (after !== null && !next.player) {
+    // Only the number is known; the name and official rating come with a later import.
+    next.player = { pdgaNumber: String(after), name: '', currentRating: '', ratingDate: '' };
+  }
   if (parts.details) next.details = parts.details;
   if (parts.profileEvents) next.profileEvents = parts.profileEvents;
 

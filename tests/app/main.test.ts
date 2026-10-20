@@ -37,6 +37,31 @@ describe('app start', () => {
     expect(document.getElementById('predicted')!.textContent).toBe('960');
   });
 
+  it('asks whose rounds a pasted table holds before importing it', async () => {
+    const tsv = [
+      'Tournament\tTier\tDate\tDivision\tRound\tScore\tRating\tEvaluated\tIncluded',
+      'Example Open\tC\t2-Aug-2026\tMA1\t1\t54\t950\tYes\tYes',
+      'Example Open\tC\t2-Aug-2026\tMA1\t2\t52\t970\tYes\tYes',
+    ].join('\n');
+    await start('/next-rating/');
+    document.getElementById('tab-import')!.click();
+    const paste = new Event('paste', { cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: (type: string) => (type === 'text/plain' ? tsv : '') },
+    });
+    document.getElementById('paste-target')!.dispatchEvent(paste);
+
+    const owner = document.getElementById('paste-owner') as HTMLInputElement;
+    expect(document.activeElement).toBe(owner);
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    owner.value = '100003';
+    owner.form!.dispatchEvent(new Event('submit', { cancelable: true }));
+
+    expect(document.getElementById('import-banner')!.textContent).toContain('Imported 2 rounds');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).lastImport.player.pdgaNumber).toBe('100003');
+    expect(document.getElementById('make-default')!.textContent).toBe('Make #100003 my default player');
+  });
+
   it('shows an error for a broken hand-off and stores nothing', async () => {
     await start('/next-rating/#d=not-a-hand-off');
     expect(location.hash).toBe('');
