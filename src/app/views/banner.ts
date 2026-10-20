@@ -9,6 +9,8 @@ export interface Banner {
   tone: 'info' | 'warning' | 'error';
   /** pdga.com pages that could not be fetched. */
   failed?: readonly string[];
+  /** The hand-off came from an older bookmarklet. */
+  outdated?: boolean;
 }
 
 export const BANNER_ID = 'import-banner';
@@ -20,7 +22,7 @@ function pageLabel(url: string): string {
 }
 
 /** The banner gets focus after an import, so the message is read out and seen first. */
-export function bannerView(banner: Banner, onClose: () => void): HTMLElement {
+export function bannerView(banner: Banner, onClose: () => void, onOpenSetup: () => void): HTMLElement {
   const failed = banner.failed ?? [];
   return el(
     'div',
@@ -35,6 +37,13 @@ export function bannerView(banner: Banner, onClose: () => void): HTMLElement {
           el('li', {}, el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, pageLabel(url))),
         ),
       ),
-    el('button', { id: 'banner-close', class: 'button', type: 'button', onclick: onClose }, t('import.close')),
+    banner.outdated && el('p', {}, t('import.outdated')),
+    el(
+      'div',
+      { class: 'row' },
+      banner.outdated &&
+        el('button', { id: 'banner-setup', class: 'button', type: 'button', onclick: onOpenSetup }, t('import.openSetup')),
+      el('button', { id: 'banner-close', class: 'button', type: 'button', onclick: onClose }, t('import.close')),
+    ),
   );
 }

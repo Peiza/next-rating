@@ -1,4 +1,5 @@
 import './styles.css';
+import bookmarklet from 'virtual:bookmarklet';
 import type { PlainDate } from '../engine';
 import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
@@ -15,6 +16,7 @@ import { EVENT_DATE_ID, importView, OWNER_ID, PASTE_ID, type PasteMessage } from
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
 import { ratingView } from './views/rating';
 import { settingsView } from './views/settings';
+import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
 
 /*
@@ -48,6 +50,8 @@ let banner: Banner | null = null;
 let pendingEvent: RawEvent | null = null;
 let pendingDetails: { details: RawDetailsRow[]; rounds: number } | null = null;
 let pasteMessage: PasteMessage | null = null;
+/** The bookmarklet setup shows over the current tab, and the id of what opened it gets focus back. */
+let setupOpener: string | null = null;
 
 function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -79,6 +83,7 @@ function setLanguageOverride(language: string | null): void {
 
 function selectTab(next: Tab): void {
   tab = next;
+  setupOpener = null;
   pasteMessage = null;
   render(`tab-${next}`);
   window.scrollTo(0, 0);
@@ -89,10 +94,23 @@ function saveImport(parts: ImportParts, owner: number | null = null): void {
   store.update({ lastImport: applyImport(lastImport, parts, new Date().toISOString(), owner) });
 }
 
+function openSetup(): void {
+  setupOpener = document.activeElement?.id || `tab-${tab}`;
+  render(SETUP_ID);
+  window.scrollTo(0, 0);
+}
+
+function closeSetup(): void {
+  const opener = setupOpener;
+  setupOpener = null;
+  render(opener ?? `tab-${tab}`);
+}
+
 /** Shows the result of an import on the Rating tab, with focus on the message. */
 function showBanner(next: Banner): void {
   banner = next;
   tab = 'rating';
+  setupOpener = null;
   render(BANNER_ID);
   window.scrollTo(0, 0);
 }
@@ -108,7 +126,11 @@ async function receiveHandoff(payload: string): Promise<void> {
     const { parts, owner, unreadable } = readPages(envelope.pages ?? []);
     saveImport(parts, owner);
     const status = envelope.status === 'ok' && unreadable.length > 0 ? 'partial' : envelope.status;
-    showBanner({ ...STATUS_BANNERS[status], failed: [...(envelope.failed ?? []), ...unreadable] });
+    showBanner({
+      ...STATUS_BANNERS[status],
+      failed: [...(envelope.failed ?? []), ...unreadable],
+      outdated: isOlderVersion(envelope.bookmarklet),
+    });
   } catch (error) {
     if (!(error instanceof HandoffError)) console.error(error);
     showBanner({ message: ERROR_MESSAGES[error instanceof HandoffError ? error.code : 'malformed'], tone: 'error' });
@@ -185,6 +207,7 @@ function tabBar(): HTMLElement {
 }
 
 function currentView(): HTMLElement {
+  if (setupOpener !== null) return setupView({ bookmarklet, onBack: closeSetup });
   const data = store.get();
   if (tab === 'settings') {
     return settingsView({
@@ -195,6 +218,7 @@ function currentView(): HTMLElement {
       persistent: store.persistent,
       onSavePdgaNumber: savePdgaNumber,
       onLanguage: setLanguageOverride,
+      onOpenSetup: openSetup,
     });
   }
   if (tab === 'import') {
@@ -221,13 +245,14 @@ function currentView(): HTMLElement {
     flash,
     onSavePdgaNumber: savePdgaNumber,
     onOpenImport: () => selectTab('import'),
+    onOpenSetup: openSetup,
   });
 }
 
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   root.replaceChildren(
-    el('main', { class: 'main' }, banner && bannerView(banner, closeBanner), currentView()),
+    el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
     tabBar(),
   );
   flash = null;

@@ -7,10 +7,11 @@ export interface StartProps {
   flash: PdgaFlash;
   onSavePdgaNumber: (pdgaNumber: number | null) => void;
   onOpenImport: () => void;
+  onOpenSetup: () => void;
 }
 
 /** The Rating tab while there is no data yet: the steps to get some. */
-export function startView({ pdgaNumber, flash, onSavePdgaNumber, onOpenImport }: StartProps): HTMLElement {
+export function startView({ pdgaNumber, flash, onSavePdgaNumber, onOpenImport, onOpenSetup }: StartProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -25,6 +26,16 @@ export function startView({ pdgaNumber, flash, onSavePdgaNumber, onOpenImport }:
         { class: 'step' },
         el('p', { class: 'step-title' }, t('start.stepNumber')),
         pdgaNumberForm(pdgaNumber, flash, onSavePdgaNumber),
+      ),
+      el(
+        'li',
+        { class: 'step' },
+        el('p', { class: 'step-title' }, t('start.stepInstall')),
+        el(
+          'button',
+          { id: 'open-setup', class: 'button button-block', type: 'button', onclick: onOpenSetup },
+          t('start.openSetup'),
+        ),
       ),
       el('li', { class: 'step' }, el('p', { class: 'step-title' }, t('start.stepOpen')), detailsLink(pdgaNumber)),
       el(

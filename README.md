@@ -19,6 +19,29 @@ App: https://peiza.github.io/next-rating/
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 
+## The bookmarklet
+
+The bookmarklet is a bookmark that brings your rounds from pdga.com into the
+app in one tap. Install it from the app: on the getting-started page, or in
+Settings, choose "Install bookmarklet" and follow the steps for your browser
+(Safari on iPhone, Chrome on Android, or a desktop browser).
+
+Run it on your ratings details page or player page on pdga.com. It:
+
+- reads the page you run it on, then fetches the other player page and the
+  pages of recent events that are not in your ratings details yet: at most
+  12 requests, one at a time, about a second apart, in your own browser
+  session;
+- sends the app only the HTML of the tables it needs (from event pages, only
+  your own rows) in the address fragment, which is never sent to any server;
+- never reads cookies, stored data or form fields, and never loads code from
+  anywhere.
+
+The app parses that HTML, so when pdga.com changes its pages, an update of
+the app fixes the import without installing the bookmarklet again. If
+pdga.com asks for a browser check, the bookmarklet stops and the app lists
+the pages to open and run it on.
+
 ## Development
 
 Requires Node.js 24 (see `.nvmrc`).
@@ -55,6 +78,26 @@ Switching the operating system to dark mode works too.
 **On your phone:** run `npm run dev -- --host` and open the printed network
 address (such as http://192.168.1.20:5173/) on a phone on the same Wi-Fi.
 Allow Node.js through the firewall if asked.
+
+### Trying the bookmarklet locally
+
+The bookmarklet hands off to the app address in `APP_URL` in
+`vite.config.ts`. It is built into every installed bookmarklet, so it never
+changes. To try a local build, override it for that build only:
+
+```sh
+NEXT_RATING_APP_URL=http://localhost:4173/ npm run build   # sh
+$env:NEXT_RATING_APP_URL='http://localhost:4173/'; npm run build   # PowerShell
+npm run preview
+```
+
+Then install the bookmarklet from the local Setup page into a separate
+bookmark and run it on pdga.com. In PowerShell, remove the variable
+afterwards (`Remove-Item Env:NEXT_RATING_APP_URL`). Only https addresses, or
+http on localhost or a LAN address, are accepted.
+
+`npm run handoff -- <saved pdga.com pages...>` builds a hand-off link from
+pages saved in a browser instead, without visiting pdga.com.
 
 ### Test fixtures
 

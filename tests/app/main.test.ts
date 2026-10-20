@@ -60,6 +60,19 @@ describe('app start', () => {
     expect(document.getElementById('make-default')!.textContent).toBe('Make #100003 my default player');
   });
 
+  it('opens the bookmarklet setup over the current tab and goes back to where it was opened', async () => {
+    await start('/next-rating/');
+    const open = document.getElementById('open-setup') as HTMLButtonElement;
+    open.focus();
+    open.click();
+    expect(document.activeElement?.id).toBe('setup-title');
+    const code = document.getElementById('bookmarklet-code') as HTMLTextAreaElement;
+    expect(code.value.startsWith('javascript:')).toBe(true);
+    document.getElementById('setup-back')!.click();
+    expect(document.getElementById('bookmarklet-code')).toBeNull();
+    expect(document.activeElement?.id).toBe('open-setup');
+  });
+
   it('shows an error for a broken hand-off and stores nothing', async () => {
     await start('/next-rating/#d=not-a-hand-off');
     expect(location.hash).toBe('');
