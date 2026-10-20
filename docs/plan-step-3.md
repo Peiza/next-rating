@@ -5,8 +5,8 @@ shell, theme, translations and settings) and 2 (import and results) are done;
 this document holds the approved plan, updated with the decisions made while
 building commit 2.
 
-Commit 3 now comes after the GitHub Pages workflow and the Favorites step
-(see Process in CLAUDE.md). Its plan below must be revised then: manual
+Commit 3 now comes after the GitHub Pages workflow, the bookmarklet and the
+Favorites step (see Process in CLAUDE.md). Its plan below must be revised then: manual
 rounds are stored per player, and the data age display joins it.
 
 ## Already in place (commit 1)

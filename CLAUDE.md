@@ -228,11 +228,14 @@ order, committing after each working step:
 - Engine + tests (done)
 - Parsers + tests (done)
 - Web app, commits 1 and 2 of docs/plan-step-3.md (done)
-- GitHub Pages workflow
+- GitHub Pages workflow (done)
+- Bookmarklet (docs/plan-step-5.md), with a minimal setup page (version, copy
+  button, short install steps for Safari on iPhone, Chrome on Android and
+  desktop), so it can be installed and tested on my phone
 - Favorites (before manual entry, so manual rounds are stored per player from
   the start)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
 - Top 8 panel
-- Bookmarklet
-- Setup page
+- Setup page: complete the minimal one with the full step-by-step
+  installation
