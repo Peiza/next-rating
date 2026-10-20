@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEY } from '../../src/app/storage';
 import { encodeHandoff } from '../../src/handoff';
 import { envelope, handoffPage, rawDetailsRow, rawPlayer } from '../handoff/raw';
+import { LIVE_V1 } from './live-v1';
 import { detailsRow, detailsTable, eventDivision, eventPage, eventRow, playerHeader } from '../parsers/html';
 
 /** Loads the app as a fresh page load would. */
@@ -229,6 +230,21 @@ describe('app start', () => {
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
     expect(document.getElementById('player-100001')!.textContent).toContain('#100001');
     expect(document.querySelector('h1')!.textContent).toBe('#100001');
+  });
+
+  it('opens on your number after converting an import of another player, which stays one tap away', async () => {
+    localStorage.setItem('next-rating:v1', LIVE_V1);
+    await start('/next-rating/');
+    expect(localStorage.getItem('next-rating:v1')).toBeNull();
+    // You have no import yet, so the app shows the steps to get one for you.
+    expect(document.querySelector('h1')!.textContent).toBe('#100001');
+    expect(document.querySelector<HTMLAnchorElement>('#details-link')!.href).toBe('https://www.pdga.com/player/100001/details');
+
+    document.getElementById('players-menu')!.click();
+    document.getElementById('player-100002')!.click();
+    expect(document.querySelector('.player')!.textContent).toBe('Other Player #100002');
+    expect(predicted()).toBe('1010');
+    expect(document.getElementById('add-favorite')!.textContent).toBe('Add #100002 to favorites');
   });
 
   it('migrates data stored by the previous version', async () => {

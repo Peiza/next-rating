@@ -11,6 +11,7 @@ import {
   type StoredPlayer,
 } from '../../src/app/storage';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
+import { LIVE_V1 } from './live-v1';
 
 const IMPORT: StoredImport = {
   at: '2026-10-01T10:00:00.000Z',
@@ -191,6 +192,30 @@ describe('migration from v1', () => {
     const { data, complete } = migrateV1({ lastImport: { at: IMPORT.at, events: [rawEvent()] } });
     expect(complete).toBe(false);
     expect(data.players).toEqual([]);
+  });
+
+  it('converts what the single-player version saved: your number plus an import of another player', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(V1_KEY, LIVE_V1);
+    const lastImport = JSON.parse(LIVE_V1).lastImport;
+    const store = createStore(storage);
+    expect(store.get()).toEqual({
+      language: null,
+      theme: null,
+      me: 100001,
+      players: [
+        player(100001),
+        player(100002, {
+          favorite: false,
+          // Everything is kept, but the event page only with the player's own row.
+          import: { ...lastImport, events: [eventForPlayer(lastImport.events[0], 100002)] },
+        }),
+      ],
+    });
+    expect(store.get().players[1]!.import!.events[0]!.divisions[0]!.rows.map((row) => row.pdgaNumber)).toEqual(['100002']);
+    expect(store.persistent).toBe(true);
+    expect(storage.getItem(V1_KEY)).toBeNull();
+    expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual(store.get());
   });
 
   it('runs on first load and removes the v1 copy once saved', () => {
