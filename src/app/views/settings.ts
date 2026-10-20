@@ -17,6 +17,7 @@ export interface SettingsProps {
   onLanguage: (language: string | null) => void;
   onTheme: (theme: Theme | null) => void;
   onOpenSetup: () => void;
+  onOpenGuide: () => void;
 }
 
 const THEME_OPTIONS: Segment<Theme | null>[] = [
@@ -52,7 +53,7 @@ function languagePicker(language: string | null, preferred: readonly string[], o
 }
 
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { language, preferred, theme, persistent, bookmarklet, onLanguage, onTheme, onOpenSetup } = props;
+  const { language, preferred, theme, persistent, bookmarklet, onLanguage, onTheme, onOpenSetup, onOpenGuide } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -69,6 +70,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     ),
     el('h2', {}, t('settings.about')),
     el('p', {}, t('app.privacy')),
+    el('button', { id: 'open-guide', class: 'button button-block', type: 'button', onclick: onOpenGuide }, t('guide.title')),
     el('p', { id: 'version', class: 'hint' }, t('settings.version', { version: __BUILD_ID__ })),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );

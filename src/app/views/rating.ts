@@ -15,6 +15,7 @@ import {
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
+import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { targetCalculator, type TargetProps } from './target';
@@ -33,6 +34,8 @@ export interface RatingProps {
   /** Which cards are open; only Rounds when left out. */
   cards?: CardState;
   onToggleCard?: (name: CardName) => void;
+  /** Opens How it works at a section, from a card's explanation. Without it, the explanations have no link. */
+  onGuide?: (section: GuideSection) => void;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
   /** For the data age and the next update. */
@@ -383,9 +386,43 @@ function roundsBody(model: Model): Child[] {
 }
 
 /** The Top 8 explanation, with the Global Masters Series linked to PDGA's page about it. */
-function top8Intro(): HTMLElement {
+function top8Intro(): (Node | string)[] {
   const gms = el('a', { href: GMS_URL, rel: 'noreferrer' }, t('top8.gms'));
-  return cardIntro(...textWithNodes(t('top8.intro'), { gms }));
+  return textWithNodes(t('top8.intro'), { gms });
+}
+
+/** The How it works section each card's explanation links to. */
+const CARD_GUIDE: Record<CardName, GuideSection> = {
+  why: 'why',
+  manual: 'rounds',
+  target: 'target',
+  top8: 'top8',
+  stats: 'rules',
+  rounds: 'rules',
+};
+
+/**
+ * A card's one-line explanation, ending in a "How it works" link to the
+ * matching section. A button, since the fragment is reserved for the
+ * hand-off and there are no routes.
+ */
+function intro(name: CardName, title: MessageKey, text: (Node | string)[], onGuide?: RatingProps['onGuide']): HTMLElement {
+  return cardIntro(
+    ...text,
+    onGuide && ' ',
+    onGuide &&
+      el(
+        'button',
+        {
+          id: `${name}-guide`,
+          class: 'link-button',
+          type: 'button',
+          'aria-label': t('guide.linkFor', { topic: t(title) }),
+          onclick: () => onGuide(CARD_GUIDE[name]),
+        },
+        t('guide.link'),
+      ),
+  );
 }
 
 /**
@@ -393,9 +430,18 @@ function top8Intro(): HTMLElement {
  * per section, each starting with a one-line explanation.
  */
 export function ratingView(props: RatingProps): HTMLElement {
-  const { model, manual, target, top8, cards = DEFAULT_CARDS, onToggleCard = () => {} } = props;
-  const section = (name: CardName, title: MessageKey, body: () => Child[], teaser?: string | false) =>
-    card({ name, title, open: cards[name], teaser, onToggle: onToggleCard }, body);
+  const { model, manual, target, top8, cards = DEFAULT_CARDS, onToggleCard = () => {}, onGuide } = props;
+  const section = (
+    name: CardName,
+    title: MessageKey,
+    text: () => (Node | string)[],
+    body: () => Child[],
+    teaser?: string | false,
+  ) =>
+    card({ name, title, open: cards[name], teaser, onToggle: onToggleCard }, () => [
+      intro(name, title, text(), onGuide),
+      ...body(),
+    ]);
   const { changes } = model;
   return el(
     'section',
@@ -409,22 +455,22 @@ export function ratingView(props: RatingProps): HTMLElement {
     ),
     summary(props),
     hasChanges(model) &&
-      section('why', 'why.title', () => [cardIntro(t('why.intro')), ...whyBody(model, changes!)], whyTeaser(model)),
+      section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes!), whyTeaser(model)),
     manual &&
       section(
         'manual',
         'manual.toggle',
-        () => [cardIntro(t('manual.intro')), ...manualEntry(manual)],
+        () => [t('manual.intro')],
+        () => manualEntry(manual),
         manual.rounds.length > 0 && t('manual.count', { count: manual.rounds.length }),
       ),
-    target && section('target', 'target.toggle', () => [cardIntro(t('target.intro')), targetCalculator(target)]),
-    top8 && section('top8', 'top8.title', () => [top8Intro(), ...top8Panel(top8)]),
-    section('stats', 'stats.title', () => [
-      cardIntro(t('stats.intro')),
+    target && section('target', 'target.toggle', () => [t('target.intro')], () => [targetCalculator(target)]),
+    top8 && section('top8', 'top8.title', top8Intro, () => top8Panel(top8)),
+    section('stats', 'stats.title', () => [t('stats.intro')], () => [
       statsList(model.prediction.stats, model.prediction.exact),
     ]),
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
-      section('rounds', 'rating.rounds', () => [cardIntro(t('rating.roundsIntro')), ...roundsBody(model)]),
+      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model)),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }

@@ -61,6 +61,7 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { cardToggleId } from './views/card';
+import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
 import { settingsView, themeId } from './views/settings';
@@ -97,8 +98,11 @@ let tab: Tab = 'rating';
 let selected: number | null = initialSelection(store.get());
 let flash: PdgaFlash = null;
 let banner: Banner | null = null;
-/** The bookmarklet setup shows over the current tab, and the id of what opened it gets focus back. */
-let setupOpener: string | null = null;
+/**
+ * The bookmarklet setup or How it works shows over the current tab, and the
+ * id of what opened it gets focus back.
+ */
+let overlay: { view: 'setup' | 'guide'; opener: string } | null = null;
 /** The kind of browser the setup shows steps for: guessed from the device, then as picked. */
 let setupPlatform: Platform | null = null;
 /** On phones, the players panel shows in place of the current view. */
@@ -217,7 +221,7 @@ function closeMenu(): void {
 function selectPlayer(pdgaNumber: number): void {
   selected = pdgaNumber;
   tab = 'rating';
-  setupOpener = null;
+  overlay = null;
   banner = null;
   menuOpen = false;
   confirmRemove = null;
@@ -367,7 +371,7 @@ function setLanguageOverride(language: string | null): void {
 
 function selectTab(next: Tab): void {
   tab = next;
-  setupOpener = null;
+  overlay = null;
   menuOpen = false;
   render(`tab-${next}`);
   window.scrollTo(0, 0);
@@ -399,15 +403,27 @@ function eventAddedBanner(routed: Routed): Banner {
 }
 
 function openSetup(): void {
-  setupOpener = document.activeElement?.id || `tab-${tab}`;
+  overlay = { view: 'setup', opener: document.activeElement?.id || `tab-${tab}` };
   menuOpen = false;
   render(SETUP_ID);
   window.scrollTo(0, 0);
 }
 
-function closeSetup(): void {
-  const opener = setupOpener;
-  setupOpener = null;
+/** Opens How it works, at a section when a card asks for one: focus on its heading scrolls it into view. */
+function openGuide(section?: GuideSection): void {
+  overlay = { view: 'guide', opener: document.activeElement?.id || `tab-${tab}` };
+  menuOpen = false;
+  if (section) {
+    render(guideSectionId(section));
+  } else {
+    render(GUIDE_ID);
+    window.scrollTo(0, 0);
+  }
+}
+
+function closeOverlay(): void {
+  const opener = overlay?.opener;
+  overlay = null;
   render(opener ?? `tab-${tab}`);
 }
 
@@ -415,7 +431,7 @@ function closeSetup(): void {
 function showBanner(next: Banner): void {
   banner = next;
   tab = 'rating';
-  setupOpener = null;
+  overlay = null;
   menuOpen = false;
   render(BANNER_ID);
   window.scrollTo(0, 0);
@@ -475,18 +491,21 @@ function tabBar(): HTMLElement {
 }
 
 function currentView(): HTMLElement {
-  if (setupOpener !== null) return setupView({
+  const data = store.get();
+  if (overlay?.view === 'guide') return guideView({ onBack: closeOverlay });
+  if (overlay?.view === 'setup') {
+    return setupView({
       bookmarklet,
-      stored: store.get().bookmarklet,
-      pdgaNumber: store.get().me,
+      stored: data.bookmarklet,
+      pdgaNumber: data.me,
       platform: (setupPlatform ??= guessPlatform(navigator.userAgent, navigator.maxTouchPoints ?? 0)),
       onPlatform: (platform) => {
         setupPlatform = platform;
         render(platformId(platform));
       },
-      onBack: closeSetup,
+      onBack: closeOverlay,
     });
-  const data = store.get();
+  }
   if (tab === 'settings') {
     return settingsView({
       language: data.language,
@@ -497,6 +516,7 @@ function currentView(): HTMLElement {
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
       onOpenSetup: openSetup,
+      onOpenGuide: () => openGuide(),
     });
   }
   const player = findPlayer(data, selected);
@@ -517,6 +537,7 @@ function currentView(): HTMLElement {
       model,
       cards: data.cards,
       onToggleCard: toggleCard,
+      onGuide: openGuide,
       refresh: {
         open: refreshOpen ?? model.stale,
         onToggle: (open) => {
@@ -600,7 +621,7 @@ function render(focusId = document.activeElement?.id): void {
         'main',
         { class: 'main' },
         updateReady && updateNotice(applyUpdate),
-        setupOpener === null && banner && bannerView(banner, closeBanner, openSetup),
+        overlay === null && banner && bannerView(banner, closeBanner, openSetup),
         currentView(),
       ),
     ),

@@ -4,6 +4,7 @@ import { el, textWithNodes } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
+import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
 import { ratingView } from '../../src/app/views/rating';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
@@ -99,6 +100,7 @@ describe('settings view', () => {
     onLanguage: () => {},
     onTheme: () => {},
     onOpenSetup: () => {},
+    onOpenGuide: () => {},
   };
 
   it('offers Device, Light and Dark themes, with Device by default', () => {
@@ -1143,5 +1145,79 @@ describe('getting-started view for a player without data', () => {
     expect(view.querySelector<HTMLAnchorElement>('#details-link')!.getAttribute('href')).toBe(
       'https://www.pdga.com/player/100002/details',
     );
+  });
+});
+
+describe('how it works', () => {
+  it('has a section for each topic, in order, each heading ready for focus', () => {
+    const view = guideView({ onBack: vi.fn() });
+    expect(view.querySelector('h1')!.textContent).toBe('How it works');
+    const headings = [...view.querySelectorAll('h2')];
+    expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
+    expect(headings.map((h2) => h2.getAttribute('tabindex'))).toEqual(Array(GUIDE_SECTIONS.length).fill('-1'));
+    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'why', 'target', 'top8']);
+  });
+
+  it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
+    const view = guideView({ onBack: vi.fn() });
+    expect(view.querySelector('#guide-about')!.parentElement!.textContent).toMatch(/not affiliated with/);
+    const links = [...view.querySelectorAll<HTMLAnchorElement>('a')].map((a) => a.getAttribute('href'));
+    expect(links).toEqual([
+      'https://www.pdga.com/ratings/guide',
+      'https://www.pdga.com/faq/ratings/when-updated',
+      'https://www.pdga.com/global-masters-series',
+    ]);
+    expect(view.querySelector('a[target]')).toBeNull();
+  });
+
+  it('explains the rules, and is honest about what is not yet checked and where the decimals come from', () => {
+    const rules = guideView({ onBack: vi.fn() }).querySelector('#guide-rules')!.parentElement!.textContent!;
+    for (const part of ['12 months', '24 months', '2.5 standard deviations', 'at least 7 rounds', 'at least 9 counted rounds', 'highest rated rounds of that event', '9-hole round counts half', 'DNF']) {
+      expect(rules).toContain(part);
+    }
+    expect(rules).toContain('Two things are not yet checked against a real player');
+    expect(rules).toContain('two low rounds in the same window');
+    expect(rules).toContain('whole round ratings shown on pdga.com');
+  });
+
+  it('goes back', () => {
+    const onBack = vi.fn();
+    guideView({ onBack }).querySelector<HTMLButtonElement>('#guide-back')!.click();
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it('opens from Settings', () => {
+    const onOpenGuide = vi.fn();
+    settingsView({
+      language: null,
+      preferred: ['en'],
+      theme: null,
+      persistent: true,
+      bookmarklet: null,
+      onLanguage: vi.fn(),
+      onTheme: vi.fn(),
+      onOpenSetup: vi.fn(),
+      onOpenGuide,
+    }).querySelector<HTMLButtonElement>('#open-guide')!.click();
+    expect(onOpenGuide).toHaveBeenCalled();
+  });
+
+  it('opens from each card explanation at the matching section', () => {
+    const stored: StoredImport = {
+      at: '2026-10-01T10:00:00.000Z',
+      player: rawPlayer({ currentRating: '950' }),
+      details: [rawDetailsRow()],
+      events: [rawEvent()],
+    };
+    const model = buildModel(stored, 100001, NOW);
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    const onGuide = vi.fn();
+    const view = ratingView({ model, top8, cards: ALL_OPEN, onGuide, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const links = [...view.querySelectorAll<HTMLButtonElement>('.card-intro .link-button')];
+    expect(links.map((link) => link.id)).toEqual(['why-guide', 'top8-guide', 'stats-guide', 'rounds-guide']);
+    expect(links.every((link) => link.textContent === 'How it works' && link.parentElement!.lastChild === link)).toBe(true);
+    expect(links[1]!.getAttribute('aria-label')).toBe('How it works: Top 8');
+    for (const link of links) link.click();
+    expect(onGuide.mock.calls.map(([section]) => section)).toEqual(['why', 'top8', 'rules', 'rules']);
   });
 });

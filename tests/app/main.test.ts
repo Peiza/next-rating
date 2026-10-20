@@ -98,6 +98,32 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('open-setup');
   });
 
+  it('opens How it works from Settings and from a card at its section, and goes back to where it was opened', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { stats: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    document.getElementById('stats-guide')!.focus();
+    document.getElementById('stats-guide')!.click();
+    expect(document.activeElement?.id).toBe('guide-rules');
+    expect(document.getElementById('stats')).toBeNull();
+    document.getElementById('guide-back')!.click();
+    expect(document.activeElement?.id).toBe('stats-guide');
+
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('open-guide')!.focus();
+    document.getElementById('open-guide')!.click();
+    expect(document.activeElement?.id).toBe('guide-title');
+    document.getElementById('guide-back')!.click();
+    expect(document.activeElement?.id).toBe('open-guide');
+  });
+
   it('applies the theme from Settings and keeps it after a reload', async () => {
     const meta = document.head.appendChild(
       Object.assign(document.createElement('meta'), { name: 'theme-color', content: '#ffffff' }),
