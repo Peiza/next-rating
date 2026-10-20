@@ -10,7 +10,6 @@ export {
   parseProfileEvents,
 } from './player';
 export { detailsToRounds, eventKeyOf, eventToRounds, mergeRounds, type ListedRound } from './rounds';
-export { extractDetailsTsv, extractEventTsv } from './tsv';
 export { LIMITS, ParseError, parsePdgaDate, type ParseErrorCode } from './values';
 export type {
   DetailsRound,

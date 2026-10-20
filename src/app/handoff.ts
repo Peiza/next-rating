@@ -7,7 +7,7 @@ import { parseInert } from './inert';
 /*
  * Reads the pages a bookmarklet hand-off brings. The bookmarklet sends HTML
  * and parses nothing, so this is where its pages become records, in exactly
- * the same way as pasted HTML: an inert document, the extractors, then the
+ * one way: an inert document, the extractors, then the
  * same validation as stored data.
  */
 

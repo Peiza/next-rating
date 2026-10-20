@@ -5,6 +5,9 @@ CLAUDE.md so that it keeps the rules and the open work. The rules below still
 apply. The plans for each step are in the other files in docs/. Section
 numbers match the Architecture list in CLAUDE.md.
 
+Paste import, mentioned in 2, 4 and 5 below, was removed by Polish after
+favorites, point 8: bookmarklet hand-offs are the only import.
+
 ## Background
 I had a Google Sheets + Apps Script tool (legacy/rating-calculator.gs) that fetched
 my PDGA ratings history from pdga.com/player/<number>/details and predicted my next

@@ -364,11 +364,6 @@ a.button[target='_blank']::after {
   outline-offset: -5px;
 }
 
-.paste {
-  min-height: 9rem;
-  resize: vertical;
-}
-
 /* Import messages */
 
 .banner {

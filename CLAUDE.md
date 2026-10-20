@@ -26,7 +26,7 @@ single build-time setting.
 - pdga.com cannot be embedded (X-Frame-Options: SAMEORIGIN) and sends no CORS
   headers, so no iframes and no cross-origin fetch from the app.
 - PDGA data is read only inside the user's own browser session on pdga.com
-  (bookmarklet) or pasted by the user. Keep request volume minimal: no
+  (bookmarklet). Keep request volume minimal: no
   background polling, no scheduled fetching.
 - No backend, no accounts, no secrets.
 - Mobile-first: must work well in Safari on iPhone and Chrome on Android.
@@ -175,7 +175,7 @@ Open:
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
-- Treat all imported data (URL fragment, paste) as untrusted: strict schema
+- Treat all imported data (URL fragment) as untrusted: strict schema
   validation and size limits, render with textContent only. No innerHTML with
   data, no eval or new Function.
 - Strict Content Security Policy for the app, set with a meta tag since GitHub

@@ -4,7 +4,6 @@ import { el } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView } from '../../src/app/views/banner';
-import { importView, type ImportProps } from '../../src/app/views/import';
 import { ratingView } from '../../src/app/views/rating';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
@@ -18,7 +17,7 @@ import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw'
 afterEach(() => setLanguage('en'));
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
-  return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenImport: vi.fn(), onOpenSetup: vi.fn() });
+  return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenSetup: vi.fn() });
 }
 
 function submit(form: HTMLFormElement) {
@@ -142,18 +141,17 @@ describe('settings view', () => {
   });
 });
 
-describe('getting-started bookmarklet and paste steps', () => {
-  it('installs the bookmarklet before opening pdga.com, and opens the Import tab', () => {
-    const onOpenImport = vi.fn();
+describe('getting-started bookmarklet steps', () => {
+  it('installs the bookmarklet before opening pdga.com, and offers nothing to paste', () => {
     const onOpenSetup = vi.fn();
-    const view = startView({ pdgaNumber: null, player: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport, onOpenSetup });
+    const view = startView({ pdgaNumber: null, player: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenSetup });
     const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
+    expect(steps).toHaveLength(3);
     expect(steps[1]).toMatch(/Install the bookmarklet/);
     expect(steps[2]).toMatch(/run the bookmarklet there/);
     view.querySelector<HTMLButtonElement>('#open-setup')!.click();
     expect(onOpenSetup).toHaveBeenCalled();
-    view.querySelector<HTMLButtonElement>('#open-import')!.click();
-    expect(onOpenImport).toHaveBeenCalled();
+    expect(view.querySelector('#open-import')).toBeNull();
   });
 });
 
@@ -401,108 +399,6 @@ describe('bookmarklet setup', () => {
   });
 });
 
-describe('import view', () => {
-  const props: ImportProps = {
-    pendingEvent: null,
-    pendingDetails: null,
-    pdgaNumber: 100001,
-    message: null,
-    touch: false,
-    onPaste: () => {},
-    onAddEvent: () => {},
-    onImportDetails: () => {},
-    onCancel: () => {},
-    onOpenSetup: () => {},
-  };
-
-  it('offers the bookmarklet above the paste field on touch devices only', () => {
-    expect(importView(props).querySelector('#paste-touch')).toBeNull();
-    const onOpenSetup = vi.fn();
-    const view = importView({ ...props, touch: true, onOpenSetup });
-    const hint = view.querySelector('#paste-touch')!;
-    expect(hint.textContent).toMatch(/On a phone, use the bookmarklet/);
-    expect(hint.compareDocumentPosition(view.querySelector('#paste-target')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(view.querySelector('#paste-target')!.getAttribute('aria-describedby')).toContain('paste-touch');
-    view.querySelector<HTMLButtonElement>('#paste-setup')!.click();
-    expect(onOpenSetup).toHaveBeenCalled();
-  });
-
-  it('explains how to paste when nothing was recognised', () => {
-    const view = importView({ ...props, message: { key: 'paste.none', error: true } });
-    const text = view.querySelector('#paste-status')!.textContent;
-    expect(text).toMatch(/select the whole pdga\.com page \(Ctrl\+A/);
-    expect(text).toMatch(/On a phone, use the bookmarklet/);
-  });
-
-  function submitOwner(view: HTMLElement, value?: string) {
-    const input = view.querySelector<HTMLInputElement>('#paste-owner')!;
-    if (value !== undefined) input.value = value;
-    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    return input;
-  }
-
-  it('asks whose rounds a pasted table holds, starting from the default player', () => {
-    const onImportDetails = vi.fn();
-    const view = importView({ ...props, pendingDetails: 12, onImportDetails });
-    expect(view.textContent).toContain('Found 12 rounds');
-    const input = submitOwner(view);
-    expect(input.value).toBe('100001');
-    expect(onImportDetails).toHaveBeenCalledWith(100001);
-  });
-
-  it('takes another player for a pasted table', () => {
-    const onImportDetails = vi.fn();
-    submitOwner(importView({ ...props, pendingDetails: 12, onImportDetails }), '#100002');
-    expect(onImportDetails).toHaveBeenCalledWith(100002);
-  });
-
-  it('needs a number for a pasted table when there is no default player', () => {
-    const onImportDetails = vi.fn();
-    const view = importView({ ...props, pdgaNumber: null, pendingDetails: 1, onImportDetails });
-    document.body.replaceChildren(view);
-    const input = submitOwner(view);
-    expect(input.value).toBe('');
-    expect(onImportDetails).not.toHaveBeenCalled();
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(view.querySelector('#paste-status')!.textContent).toBe('Enter the PDGA number of the player.');
-    submitOwner(view, '100003');
-    expect(onImportDetails).toHaveBeenCalledWith(100003);
-  });
-
-  it('reads both clipboard forms on paste', () => {
-    const onPaste = vi.fn();
-    const target = importView({ ...props, onPaste }).querySelector('#paste-target')!;
-    const event = new Event('paste', { cancelable: true });
-    const clipboard = { 'text/html': '<table></table>', 'text/plain': 'a\tb' } as Record<string, string>;
-    Object.defineProperty(event, 'clipboardData', { value: { getData: (type: string) => clipboard[type] ?? '' } });
-    target.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(true);
-    expect(onPaste).toHaveBeenCalledWith('<table></table>', 'a\tb');
-  });
-
-  it('asks for the date of pasted event results', () => {
-    const onAddEvent = vi.fn();
-    const view = importView({ ...props, pendingEvent: rawEvent({ eventId: '', name: '' }), onAddEvent });
-    const date = view.querySelector<HTMLInputElement>('#paste-date')!;
-    expect(date.type).toBe('date');
-    expect(date.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    date.value = '2026-09-07';
-    view.querySelector<HTMLInputElement>('#paste-name')!.value = '  Example   Cup ';
-    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    expect(onAddEvent).toHaveBeenCalledWith('2026-09-07', 'Example Cup');
-  });
-
-  it('refuses an empty date', () => {
-    const onAddEvent = vi.fn();
-    const view = importView({ ...props, pendingEvent: rawEvent(), onAddEvent });
-    document.body.replaceChildren(view);
-    view.querySelector<HTMLInputElement>('#paste-date')!.value = '';
-    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    expect(onAddEvent).not.toHaveBeenCalled();
-    expect(view.querySelector('#paste-status')!.textContent).toBe('Pick a date.');
-  });
-});
-
 describe('el', () => {
   it('adds text as text, never as markup', () => {
     const node = el('p', {}, '<img src=x onerror=alert(1)>');
@@ -653,12 +549,11 @@ describe('getting-started view for a player without data', () => {
       player: { pdgaNumber: 100002, label: '#100002' },
       flash: null,
       onSavePdgaNumber: vi.fn(),
-      onOpenImport: vi.fn(),
       onOpenSetup: vi.fn(),
     });
     expect(view.querySelector('h1')!.textContent).toBe('#100002');
     expect(view.querySelector('#pdga-number')).toBeNull();
-    expect(view.querySelectorAll('.step')).toHaveLength(3);
+    expect(view.querySelectorAll('.step')).toHaveLength(2);
     expect(view.textContent).toContain('Open the ratings details of #100002 on pdga.com');
     expect(view.querySelector<HTMLAnchorElement>('#details-link')!.getAttribute('href')).toBe(
       'https://www.pdga.com/player/100002/details',

@@ -4,7 +4,7 @@ import type { RawDetailsRow, RawEvent, RawEventRound, RawPlayer, RawProfileEvent
 import { LIMITS, asList, asRecord, asText } from '../parsers/values';
 
 /*
- * Raw records as they arrive in a hand-off, a paste or stored data. They are
+ * Raw records as they arrive in a hand-off or stored data. They are
  * copied key by key, so unknown fields are dropped, and then run through the
  * normalize layer, which throws a ParseError on anything malformed. The
  * cleaned raw records are what the app stores; it normalizes them again

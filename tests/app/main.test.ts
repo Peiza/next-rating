@@ -75,31 +75,9 @@ describe('app start', () => {
     expect(document.getElementById('predicted')!.textContent).toBe('960');
   });
 
-  it('asks whose rounds a pasted table holds before importing it', async () => {
-    const tsv = [
-      'Tournament\tTier\tDate\tDivision\tRound\tScore\tRating\tEvaluated\tIncluded',
-      'Example Open\tC\t2-Aug-2026\tMA1\t1\t54\t950\tYes\tYes',
-      'Example Open\tC\t2-Aug-2026\tMA1\t2\t52\t970\tYes\tYes',
-    ].join('\n');
+  it('has only the Rating and Settings tabs', async () => {
     await start('/next-rating/');
-    document.getElementById('tab-import')!.click();
-    const paste = new Event('paste', { cancelable: true });
-    Object.defineProperty(paste, 'clipboardData', {
-      value: { getData: (type: string) => (type === 'text/plain' ? tsv : '') },
-    });
-    document.getElementById('paste-target')!.dispatchEvent(paste);
-
-    const owner = document.getElementById('paste-owner') as HTMLInputElement;
-    expect(document.activeElement).toBe(owner);
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-    owner.value = '100003';
-    owner.form!.dispatchEvent(new Event('submit', { cancelable: true }));
-
-    expect(document.getElementById('import-banner')!.textContent).toContain('Imported 2 rounds');
-    expect(stored().players).toMatchObject([{ pdgaNumber: 100003, favorite: false }]);
-    document.getElementById('add-favorite')!.click();
-    expect(stored().players).toMatchObject([{ pdgaNumber: 100003, favorite: true }]);
-    expect(document.getElementById('add-favorite')).toBeNull();
+    expect([...document.querySelectorAll('.tab')].map((tab) => tab.id)).toEqual(['tab-rating', 'tab-settings']);
   });
 
   it('opens the bookmarklet setup over the current tab and goes back to where it was opened', async () => {
@@ -260,7 +238,7 @@ describe('app start', () => {
     expect(location.hash).toBe('');
     await vi.waitFor(() => expect(document.getElementById('import-banner')).not.toBeNull());
     expect(document.getElementById('import-banner')!.getAttribute('role')).toBe('alert');
-    expect(document.getElementById('open-import')).not.toBeNull();
+    expect(document.getElementById('open-setup')).not.toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 });

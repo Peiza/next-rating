@@ -80,10 +80,10 @@ function withImport(data: AppData, player: StoredPlayer): AppData {
 
 /**
  * Stores an import with the players it belongs to. An import with a player
- * (its page header, or `owner`: the player page's URL or the number the
- * user confirmed for a pasted table) goes to that player, who becomes the
- * unsaved player when not stored yet. Event pages without a player go to
- * every stored player with a row in them, or else to the selected player.
+ * (its page header, or `owner`: the player page's URL) goes to that player,
+ * who becomes the unsaved player when not stored yet. Event pages without a
+ * player go to every stored player with a row in them, or else to the
+ * selected player.
  */
 export function routeImport(
   data: AppData,

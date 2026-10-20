@@ -82,7 +82,7 @@ describe('ratings details', () => {
     ]);
   });
 
-  it('reads a pasted table without id, page title or canonical link', () => {
+  it('reads a table without id, page title or canonical link', () => {
     const fragment = parseHtml(detailsTable([detailsRow(), detailsRow({ round: '2', rating: '960' })], ''));
     expect(parseRatingsDetails(fragment).rounds.map((round) => round.rating)).toEqual([950, 960]);
   });

@@ -9,7 +9,6 @@ export interface StartProps {
   player: { pdgaNumber: number; label: string } | null;
   flash: PdgaFlash;
   onSavePdgaNumber: (pdgaNumber: number | null) => void;
-  onOpenImport: () => void;
   onOpenSetup: () => void;
 }
 
@@ -18,7 +17,7 @@ export interface StartProps {
  * any player is stored, the first step asks for your own PDGA number; for a
  * player without data, the steps refer to that player.
  */
-export function startView({ pdgaNumber, player, flash, onSavePdgaNumber, onOpenImport, onOpenSetup }: StartProps): HTMLElement {
+export function startView({ pdgaNumber, player, flash, onSavePdgaNumber, onOpenSetup }: StartProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -50,16 +49,6 @@ export function startView({ pdgaNumber, player, flash, onSavePdgaNumber, onOpenI
         { class: 'step' },
         el('p', { class: 'step-title' }, player ? t('start.stepOpenPlayer', { player: player.label }) : t('start.stepOpen')),
         detailsLink(player ? player.pdgaNumber : pdgaNumber),
-      ),
-      el(
-        'li',
-        { class: 'step' },
-        el('p', { class: 'step-title' }, t('start.stepPaste')),
-        el(
-          'button',
-          { id: 'open-import', class: 'button button-block', type: 'button', onclick: onOpenImport },
-          t('start.openImport'),
-        ),
       ),
     ),
     el('p', { class: 'notice' }, t('app.unofficial')),

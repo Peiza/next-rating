@@ -47,13 +47,9 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
 /**
  * One player's rounds from an event results page. Rounds without a rating
  * yet are left out; DNF rounds are kept so they show in the round list.
- * `date` overrides the event date, which pasted results do not include.
  */
-export function eventToRounds(
-  results: EventResults,
-  pdgaNumber: number,
-  date: PlainDate | null = results.date,
-): ListedRound[] {
+export function eventToRounds(results: EventResults, pdgaNumber: number): ListedRound[] {
+  const { date } = results;
   if (date === null) return [];
   const eventKey = eventKeyOf(results.eventId, results.name, date);
   const rounds: ListedRound[] = [];

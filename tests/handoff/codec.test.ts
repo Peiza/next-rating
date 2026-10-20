@@ -103,7 +103,7 @@ describe('hand-off codec', () => {
   it('limits the number of pages and the size of each', async () => {
     const pages = Array.from({ length: MAX_PAGES + 1 }, () => event);
     expect(await errorCode(pack(envelope({ pages })))).toBe('too-large');
-    const large = handoffPage(' '.repeat(LIMITS.paste + 1));
+    const large = handoffPage(' '.repeat(LIMITS.html + 1));
     expect(await errorCode(pack(envelope({ pages: [large] })))).toBe('too-large');
   });
 

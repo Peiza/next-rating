@@ -4,7 +4,6 @@ import {
   detailsToRounds,
   detectPage,
   eventToRounds,
-  extractDetailsTsv,
   extractRatingsDetails,
   normalizeRatingsDetails,
   parseEvent,
@@ -78,16 +77,6 @@ describe.skipIf(!fixtures)('pdga.com fixtures', () => {
       const copy = parseHtml(html.details);
       for (const row of copy.querySelectorAll('tr')) row.removeAttribute('class');
       expect(parseRatingsDetails(copy).rounds).toEqual(rounds);
-    });
-
-    it('reads the same rows from the table copied as text', () => {
-      const table = details.querySelector('#player-results-details')!;
-      const text = [...table.querySelectorAll('tr')]
-        .map((row) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent).join('\t'))
-        .join('\n');
-      const pasted = normalizeRatingsDetails(extractDetailsTsv(text)).rounds;
-      const fields = (round: (typeof rounds)[number]) => [round.eventName, round.date, round.score, round.rating, round.included];
-      expect(pasted.map(fields)).toEqual(rounds.map(fields));
     });
   });
 

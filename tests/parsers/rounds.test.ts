@@ -117,13 +117,8 @@ describe('eventToRounds', () => {
     expect(eventToRounds(results(), 100009)).toEqual([]);
   });
 
-  it('needs a date, which pasted results lack', () => {
-    const pasted = results({ eventId: null, name: '', date: null });
-    expect(eventToRounds(pasted, 100001)).toEqual([]);
-    expect(eventToRounds(pasted, 100001, '2026-09-07')[0]).toMatchObject({
-      date: '2026-09-07',
-      eventKey: 'n:|2026-09-07',
-    });
+  it('needs a date', () => {
+    expect(eventToRounds(results({ date: null }), 100001)).toEqual([]);
   });
 });
 
