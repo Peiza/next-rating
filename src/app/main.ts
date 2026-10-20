@@ -14,6 +14,7 @@ import {
   clearManualRounds,
   findPlayer,
   initialSelection,
+  playerName,
   removeManualRound,
   removePlayer,
   restoreManualRound,
@@ -588,6 +589,13 @@ function currentView(): HTMLElement {
   });
 }
 
+/** The player the Rating view shows, which the phone top bar names; null while another view shows. */
+function ratingPlayer(): { name: string; pdgaNumber: number } | null {
+  const player = findPlayer(store.get(), selected);
+  if (overlay !== null || tab !== 'rating' || !player?.import) return null;
+  return { name: playerName(player), pdgaNumber: player.pdgaNumber };
+}
+
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
@@ -595,7 +603,7 @@ function render(focusId = document.activeElement?.id): void {
     el(
       'div',
       { class: menuOpen ? 'shell menu-open' : 'shell' },
-      topBar(menuOpen, toggleMenu),
+      topBar({ open: menuOpen, onToggle: toggleMenu, player: ratingPlayer() }),
       playersPanel({
         players: data.players,
         me: data.me,

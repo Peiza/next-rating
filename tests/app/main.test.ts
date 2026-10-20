@@ -212,16 +212,25 @@ describe('app start', () => {
     await start('/next-rating/');
     expect(predicted()).toBe('950');
     const menu = () => document.getElementById('players-menu')!;
+    const barTitle = () => document.getElementById('topbar-title')?.textContent;
     expect(menu().textContent).toContain('Players');
+    expect(barTitle()).toBe('Test Player #100001');
 
     menu().click();
     expect(menu().getAttribute('aria-expanded')).toBe('true');
+    expect(menu().textContent).toBe('Close');
     expect(document.querySelector('.shell')!.classList.contains('menu-open')).toBe(true);
     expect(document.activeElement?.id).toBe('favorites-title');
     document.getElementById('player-100002')!.click();
     expect(predicted()).toBe('1000');
+    expect(barTitle()).toBe('Other Player #100002');
     expect(menu().getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(menu());
+
+    // Settings has its own heading, so the bar holds only the button there.
+    document.getElementById('tab-settings')!.click();
+    expect(barTitle()).toBeUndefined();
+    document.getElementById('tab-rating')!.click();
 
     menu().click();
     document.getElementById('players-edit')!.click();

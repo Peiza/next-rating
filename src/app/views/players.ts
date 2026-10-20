@@ -88,9 +88,10 @@ function selectButton(player: StoredPlayer, props: PlayersProps): HTMLElement {
     el(
       'span',
       { class: 'player-name' },
-      selected && el('span', { class: 'player-check', 'aria-hidden': 'true' }, '✓ '),
+      selected && el('span', { class: 'player-check wide-only', 'aria-hidden': 'true' }, '✓ '),
       playerLabel(player),
       player.pdgaNumber === props.me && el('span', { class: 'badge' }, t('players.me')),
+      selected && el('span', { class: 'badge menu-only' }, t('players.now')),
     ),
     el('span', { class: 'player-meta' }, imported(player, props.now)),
   );
@@ -241,15 +242,12 @@ export function playersPanel(props: PlayersProps): HTMLElement {
         if ((event as KeyboardEvent).key === 'Escape') props.onClose();
       },
     },
+    // On phones the panel replaces the view to switch player, and the top bar's button closes it.
     el(
-      'div',
-      { class: 'panel-head' },
-      el('h2', { id: PANEL_TITLE_ID, tabindex: -1 }, t('players.title')),
-      el(
-        'button',
-        { id: 'players-close', class: 'button button-small menu-only', type: 'button', onclick: props.onClose },
-        t('players.close'),
-      ),
+      'h2',
+      { id: PANEL_TITLE_ID, class: 'panel-title', tabindex: -1 },
+      el('span', { class: 'menu-only' }, t('players.switch')),
+      el('span', { class: 'wide-only' }, t('players.title')),
     ),
     sortable && segmented('players.order', 'player-order', ORDER_OPTIONS, props.order, props.onOrder),
     favorites.length > 0
@@ -279,23 +277,44 @@ export function playersPanel(props: PlayersProps): HTMLElement {
   );
 }
 
-/** The phone top bar with the menu button. The view's heading names the player. Hidden on wide screens. */
-export function topBar(open: boolean, onToggle: () => void): HTMLElement {
+export const TOPBAR_TITLE_ID = 'topbar-title';
+
+export interface TopBarProps {
+  open: boolean;
+  onToggle: () => void;
+  /** The shown player, named in the bar while the Rating tab shows them; other views have their own heading. */
+  player?: { name: string | null; pdgaNumber: number } | null;
+}
+
+/**
+ * The phone top bar: the shown player's name as the heading, with the PDGA
+ * number on a smaller line under it, and the Players button at the top
+ * right, which reads Close while the panel is open. Hidden on wide screens,
+ * where the Rating view's own heading names the player.
+ */
+export function topBar({ open, onToggle, player }: TopBarProps): HTMLElement {
+  const number = player && t('rating.playerNumber', { number: player.pdgaNumber });
   return el(
     'header',
     { class: 'topbar' },
+    player &&
+      el(
+        'h1',
+        { id: TOPBAR_TITLE_ID, class: 'topbar-title' },
+        ...(player.name ? [player.name, ' ', el('span', { class: 'topbar-number' }, number)] : [number]),
+      ),
     el(
       'button',
       {
         id: MENU_BUTTON_ID,
-        class: 'button button-small',
+        class: 'button button-small topbar-button',
         type: 'button',
         'aria-expanded': open ? 'true' : 'false',
         'aria-controls': PANEL_ID,
         onclick: onToggle,
       },
-      el('span', { 'aria-hidden': 'true' }, '☰ '),
-      t('players.title'),
+      !open && el('span', { 'aria-hidden': 'true' }, '☰ '),
+      t(open ? 'players.close' : 'players.title'),
     ),
   );
 }

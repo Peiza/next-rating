@@ -466,6 +466,11 @@ describe('rating view', () => {
       const teaser = why({ player: rawPlayer({ currentRating: '950' }) }, DEFAULT_CARDS)!.querySelector('.card-teaser')!;
       expect(teaser.textContent).toMatch(/^Difference from PDGA's last calculation, \+\d+\.\d$/);
     });
+
+    it('shows the net total in its header when the change rounds to no change', () => {
+      const closed = why({ player: rawPlayer({ currentRating: '962' }) }, DEFAULT_CARDS)!;
+      expect(closed.querySelector('.card-teaser')!.textContent).toBe('Net 0.0, rounds to no change');
+    });
   });
 
   it('offers to save the unsaved player as a favorite', () => {
@@ -731,6 +736,30 @@ describe('top 8 panel', () => {
     expect(link.hasAttribute('target')).toBe(false);
   });
 
+  describe('header while closed', () => {
+    function teaser(period: TopPeriod, data = stored) {
+      const model = buildModel(data, 100001, NOW);
+      const top8 = { top: topEight(model, period, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+      const view = ratingView({ model, top8, cards: DEFAULT_CARDS, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+      return view.querySelector('#top8 .card-teaser')?.textContent;
+    }
+
+    it('shows the average and the chosen period', () => {
+      expect(teaser(THIS_YEAR)).toBe('Average 975 · 2026');
+      expect(teaser({ kind: 'window' })).toMatch(/^Average \d+ · Rating window$/);
+      expect(teaser({ kind: 'custom', from: '2026-03-01', to: '2026-03-04' })).toMatch(/^Average 985 · 4 of 8 · \S+ – \S+$/);
+    });
+
+    it('says how many of the 8 were found, or that there are none', () => {
+      expect(teaser(THIS_YEAR, { ...stored, details: stored.details!.slice(0, 3) })).toBe('Average 990 · 3 of 8 · 2026');
+      expect(teaser({ kind: 'year', year: 2024 })).toBe('No rounds · 2024');
+    });
+
+    it('is not shown while open', () => {
+      expect(page().querySelector('#top8 .card-teaser')).toBeNull();
+    });
+  });
+
   it('says how many rounds were found when there are fewer than 8', () => {
     const view = page({}, { ...stored, details: stored.details!.slice(0, 3) });
     expect(view.querySelector('#top8-found')!.textContent).toBe('3 rated rounds found; the Top 8 takes 8.');
@@ -989,6 +1018,20 @@ describe('players panel', () => {
     expect(other!.querySelector('.player-meta')!.textContent).toBe('Not imported yet');
   });
 
+  it('is headed "Switch player" on phones, with the shown player marked as now', () => {
+    const view = panel();
+    const heading = view.querySelector('#favorites-title')!;
+    expect(heading.querySelector('.menu-only')!.textContent).toBe('Switch player');
+    // The sidebar on wide screens keeps its heading and the check mark.
+    expect(heading.querySelector('.wide-only')!.textContent).toBe('Players');
+    const other = view.querySelector('#player-100002')!;
+    expect(other.querySelector('.badge.menu-only')!.textContent).toBe('Now');
+    expect(other.querySelector('.player-check')!.classList.contains('wide-only')).toBe(true);
+    expect(view.querySelector('#player-100001 .menu-only')).toBeNull();
+    // The top bar's button closes the panel, so it has no Close button of its own.
+    expect(view.querySelector('#players-close')).toBeNull();
+  });
+
   it("links each player to its ratings details on pdga.com", () => {
     const links = [...panel().querySelectorAll<HTMLAnchorElement>('a.player-link')];
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
@@ -1115,17 +1158,31 @@ describe('players panel', () => {
 });
 
 describe('top bar', () => {
-  it('has a menu button that controls the players panel', () => {
+  it('has a menu button that controls the players panel and reads Close while it is open', () => {
     const onToggle = vi.fn();
-    const bar = topBar(false, onToggle);
+    const bar = topBar({ open: false, onToggle });
     const button = bar.querySelector<HTMLButtonElement>('#players-menu')!;
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-controls')).toBe('favorites');
-    // The heading names the player, so the bar holds only the button.
+    expect(button.textContent).toBe('☰ Players');
+    // Without a player to name, the bar holds only the button.
     expect(bar.children).toHaveLength(1);
     button.click();
     expect(onToggle).toHaveBeenCalled();
-    expect(topBar(true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
+    const open = topBar({ open: true, onToggle: vi.fn() }).querySelector('#players-menu')!;
+    expect(open.getAttribute('aria-expanded')).toBe('true');
+    expect(open.textContent).toBe('Close');
+  });
+
+  it('names the shown player, with the PDGA number on a line of its own, before the button', () => {
+    const bar = topBar({ open: false, onToggle: vi.fn(), player: { name: 'Test Player', pdgaNumber: 100001 } });
+    const heading = bar.querySelector('h1')!;
+    expect(heading.textContent).toBe('Test Player #100001');
+    expect(heading.querySelector('.topbar-number')!.textContent).toBe('#100001');
+    expect(heading.nextElementSibling!.id).toBe('players-menu');
+    const unnamed = topBar({ open: false, onToggle: vi.fn(), player: { name: '', pdgaNumber: 100002 } });
+    expect(unnamed.querySelector('h1')!.textContent).toBe('#100002');
+    expect(unnamed.querySelector('.topbar-number')).toBeNull();
   });
 });
 

@@ -19,7 +19,7 @@ import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { targetCalculator, type TargetProps } from './target';
-import { GMS_URL, top8Panel, type Top8Props } from './top8';
+import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
 
 export interface RatingProps {
   model: Model;
@@ -277,8 +277,13 @@ function hasChanges({ changes, prediction, difference }: Model): boolean {
   return prediction.change !== null && changes !== null && (changes.length > 0 || difference !== null);
 }
 
-/** The largest effect as one line for the closed card, such as "907 no longer counts twice, +0.7". */
-function whyTeaser({ changes, difference }: Model): string | false {
+/**
+ * One line for the closed card: the largest effect, such as "907 no longer
+ * counts twice, +0.7", or the net total when the change rounds to nothing,
+ * so the header does not suggest a change that is not there.
+ */
+function whyTeaser({ changes, difference, netChange, prediction }: Model): string | false {
+  if (prediction.change === 0 && netChange !== null) return t('why.netNoChange', { net: formatEffect(netChange) });
   const top = changes?.[0];
   const [reason, value] =
     top && (difference === null || Math.abs(top.item.effect) >= Math.abs(difference))
@@ -446,9 +451,10 @@ export function ratingView(props: RatingProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
+    // On phones the top bar names the player instead, so only one h1 shows.
     el(
       'h1',
-      { id: 'view-title' },
+      { id: 'view-title', class: 'wide-only' },
       model.player?.name
         ? t('rating.player', { name: model.player.name, number: model.pdgaNumber })
         : t('rating.playerNumber', { number: model.pdgaNumber }),
@@ -465,7 +471,7 @@ export function ratingView(props: RatingProps): HTMLElement {
         manual.rounds.length > 0 && t('manual.count', { count: manual.rounds.length }),
       ),
     target && section('target', 'target.toggle', () => [t('target.intro')], () => [targetCalculator(target)]),
-    top8 && section('top8', 'top8.title', top8Intro, () => top8Panel(top8)),
+    top8 && section('top8', 'top8.title', top8Intro, () => top8Panel(top8), top8Teaser(top8.top)),
     section('stats', 'stats.title', () => [t('stats.intro')], () => [
       statsList(model.prediction.stats, model.prediction.exact),
     ]),

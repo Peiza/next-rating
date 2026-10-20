@@ -972,20 +972,44 @@ a {
 }
 
 /*
- * Players: on phones the top bar's menu button shows the panel in place of
- * the current view; from 64rem (WIDE_QUERY in views/players.ts) the panel is
- * a sidebar and the top bar goes away.
+ * Players: on phones the top bar names the shown player, and its button
+ * shows the panel in place of the current view; from 64rem (WIDE_QUERY in
+ * views/players.ts) the panel is a sidebar and the top bar goes away.
+ * .menu-only shows on phones and .wide-only from 64rem.
  */
+
+.wide-only {
+  display: none;
+}
 
 .topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   max-width: 40rem;
   margin: 0 auto;
   padding: 0.75rem var(--gutter) 0;
   padding-left: max(var(--gutter), env(safe-area-inset-left));
   padding-right: max(var(--gutter), env(safe-area-inset-right));
+}
+
+/* A long name wraps; the button keeps its place at the top right. */
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0.25rem 0 0;
+}
+
+.topbar-number {
+  display: block;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.topbar-button {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .favorites {
@@ -1006,14 +1030,7 @@ a {
   display: none;
 }
 
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.panel-head h2 {
+.panel-title {
   margin: 0.5rem 0;
 }
 
@@ -1118,6 +1135,10 @@ a {
   .topbar,
   .menu-only {
     display: none;
+  }
+
+  .wide-only {
+    display: revert;
   }
 
   .favorites,
