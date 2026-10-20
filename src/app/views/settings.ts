@@ -48,6 +48,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     languagePicker(language, preferred, onLanguage),
     el('h2', {}, t('settings.about')),
     el('p', {}, t('app.privacy')),
+    el('p', { id: 'version', class: 'hint' }, t('settings.version', { version: __BUILD_ID__ })),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }

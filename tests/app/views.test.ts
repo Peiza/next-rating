@@ -92,6 +92,10 @@ describe('settings view', () => {
     expect(options[2]!.getAttribute('lang')).toBe('sv');
   });
 
+  it('shows the build id', () => {
+    expect(settingsView(props).querySelector('#version')!.textContent).toBe('Version dev');
+  });
+
   it('warns when the browser cannot store data', () => {
     expect(settingsView(props).querySelector('.warning')).toBeNull();
     expect(settingsView({ ...props, persistent: false }).querySelector('.warning')).not.toBeNull();
@@ -192,11 +196,49 @@ describe('import banner', () => {
 describe('import view', () => {
   const props: ImportProps = {
     pendingEvent: null,
+    pendingDetails: null,
+    pdgaNumber: 100001,
     message: null,
     onPaste: () => {},
     onAddEvent: () => {},
-    onCancelEvent: () => {},
+    onImportDetails: () => {},
+    onCancel: () => {},
   };
+
+  function submitOwner(view: HTMLElement, value?: string) {
+    const input = view.querySelector<HTMLInputElement>('#paste-owner')!;
+    if (value !== undefined) input.value = value;
+    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    return input;
+  }
+
+  it('asks whose rounds a pasted table holds, starting from the default player', () => {
+    const onImportDetails = vi.fn();
+    const view = importView({ ...props, pendingDetails: 12, onImportDetails });
+    expect(view.textContent).toContain('Found 12 rounds');
+    const input = submitOwner(view);
+    expect(input.value).toBe('100001');
+    expect(onImportDetails).toHaveBeenCalledWith(100001);
+  });
+
+  it('takes another player for a pasted table', () => {
+    const onImportDetails = vi.fn();
+    submitOwner(importView({ ...props, pendingDetails: 12, onImportDetails }), '#100002');
+    expect(onImportDetails).toHaveBeenCalledWith(100002);
+  });
+
+  it('needs a number for a pasted table when there is no default player', () => {
+    const onImportDetails = vi.fn();
+    const view = importView({ ...props, pdgaNumber: null, pendingDetails: 1, onImportDetails });
+    document.body.replaceChildren(view);
+    const input = submitOwner(view);
+    expect(input.value).toBe('');
+    expect(onImportDetails).not.toHaveBeenCalled();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(view.querySelector('#paste-status')!.textContent).toBe('Enter the PDGA number of the player.');
+    submitOwner(view, '100003');
+    expect(onImportDetails).toHaveBeenCalledWith(100003);
+  });
 
   it('reads both clipboard forms on paste', () => {
     const onPaste = vi.fn();

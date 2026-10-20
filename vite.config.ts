@@ -27,9 +27,22 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
-export default defineConfig({
+/**
+ * Shown in Settings, so it is clear which version is live. GitHub Actions
+ * sets GITHUB_SHA. Vitest runs with mode "test", where it is always "dev",
+ * so tests give the same result locally and in CI.
+ */
+function buildId(mode: string): string {
+  if (mode === 'test') return 'dev';
+  return process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev';
+}
+
+export default defineConfig(({ mode }) => ({
   // Relative asset paths, so dist/ works on any static host and under any path.
   base: './',
+  define: {
+    __BUILD_ID__: JSON.stringify(buildId(mode)),
+  },
   plugins: [contentSecurityPolicy()],
   build: {
     // Small assets would become data: URIs, which the policy blocks.
@@ -40,4 +53,4 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
   },
-});
+}));

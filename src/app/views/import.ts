@@ -5,6 +5,7 @@ import type { RawEvent } from '../../parsers/types';
 import { LIMITS } from '../../parsers/values';
 import { el } from '../dom';
 import { today } from '../format';
+import { readPdgaNumber } from './pdga';
 
 export interface PasteMessage {
   key: MessageKey;
@@ -15,14 +16,39 @@ export interface PasteMessage {
 export interface ImportProps {
   /** Pasted event results waiting for their date. */
   pendingEvent: RawEvent | null;
+  /** The number of rounds in a pasted ratings details table that has no player header. */
+  pendingDetails: number | null;
+  /** The default player, offered as the owner of a pasted table. */
+  pdgaNumber: number | null;
   message: PasteMessage | null;
   onPaste: (html: string, text: string) => void;
   onAddEvent: (date: PlainDate, name: string) => void;
-  onCancelEvent: () => void;
+  onImportDetails: (owner: number) => void;
+  onCancel: () => void;
 }
 
 export const PASTE_ID = 'paste-target';
 export const EVENT_DATE_ID = 'paste-date';
+export const OWNER_ID = 'paste-owner';
+
+function showError(input: HTMLInputElement, key: MessageKey): void {
+  input.setAttribute('aria-invalid', 'true');
+  const status = document.getElementById('paste-status');
+  if (status) {
+    status.classList.add('error');
+    status.textContent = t(key);
+  }
+  input.focus();
+}
+
+function formButtons(submitId: string, submitKey: MessageKey, onCancel: () => void): HTMLElement {
+  return el(
+    'div',
+    { class: 'row' },
+    el('button', { id: 'paste-cancel', class: 'button', type: 'button', onclick: onCancel }, t('paste.cancel')),
+    el('button', { id: submitId, class: 'button button-primary grow', type: 'submit' }, t(submitKey)),
+  );
+}
 
 function status(message: PasteMessage | null): HTMLElement {
   return el(
@@ -62,7 +88,7 @@ function pasteForm({ message, onPaste }: ImportProps): HTMLElement {
 }
 
 /** Pasted results have no date, so the user gives the last day of the event, and optionally its name. */
-function eventForm({ pendingEvent, message, onAddEvent, onCancelEvent }: ImportProps): HTMLElement {
+function eventForm({ pendingEvent, message, onAddEvent, onCancel }: ImportProps): HTMLElement {
   const date = el('input', {
     id: EVENT_DATE_ID,
     class: 'input',
@@ -82,13 +108,7 @@ function eventForm({ pendingEvent, message, onAddEvent, onCancelEvent }: ImportP
   const submit = (event: Event) => {
     event.preventDefault();
     if (!isPlainDate(date.value)) {
-      date.setAttribute('aria-invalid', 'true');
-      const status = document.getElementById('paste-status');
-      if (status) {
-        status.classList.add('error');
-        status.textContent = t('paste.dateInvalid');
-      }
-      date.focus();
+      showError(date, 'paste.dateInvalid');
       return;
     }
     onAddEvent(date.value, name.value.replace(/\s+/g, ' ').trim());
@@ -100,12 +120,42 @@ function eventForm({ pendingEvent, message, onAddEvent, onCancelEvent }: ImportP
     el('div', { class: 'field' }, el('label', { for: EVENT_DATE_ID, class: 'label' }, t('paste.eventDate')), date),
     el('div', { class: 'field' }, el('label', { for: 'paste-name', class: 'label' }, t('paste.eventName')), name),
     status(message),
-    el(
-      'div',
-      { class: 'row' },
-      el('button', { id: 'paste-cancel', class: 'button', type: 'button', onclick: onCancelEvent }, t('paste.cancel')),
-      el('button', { id: 'paste-add', class: 'button button-primary grow', type: 'submit' }, t('paste.eventAdd')),
-    ),
+    formButtons('paste-add', 'paste.eventAdd', onCancel),
+  );
+}
+
+/**
+ * A pasted ratings details table does not say whose rounds it holds, so the
+ * user confirms the player, starting from the default PDGA number.
+ */
+function ownerForm({ pendingDetails, pdgaNumber, message, onImportDetails, onCancel }: ImportProps): HTMLElement {
+  const input = el('input', {
+    id: OWNER_ID,
+    class: 'input',
+    type: 'text',
+    inputmode: 'numeric',
+    autocomplete: 'off',
+    maxlength: 12,
+    value: pdgaNumber ?? '',
+    'aria-describedby': 'paste-owner-help paste-status',
+  });
+  const submit = (event: Event) => {
+    event.preventDefault();
+    const { empty, pdgaNumber: owner } = readPdgaNumber(input.value);
+    if (owner === null) {
+      showError(input, empty ? 'paste.ownerMissing' : 'pdga.invalid');
+      return;
+    }
+    onImportDetails(owner);
+  };
+  return el(
+    'form',
+    { class: 'field', novalidate: true, onsubmit: submit },
+    el('p', { class: 'step-title' }, t('paste.ownerFound', { count: pendingDetails ?? 0 })),
+    el('p', { id: 'paste-owner-help' }, t('paste.ownerQuestion')),
+    el('div', { class: 'field' }, el('label', { for: OWNER_ID, class: 'label' }, t('pdga.label')), input),
+    status(message),
+    formButtons('paste-import', 'paste.ownerImport', onCancel),
   );
 }
 
@@ -117,6 +167,6 @@ export function importView(props: ImportProps): HTMLElement {
     el('h1', { id: 'view-title' }, t('import.title')),
     el('h2', {}, t('paste.title')),
     el('p', { id: 'paste-help' }, t('paste.help')),
-    props.pendingEvent ? eventForm(props) : pasteForm(props),
+    props.pendingEvent ? eventForm(props) : props.pendingDetails !== null ? ownerForm(props) : pasteForm(props),
   );
 }

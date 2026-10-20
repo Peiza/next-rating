@@ -2,7 +2,7 @@ import './styles.css';
 import type { PlainDate } from '../engine';
 import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
-import type { RawEvent } from '../parsers/types';
+import type { RawDetailsRow, RawEvent } from '../parsers/types';
 import { ParseError, toPdgaDate } from '../parsers/values';
 import { el } from './dom';
 import { applyImport, takeFragment } from './import';
@@ -10,7 +10,7 @@ import { buildModel } from './model';
 import { readPaste } from './paste';
 import { browserStorage, createStore } from './storage';
 import { BANNER_ID, bannerView, type Banner } from './views/banner';
-import { EVENT_DATE_ID, importView, PASTE_ID, type PasteMessage } from './views/import';
+import { EVENT_DATE_ID, importView, OWNER_ID, PASTE_ID, type PasteMessage } from './views/import';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
 import { ratingView } from './views/rating';
 import { settingsView } from './views/settings';
@@ -45,6 +45,7 @@ let tab: Tab = 'rating';
 let flash: PdgaFlash = null;
 let banner: Banner | null = null;
 let pendingEvent: RawEvent | null = null;
+let pendingDetails: { details: RawDetailsRow[]; rounds: number } | null = null;
 let pasteMessage: PasteMessage | null = null;
 
 function preferredLanguages(): readonly string[] {
@@ -82,9 +83,9 @@ function selectTab(next: Tab): void {
   window.scrollTo(0, 0);
 }
 
-function saveImport(parts: ImportParts): void {
+function saveImport(parts: ImportParts, owner: number | null = null): void {
   const { lastImport } = store.get();
-  store.update({ lastImport: applyImport(lastImport, parts, new Date().toISOString()) });
+  store.update({ lastImport: applyImport(lastImport, parts, new Date().toISOString(), owner) });
 }
 
 /** Shows the result of an import on the Rating tab, with focus on the message. */
@@ -128,10 +129,22 @@ function pasted(html: string, text: string): void {
   } else if (result.kind === 'event') {
     pendingEvent = result.event;
     render(EVENT_DATE_ID);
+  } else if (!result.player) {
+    // The table alone does not say whose rounds these are, so ask.
+    pendingDetails = { details: result.details, rounds: result.rounds };
+    render(OWNER_ID);
   } else {
-    saveImport({ details: result.details, ...(result.player && { player: result.player }) });
+    saveImport({ details: result.details, player: result.player });
     showBanner({ message: 'paste.details', params: { count: result.rounds }, tone: 'info' });
   }
+}
+
+function importPastedDetails(owner: number): void {
+  if (!pendingDetails) return;
+  const { details, rounds } = pendingDetails;
+  pendingDetails = null;
+  saveImport({ details }, owner);
+  showBanner({ message: 'paste.details', params: { count: rounds }, tone: 'info' });
 }
 
 function addPastedEvent(date: PlainDate, name: string): void {
@@ -142,8 +155,9 @@ function addPastedEvent(date: PlainDate, name: string): void {
   showBanner({ message: 'paste.eventAdded', tone: 'info' });
 }
 
-function cancelPastedEvent(): void {
+function cancelPaste(): void {
   pendingEvent = null;
+  pendingDetails = null;
   render(PASTE_ID);
 }
 
@@ -183,10 +197,13 @@ function currentView(): HTMLElement {
   if (tab === 'import') {
     return importView({
       pendingEvent,
+      pendingDetails: pendingDetails?.rounds ?? null,
+      pdgaNumber: data.pdgaNumber,
       message: pasteMessage,
       onPaste: pasted,
       onAddEvent: addPastedEvent,
-      onCancelEvent: cancelPastedEvent,
+      onImportDetails: importPastedDetails,
+      onCancel: cancelPaste,
     });
   }
   if (data.lastImport) {

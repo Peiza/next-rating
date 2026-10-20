@@ -12,10 +12,13 @@ export function detailsUrl(pdgaNumber: number): string {
   return `https://www.pdga.com/player/${pdgaNumber}/details`;
 }
 
-/**
- * The default player's PDGA number. Spaces and a leading "#" are ignored,
- * so a number copied from pdga.com works; an empty field removes the number.
- */
+/** Reads a typed PDGA number. Spaces and "#" are ignored, so a number copied from pdga.com works. */
+export function readPdgaNumber(text: string): { empty: boolean; pdgaNumber: number | null } {
+  const digits = text.replace(/[\s#]/g, '');
+  return { empty: digits === '', pdgaNumber: digits === '' ? null : parseInteger(digits, RANGES.id) };
+}
+
+/** The default player's PDGA number. An empty field removes the number. */
 export function pdgaNumberForm(
   value: number | null,
   flash: PdgaFlash,
@@ -40,9 +43,8 @@ export function pdgaNumberForm(
   );
   const submit = (event: Event) => {
     event.preventDefault();
-    const text = input.value.replace(/[\s#]/g, '');
-    const pdgaNumber = text === '' ? null : parseInteger(text, RANGES.id);
-    if (text !== '' && pdgaNumber === null) {
+    const { empty, pdgaNumber } = readPdgaNumber(input.value);
+    if (!empty && pdgaNumber === null) {
       input.setAttribute('aria-invalid', 'true');
       status.classList.add('error');
       status.textContent = t('pdga.invalid');

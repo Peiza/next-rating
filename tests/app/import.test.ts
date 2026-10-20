@@ -78,6 +78,30 @@ describe('applyImport', () => {
     expect(stored.events.map((event) => event.name)).toEqual(['Cup', '']);
   });
 
+  describe('a pasted ratings details table, with the player the user confirmed', () => {
+    const pasted = [rawDetailsRow({ eventId: '', rating: '940' })];
+
+    it('merges for the same player', () => {
+      const stored = fullImport();
+      expect(applyImport(stored, { details: pasted }, LATER, 100001)).toEqual({ ...stored, at: LATER, details: pasted });
+    });
+
+    it('replaces everything for a different player', () => {
+      expect(applyImport(fullImport(), { details: pasted }, LATER, 100002)).toEqual({
+        at: LATER,
+        player: { pdgaNumber: '100002', name: '', currentRating: '', ratingDate: '' },
+        details: pasted,
+        events: [],
+      });
+    });
+
+    it('starts a new import for a player typed in without a default player', () => {
+      const next = applyImport(null, { details: pasted }, LATER, 100003)!;
+      expect(next.player?.pdgaNumber).toBe('100003');
+      expect(validateStoredImport(next)).toEqual(next);
+    });
+  });
+
   it('replaces everything for a different player', () => {
     const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
     const next = applyImport(fullImport(), { player: other, profileEvents: [] }, LATER);

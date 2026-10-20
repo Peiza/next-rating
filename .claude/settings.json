@@ -4,9 +4,13 @@
       "Bash(npx:*)",
       "Bash(npm exec:*)",
       "Bash(npm x:*)",
+      "Bash(curl:*)",
+      "Bash(curl.exe:*)",
       "PowerShell(npx:*)",
       "PowerShell(npm exec:*)",
-      "PowerShell(npm x:*)"
+      "PowerShell(npm x:*)",
+      "PowerShell(curl:*)",
+      "PowerShell(curl.exe:*)"
     ]
   }
 }
