@@ -39,6 +39,17 @@ function itemOf(explanation: Explanation, round: RoundInput) {
   return explanation.items.find((item) => item.id === round.id);
 }
 
+describe('rounds the user left out', () => {
+  it('lists them as new rounds with no effect, so the effects still add up', () => {
+    const rounds = [fresh(1050, '2026-07-02', { eventKey: 'x' }), fresh(955, '2026-07-02'), ...weekly([950, 960, 940])];
+    const after = predictRating(rounds, { leaveOut: new Set(['x']) });
+    const explanation = explainChange(rounds, after)!;
+    expect(itemOf(explanation, rounds[0]!)).toMatchObject({ kind: 'new', after: 'left-out', effect: 0 });
+    const sum = explanation.items.reduce((total, item) => total + item.effect, 0);
+    expect(Math.abs(sum - explanation.total)).toBeLessThan(1e-9);
+  });
+});
+
 describe('explainChange', () => {
   it('returns null without official rounds', () => {
     const rounds = [fresh(950, '2026-08-01')];
@@ -194,6 +205,14 @@ describe('officialState', () => {
     expect(state.exact).toBe(950);
   });
 
+  it('marks a round PDGA did not evaluate inside its window as excluded, and explains nothing about it', () => {
+    const counted = flagged(weekly([950, 960, 940]));
+    const xTier = flagged([official(1050, '2026-05-01')], false, false);
+    const rounds = [...counted, ...xTier];
+    expect(officialState(rounds).rounds.at(-1)).toMatchObject({ status: 'excluded', weight: 0 });
+    expect(itemOf(explain([fresh(955, '2026-07-02'), ...rounds]), xTier[0]!)).toBeUndefined();
+  });
+
   it('applies the double-weight rule and hole weights on top', () => {
     const rounds = flagged(weekly([1000, 990, 980, 970, 960, 950, 940, 930, 920]));
     rounds[1] = { ...rounds[1]!, holes: 9 };
@@ -243,10 +262,15 @@ describe('the difference from the official rating', () => {
   });
 
   it('covers what the rules decide differently from PDGA', () => {
-    const after = predictRating(rounds, { currentRating: 950 });
-    const explanation = explainChange(rounds, after, 950)!;
+    const after = predictRating(all, { currentRating: 950 });
+    const explanation = explainChange(all, after, 950)!;
     // The rules drop the 700, which PDGA counted.
-    expect(explanation.items.map((item) => item.kind)).toEqual(['newly-dropped']);
-    expect(explanation.items[0]!.effect + explanation.difference!).toBeCloseTo(after.change!, 9);
+    expect(explanation.items.map((item) => item.kind)).toEqual(['newly-dropped', 'new']);
+  });
+
+  it('is not needed without new rated rounds: the rating stays, so there is nothing to explain', () => {
+    const after = predictRating(rounds, { currentRating: 950 });
+    expect(after).toMatchObject({ rating: 950, change: 0, unchanged: true });
+    expect(explainChange(rounds, after, 950)).toBeNull();
   });
 });

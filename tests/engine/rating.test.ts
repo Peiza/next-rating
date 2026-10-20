@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { predictRating } from '../../src/engine/rating';
+import { excludedByPdga, predictRating } from '../../src/engine/rating';
 import type { Prediction, RoundInput, RoundStatus } from '../../src/engine/types';
 
 let nextId = 0;
@@ -50,10 +50,32 @@ describe('predictRating', () => {
   });
 
   it('reports the change against the current rating', () => {
-    const rounds = weekly([1000, 950, 900]);
+    const rounds = [round(1000, '2026-08-27', { source: 'unofficial' }), ...weekly([950, 900], '2026-08-20')];
     expect(predictRating(rounds, { currentRating: 940 }).change).toBe(10);
     expect(predictRating(rounds, { currentRating: 960 }).change).toBe(-10);
     expect(predictRating(rounds).change).toBeNull();
+  });
+
+  describe('without new rated rounds', () => {
+    // PDGA updates a rating only when new rated rounds are added.
+    const official = weekly([1000, 950, 900]);
+
+    it('keeps the current rating, with the calculated average still in exact', () => {
+      const prediction = predictRating(official, { currentRating: 948 });
+      expect(prediction).toMatchObject({ rating: 948, exact: 950, change: 0, unchanged: true });
+      expect(predictRating(official)).toMatchObject({ rating: 950, unchanged: false });
+    });
+
+    it('counts only new rounds in this update: not DNF rounds, rounds after the deadline or rounds left out', () => {
+      const dnf = { ...round(0, '2026-09-01', { source: 'unofficial', dnf: true }), rating: null };
+      const later = round(1000, '2026-09-10', { source: 'manual' });
+      const left = round(1000, '2026-09-01', { source: 'unofficial', eventKey: 'x' });
+      const options = { currentRating: 948, deadline: '2026-09-06', leaveOut: new Set(['x']) };
+      expect(predictRating([dnf, later, left, ...official], options).unchanged).toBe(true);
+      // Any new rated round updates the rating, also one that is dropped or outside the window.
+      const old = round(700, '2026-08-26', { source: 'manual' });
+      expect(predictRating([old, ...official], options)).toMatchObject({ unchanged: false });
+    });
   });
 
   describe('window', () => {
@@ -381,6 +403,89 @@ describe('predictRating', () => {
       const prediction = predictRating([dnf, ...weekly([950, 960])], { deadline });
       expect(statusOf(prediction, dnf)).toBe('dnf');
       expect(prediction.stats.dnfRounds).toBe(1);
+    });
+  });
+
+  describe('official rounds PDGA left out', () => {
+    /** PDGA's flags on an official round. */
+    const flags = (input: RoundInput, evaluated: boolean, included = evaluated): RoundInput => ({
+      ...input,
+      pdga: { evaluated, included },
+    });
+    /** Eight evaluated rounds, so PDGA used the 12-month window. */
+    const evaluated = () => weekly([950, 955, 945, 950, 955, 945, 950, 955]).map((input) => flags(input, true));
+
+    it('never counts an official round PDGA did not evaluate inside its window', () => {
+      const xTier = flags(round(1050, '2026-05-01'), false);
+      const rounds = [...evaluated(), xTier];
+      const prediction = predictRating(rounds);
+      expect(statusOf(prediction, xTier)).toBe('excluded');
+      expect(prediction.rounds.at(-1)!.weight).toBe(0);
+      expect(prediction.exact).toBe(predictRating(evaluated()).exact);
+      expect(prediction.stats).toMatchObject({ totalRounds: 8, roundsInWindow: 8, roundsCounted: 8 });
+      // Without PDGA's flags it would count.
+      expect(statusOf(predictRating([...evaluated(), { ...xTier, pdga: undefined }]), xTier)).toBe('included');
+    });
+
+    it('keeps it out after new rounds move the window', () => {
+      const xTier = flags(round(1050, '2026-05-01'), false);
+      const later = ['2027-02-01', '2027-02-08', '2027-02-15'].map((date) => round(990, date, { source: 'unofficial' }));
+      const prediction = predictRating([...later, ...evaluated(), xTier]);
+      expect(prediction.stats.windowStart).toBe('2026-02-15');
+      expect(statusOf(prediction, xTier)).toBe('excluded');
+    });
+
+    it('leaves out the newest official event when PDGA did not evaluate it, also as the anchor', () => {
+      const xTier = flags(round(1050, '2026-09-03'), false);
+      const prediction = predictRating([xTier, ...evaluated()]);
+      expect(statusOf(prediction, xTier)).toBe('excluded');
+      expect(prediction.stats.windowEnd).toBe('2026-08-27');
+    });
+
+    it("reads PDGA's 24-month window from the flags", () => {
+      // An evaluated round older than 12 months shows the fallback.
+      const old = flags(round(950, '2025-03-01'), true);
+      const xTier = flags(round(1050, '2025-01-01'), false);
+      const withOld = [...evaluated().slice(0, 3), old, xTier];
+      expect(statusOf(predictRating(withOld), xTier)).toBe('excluded');
+      // So do fewer than 8 evaluated rounds in 12 months.
+      const few = [...evaluated().slice(0, 3), xTier];
+      expect(statusOf(predictRating(few), xTier)).toBe('excluded');
+    });
+
+    it('leaves a round PDGA did not evaluate before its window outside the window', () => {
+      const old = flags(round(1050, '2025-06-01'), false);
+      expect(statusOf(predictRating([...evaluated(), old]), old)).toBe('outside-window');
+    });
+
+    it('finds nothing without flags, and only ever in official rounds', () => {
+      expect(excludedByPdga(weekly([950, 960, 940])).size).toBe(0);
+      const unofficial = { ...flags(round(1050, '2026-05-01'), false), source: 'unofficial' as const };
+      expect(excludedByPdga([...evaluated(), unofficial]).size).toBe(0);
+      const dnf = { ...flags(round(0, '2026-05-01', { dnf: true }), false), rating: null };
+      expect(statusOf(predictRating([...evaluated(), dnf]), dnf)).toBe('dnf');
+    });
+  });
+
+  describe('events the user left out', () => {
+    it('leaves their rounds out of everything, also as the anchor', () => {
+      const official = weekly([950, 960, 940]);
+      const xTier = [round(1050, '2026-09-05', { eventKey: 'x' }), round(1040, '2026-09-05', { eventKey: 'x' })].map(
+        (input) => ({ ...input, source: 'unofficial' as const }),
+      );
+      const prediction = predictRating([...xTier, ...official], { leaveOut: new Set(['x']) });
+      expect(statuses(prediction).slice(0, 2)).toEqual(['left-out', 'left-out']);
+      expect(prediction.rounds[0]!.weight).toBe(0);
+      expect(prediction.exact).toBe(predictRating(official).exact);
+      expect(prediction.stats).toMatchObject({ totalRounds: 3, careerEvents: 3, windowEnd: '2026-08-27' });
+    });
+
+    it('never leaves out official rounds, and keeps DNF rounds as DNF', () => {
+      const official = round(1000, '2026-08-20', { eventKey: 'x' });
+      const dnf = { ...round(0, '2026-09-05', { eventKey: 'y', source: 'unofficial', dnf: true }), rating: null };
+      const prediction = predictRating([dnf, official, ...weekly([950, 960])], { leaveOut: new Set(['x', 'y']) });
+      expect(statusOf(prediction, official)).toBe('included');
+      expect(statusOf(prediction, dnf)).toBe('dnf');
     });
   });
 

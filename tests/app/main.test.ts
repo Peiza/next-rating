@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEY } from '../../src/app/storage';
 import { encodeHandoff } from '../../src/handoff';
-import { envelope, handoffPage, rawDetailsRow, rawPlayer } from '../handoff/raw';
+import { envelope, handoffPage, rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
 import { LIVE_V1 } from './live-v1';
 import { detailsRow, detailsTable, eventDivision, eventPage, eventRow, playerHeader } from '../parsers/html';
 
@@ -14,8 +14,9 @@ async function start(url: string): Promise<void> {
   await import('../../src/app/main');
 }
 
-const detailsHtml = playerHeader() + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' })]);
-const otherHtml = playerHeader('Other Player', '100002', '990') + detailsTable([detailsRow({ rating: '1000' })]);
+// Official ratings equal to what the rounds give, since without new rated rounds the prediction keeps the official rating.
+const detailsHtml = playerHeader('Test Player', '100001', '960') + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' })]);
+const otherHtml = playerHeader('Other Player', '100002', '1000') + detailsTable([detailsRow({ rating: '1000' })]);
 
 const EVENT_URL = 'https://www.pdga.com/tour/event/900005';
 /** Unofficial results with rows for 100001 and 100002. */
@@ -198,7 +199,7 @@ describe('app start', () => {
 
   it('switches players from the menu, and removes one after asking', async () => {
     const at = '2026-10-01T10:00:00.000Z';
-    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player', currentRating: '1000' });
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -212,16 +213,25 @@ describe('app start', () => {
     await start('/next-rating/');
     expect(predicted()).toBe('950');
     const menu = () => document.getElementById('players-menu')!;
+    const barTitle = () => document.getElementById('topbar-title')?.textContent;
     expect(menu().textContent).toContain('Players');
+    expect(barTitle()).toBe('Test Player #100001');
 
     menu().click();
     expect(menu().getAttribute('aria-expanded')).toBe('true');
+    expect(menu().textContent).toBe('Close');
     expect(document.querySelector('.shell')!.classList.contains('menu-open')).toBe(true);
     expect(document.activeElement?.id).toBe('favorites-title');
     document.getElementById('player-100002')!.click();
     expect(predicted()).toBe('1000');
+    expect(barTitle()).toBe('Other Player #100002');
     expect(menu().getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(menu());
+
+    // Settings has its own heading, so the bar holds only the button there.
+    document.getElementById('tab-settings')!.click();
+    expect(barTitle()).toBeUndefined();
+    document.getElementById('tab-rating')!.click();
 
     menu().click();
     document.getElementById('players-edit')!.click();
@@ -231,6 +241,32 @@ describe('app start', () => {
     expect(stored().players.map((player: { pdgaNumber: number }) => player.pdgaNumber)).toEqual([100001]);
     menu().click();
     expect(predicted()).toBe('950');
+  });
+
+  it('leaves an unofficial event out with one tap, stored per player, and counts it again', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const event = rawEvent({ date: '20-Sep-2026' }, [rawEventRow('100001', ['1040', '1030'])]);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { rounds: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [event] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const counted = predicted();
+    const box = () => document.querySelector<HTMLInputElement>('#count-event-0')!;
+    box().focus();
+    box().click();
+    expect(stored().players[0].leftOut).toEqual(['e:900002']);
+    expect(predicted()).toBe('950');
+    expect(predicted()).not.toBe(counted);
+    expect(box().checked).toBe(false);
+    expect(document.activeElement).toBe(box());
+    box().click();
+    expect(stored().players[0].leftOut).toEqual([]);
+    expect(predicted()).toBe(counted);
   });
 
   it('adds a manual round, keeps the form open for the next one, and deletes it again', async () => {
@@ -287,7 +323,7 @@ describe('app start', () => {
 
   it('calculates a target, keeps the answer through a re-render, and starts empty for another player', async () => {
     const at = '2026-10-01T10:00:00.000Z';
-    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player', currentRating: '1000' });
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({

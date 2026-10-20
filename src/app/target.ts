@@ -82,6 +82,8 @@ export function calculateTarget(model: Model, query: TargetQuery, today: PlainDa
     count: query.count,
     date: today,
     deadline: update.deadline,
+    leaveOut: model.leaveOut,
+    currentRating: model.player?.currentRating ?? null,
   });
   return { query, update, following, missed: model.nextUpdate.deadline, result };
 }

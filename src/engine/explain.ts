@@ -59,6 +59,9 @@ function kindOf(before: RoundStatus, after: RoundStatus): ChangeKind {
  * one round on another (moving the window, the drop limits or the
  * double-weight boundary) are credited to the rounds whose weight changed.
  *
+ * Null when the prediction is unchanged (no new rated rounds), or without
+ * an official state.
+ *
  * Listed: every new round with a rating, also one that does not count (effect
  * 0), and every official round whose weight changed. Rounds after the
  * deadline are not listed: they belong to the following update.
@@ -68,6 +71,8 @@ export function explainChange(
   after: Prediction,
   officialRating: number | null = null,
 ): Explanation | null {
+  // Without new rated rounds the rating stays, so there is no change to explain.
+  if (after.unchanged) return null;
   const before = officialState(rounds);
   if (before.exact === null || after.exact === null || after.rating === null) return null;
   const average = before.exact;

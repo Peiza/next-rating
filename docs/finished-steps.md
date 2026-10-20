@@ -98,8 +98,8 @@ manual per-page fallback.
    - Store locally only: the language override, the theme choice, the
      players list order, which Rating tab cards are open, the Top 8 period,
      the bookmarklet version from the last hand-off and the players' data. Each player (each favorite)
-     keeps its own PDGA number, last import (show its timestamp) and manual
-     rounds. When the storage format changes, existing data is migrated,
+     keeps its own PDGA number, last import (show its timestamp), manual
+     rounds and the unofficial events left out of its prediction. When the storage format changes, existing data is migrated,
      never silently dropped. On iOS, home screen web apps do not share
      storage with Safari tabs, so the full flow must work in a normal browser
      tab; installing is optional.
@@ -325,6 +325,60 @@ Built as (docs/plan-setup-page.md):
   explanation, with focus on the matching section. It shows over the
   current tab like the setup page, and Back returns focus to what opened it.
 
+## X-tier events and rounds PDGA leaves out
+Spec: PDGA's Competition Manual 5.10: X-tier events with non-standard
+rules, such as mulligans, may generate round ratings, but those ratings are
+not included in player ratings. Other X-tier events (restricted eligibility,
+charity payouts) are rated and count normally. Example: a player's ratings
+details show an XA event inside the 12-month window with Evaluated No.
+1. Engine: an official round that PDGA marks Evaluated No although its date
+   is inside PDGA's evaluated window never counts, also in the prediction
+   after the window moves.
+2. Unofficial rounds from X-tier events (tier starting with X) count by
+   default but are marked "X-tier: may not count", and the user can leave
+   out any unofficial event with one tap. The choice is stored per player.
+   Show the effect in Why it changed.
+3. An X-tier section on the How it works page.
+4. A player with two dropped rounds in one window and an excluded XA event
+   in the rule check.
+
+Feedback built first: the phone top bar names the player (the PDGA number
+on a smaller line, the Players button at the top right, reading Close while
+the panel is open, the panel headed "Switch player" with the shown player
+marked "Now"; wide screens unchanged). Closed, Why it changed shows the net
+total when the change rounds to nothing, and Top 8 shows its average and
+period ("Average 1014 · 2026", "Average 1003 · 5 of 8 · 2026").
+
+Built as (docs/plan-x-tier.md):
+- `excludedByPdga` in src/engine/rating.ts reads PDGA's window from the
+  Evaluated flags: 12 months back from the newest evaluated round, or 24
+  when an evaluated round is older than that or fewer than 8 are inside 12
+  months. Official rounds with Evaluated No inside it get the status
+  'excluded' ("Not counted by PDGA") in the prediction and the official
+  state, and are left out of everything, the anchor included. The tier alone
+  decides nothing, since other X-tier events count.
+- Unofficial rounds take their tier from the stored profile events by event
+  id (event pages do not show it; no bookmarklet change). The Rounds card
+  starts with the unofficial events, each with a Count checkbox; the
+  `leaveOut` option of `predictRating` and `targetAverage` gives the
+  rounds of left-out events the status 'left-out'. Stored per player as
+  `leftOut` (event keys, at most 50); keys of events no longer stored are
+  forgotten on import.
+- Why it changed lists left-out rounds with 0.0, so the lines still add up,
+  and under the list says what counting each left-out event would give,
+  from the engine.
+- The Top 8 still counts every rated round, including both kinds.
+- Added after a sixth player whose calculated rating is 1 below the official
+  one with no new rounds: a rating only updates when new rated rounds are
+  added (PDGA ratings guide). With the current rating known and no
+  unofficial or manual round counting in the next update, `predictRating`
+  keeps the current rating (`unchanged`), `targetAverage` keeps it for
+  "without", and Why it changed says "No new rated rounds since the last
+  update, so the rating stays at 902" instead of a difference line. That
+  player's pages are kept to check again after the next update.
+- Rule check: the fifth player reproduces PDGA's flags and official rating;
+  4 rounds excluded by PDGA, leave one out matches for all players.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -361,3 +415,5 @@ Built in this order:
 - Rating tab design pass (docs/plan-design-pass.md) (done)
 - Setup page, with the bookmarklet status and How it works
   (docs/plan-setup-page.md), after the design pass feedback (done)
+- X-tier events and rounds PDGA leaves out (docs/plan-x-tier.md), after the
+  top bar and closed-card header feedback (done)

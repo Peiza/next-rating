@@ -144,6 +144,26 @@ function gmsCard(top: TopEight): HTMLElement {
   );
 }
 
+/** The period as the closed card names it: the year, the rating window, or the custom dates. */
+function periodLabel({ period, year }: TopEight): string {
+  if (period.kind === 'custom') return t('top8.range', { from: formatDate(period.from), to: formatDate(period.to) });
+  return year !== null ? String(year) : t('top8.window');
+}
+
+/**
+ * One line for the closed card, following the chosen period: "Average 1014
+ * · 2026", with fewer than 8 rounds "Average 1003 · 5 of 8 · 2026".
+ */
+export function top8Teaser(top: TopEight): string {
+  const { average, found } = top.result;
+  const period = periodLabel(top);
+  if (average === null) return t('top8.teaserEmpty', { period });
+  if (found < TOP_COUNT) {
+    return t('top8.teaserFew', { average: formatRating(average), count: found, total: TOP_COUNT, period });
+  }
+  return t('top8.teaser', { average: formatRating(average), period });
+}
+
 /** The card's content: the period (with its dates for a custom range), then the GMS-style card. */
 export function top8Panel(props: Top8Props): HTMLElement[] {
   const { period } = props.top;

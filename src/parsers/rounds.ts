@@ -9,6 +9,12 @@ export type ListedRound = RoundInput & {
   eventName: string;
   /** Round label as pdga.com shows it, such as "2" or "Finals". */
   roundLabel: string;
+  /**
+   * The event's tier as pdga.com shows it, such as "A" or "XA". Official
+   * rounds take it from the ratings details; the app adds it to event rounds
+   * from the profile page. Missing when unknown.
+   */
+  tier?: string;
 };
 
 /** Groups rounds by pdga.com event id, or by name and date when the id is unknown. */
@@ -42,6 +48,7 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
         eventId: round.eventId,
         eventName: round.eventName,
         roundLabel: round.roundLabel,
+        ...(round.tier && { tier: round.tier }),
       };
     }),
   );

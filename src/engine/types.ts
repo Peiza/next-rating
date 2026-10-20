@@ -18,8 +18,10 @@ export interface RoundInput {
   dnf?: boolean;
   source: RoundSource;
   /**
-   * PDGA's flags from the ratings details page, on official rounds. Only
-   * officialState uses them; predictRating ignores them and recomputes.
+   * PDGA's flags from the ratings details page, on official rounds.
+   * predictRating never trusts the Included flag and recomputes; it reads
+   * the Evaluated flags only to find the rounds PDGA left out of the window
+   * it evaluated (excludedByPdga). officialState uses both.
    */
   pdga?: { evaluated: boolean; included: boolean };
 }
@@ -33,6 +35,14 @@ export type RoundStatus =
   | 'dropped'
   /** Older than the 12- or 24-month window. */
   | 'outside-window'
+  /**
+   * An official round PDGA did not evaluate although it is dated inside the
+   * window PDGA evaluated, as for X-tier events with non-standard rules
+   * (Competition Manual 5.10). It never counts.
+   */
+  | 'excluded'
+  /** A round of an event the user left out of the prediction, such as an X-tier event that may not count. */
+  | 'left-out'
   /**
    * A new round dated after the report deadline of the next update: that
    * update leaves it out, and it counts in the following one.
@@ -92,6 +102,13 @@ export interface PredictOptions {
    * including the window and the stats. Official rounds always count.
    */
   deadline?: PlainDate;
+  /**
+   * Event keys of events the user left out, such as X-tier events that may
+   * not count. Their rounds are 'left-out' and left out of everything, like
+   * rounds after the deadline. Only rounds that are not official: PDGA's own
+   * flags decide for official rounds.
+   */
+  leaveOut?: ReadonlySet<string>;
 }
 
 export interface Prediction {
@@ -99,6 +116,12 @@ export interface Prediction {
   rating: number | null;
   /** Unrounded weighted average. */
   exact: number | null;
+  /**
+   * True when the current rating is known and no new rated round (one that
+   * is not official) counts in this update: a rating only updates when new
+   * rated rounds are added, so `rating` is the current rating.
+   */
+  unchanged: boolean;
   /** rating - currentRating, when both are known. */
   change: number | null;
   /** One result per input round, in input order. */

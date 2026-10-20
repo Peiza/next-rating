@@ -7,6 +7,7 @@ import {
   EMPTY_DATA,
   MAX_EVENT_NAME,
   MAX_FAVORITES,
+  MAX_LEFT_OUT,
   MAX_MANUAL_ROUNDS,
   migrateV1,
   STORAGE_KEY,
@@ -29,7 +30,7 @@ const IMPORT: StoredImport = {
 const MIGRATED: StoredImport = { ...IMPORT, detailsAt: IMPORT.at };
 
 function player(pdgaNumber: number, extra: Partial<StoredPlayer> = {}): StoredPlayer {
-  return { pdgaNumber, favorite: true, import: null, manualRounds: [], ...extra };
+  return { pdgaNumber, favorite: true, import: null, manualRounds: [], leftOut: [], ...extra };
 }
 
 /** A minimal in-memory Storage. */
@@ -309,6 +310,32 @@ describe('manual rounds', () => {
     const storage = new MemoryStorage();
     createStore(storage).update({ players: [player(100001, { manualRounds: [round] })] });
     expect(createStore(storage).get().players[0]!.manualRounds).toEqual([round]);
+  });
+});
+
+describe('left-out events', () => {
+  it('load as none for players stored before they existed', () => {
+    const { leftOut, ...old } = player(100001);
+    expect(leftOut).toEqual([]);
+    expect(validateData({ players: [old] }).players).toEqual([player(100001)]);
+  });
+
+  it('keep event keys and drop bad ones and repeats one at a time', () => {
+    const keys = ['e:900003', 'n:Club night|2026-10-16', 'e:900003', 'e:abc', 'x:1', 'n:', 7, null, `n:${'x'.repeat(301)}`];
+    const stored = validateData({ players: [player(100001, { leftOut: keys as never })] });
+    expect(stored.players[0]!.leftOut).toEqual(['e:900003', 'n:Club night|2026-10-16']);
+    expect(validateData({ players: [player(100001, { leftOut: 'e:1' as never })] }).players[0]!.leftOut).toEqual([]);
+  });
+
+  it(`keep at most ${MAX_LEFT_OUT} per player`, () => {
+    const many = Array.from({ length: MAX_LEFT_OUT + 5 }, (_, i) => `e:${900000 + i}`);
+    expect(validateData({ players: [player(100001, { leftOut: many })] }).players[0]!.leftOut).toHaveLength(MAX_LEFT_OUT);
+  });
+
+  it('survive a round trip through storage', () => {
+    const storage = new MemoryStorage();
+    createStore(storage).update({ players: [player(100001, { leftOut: ['e:900003'] })] });
+    expect(createStore(storage).get().players[0]!.leftOut).toEqual(['e:900003']);
   });
 });
 

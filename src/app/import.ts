@@ -44,8 +44,8 @@ export function playerNumber(player: RawPlayer | undefined): number | null {
   return player ? normalizePlayer(player).pdgaNumber : null;
 }
 
-/** What makes two copies of an event the same event: its id, or its name and date. */
-function eventKey(event: RawEvent): string {
+/** What makes two copies of an event the same event: its id, or its name and date. The engine's event key. */
+export function eventKey(event: RawEvent): string {
   const { eventId, name, date } = normalizeEvent(event);
   return eventKeyOf(eventId, name, date);
 }

@@ -8,7 +8,7 @@ import { GMS_URL } from './top8';
  * explanations on the Rating tab at the matching section.
  */
 
-export const GUIDE_SECTIONS = ['about', 'data', 'rules', 'rounds', 'why', 'target', 'top8'] as const;
+export const GUIDE_SECTIONS = ['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'target', 'top8'] as const;
 export type GuideSection = (typeof GUIDE_SECTIONS)[number];
 
 export const GUIDE_ID = 'guide-title';
@@ -55,6 +55,7 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
         ),
       ),
       paragraph('guide.rules.result'),
+      paragraph('guide.rules.noNew'),
       paragraph('guide.rules.verified'),
       paragraph('guide.rules.decimals'),
     ],
@@ -66,6 +67,15 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
       paragraph('guide.rounds.unofficial'),
       paragraph('guide.rounds.manual'),
       paragraph('guide.rounds.deadline', { rule: link(UPDATES_URL, 'guide.rounds.ruleLink') }),
+    ],
+  },
+  xtier: {
+    title: 'guide.xtier.title',
+    body: () => [
+      paragraph('guide.xtier.rule'),
+      paragraph('guide.xtier.official'),
+      paragraph('guide.xtier.unofficial'),
+      paragraph('guide.xtier.top8'),
     ],
   },
   why: {

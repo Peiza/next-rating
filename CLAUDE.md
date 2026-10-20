@@ -66,7 +66,9 @@ Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 local storage, offline PWA, setup page, How it works), 5 favorites, 6 change
 explanation, 7 polish after favorites, 8 deadline-aware prediction, 9 target
 calculator, 10 Top 8 panel; then the Rating tab design pass (one card
-pattern, remembered open cards and Top 8 period).
+pattern, remembered open cards and Top 8 period), the setup page with How it
+works, and X-tier events (rounds PDGA leaves out; unofficial X-tier events
+marked, any unofficial event can be left out).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -118,11 +120,12 @@ Open, both optional:
   plain (unweighted) mean and population stdev of the OTHER rounds in the
   window, all taken before any exclusion, so the rule is not iterated. Drop it
   when it is below max(mean - 100, mean - 2.5 * stdev), only if at least 7
-  rounds are in the window. Verified against several players' Included flags;
-  one limit from the mean of all rounds, and a mean with double weighting,
-  both fail (the local rule check in tests/engine/fixture.test.ts).
-  Previously excluded official rounds can become included again when new rounds
-  are added, so never trust PDGA's Included flag for prediction; recompute.
+  rounds are in the window. Verified against several players' Included flags,
+  including two low rounds dropped in the same window; one limit from the
+  mean of all rounds, and a mean with double weighting, both fail (the local
+  rule check in tests/engine/fixture.test.ts). Previously excluded official
+  rounds can become included again when new rounds are added, so never trust
+  PDGA's Included flag for prediction; recompute.
 - Double weighting: the most recent 25% (rounded up) of included rounds count
   twice, only if at least 9 rounds are included.
 - If the 25% boundary falls inside an event, double-weight the HIGHEST rated
@@ -133,6 +136,16 @@ Open, both optional:
   rating); shorter rounds are weighted down (not yet verified against a
   fixture).
 - DNF rounds never count.
+- A rating only updates when new rated rounds are added (PDGA ratings
+  guide): when no unofficial or manual round counts in the next update, the
+  prediction is the official rating, and Why it changed says so instead of
+  showing a difference line.
+- An official round PDGA marks Evaluated No although it is dated inside the
+  window PDGA evaluated never counts, also after the window moves (X-tier
+  events with non-standard rules, Competition Manual 5.10). Read that window
+  from the Evaluated flags. Other X-tier events count normally, so never
+  decide by tier alone; unofficial X-tier rounds count, marked, unless the
+  user leaves the event out.
 - Multi-day date ranges like "1-Aug to 2-Aug-2026" use the last date.
 
 ## Test fixtures
@@ -160,8 +173,8 @@ engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
-calculator, the Top 8 panel, the Rating tab design pass and the setup page
-with How it works (docs/finished-steps.md). Nothing else is planned: the
+calculator, the Top 8 panel, the Rating tab design pass, the setup page
+with How it works and X-tier events (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 

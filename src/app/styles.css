@@ -641,6 +641,12 @@ a {
   font-weight: 700;
 }
 
+/* What each left-out event would give: outside the sum, so not in the effect column. */
+.why-left-out {
+  margin: 0.75rem 0 1rem;
+  padding-left: 1.25rem;
+}
+
 /* Then each effect in a column of its own, the text and where beside it. */
 .reasons {
   list-style: none;
@@ -884,15 +890,61 @@ a {
 
 .round-dropped .round-rating,
 .round-outside-window .round-rating,
+.round-excluded .round-rating,
+.round-left-out .round-rating,
 .round-dnf .round-rating {
   text-decoration: line-through;
   text-decoration-thickness: 2px;
 }
 
 .round-outside-window .round-status,
+.round-excluded .round-status,
+.round-left-out .round-status,
 .round-after-deadline .round-status,
 .round-meta {
   color: var(--text-muted);
+}
+
+/* Unofficial events to count or leave out: native checkboxes, large enough for a thumb. */
+
+.event-choices {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: none;
+}
+
+.event-choices legend {
+  padding: 0;
+  font-weight: 700;
+}
+
+.check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.75rem;
+  align-items: start;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.check input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--accent);
+}
+
+.check label {
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.check-meta {
+  grid-column: 2;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 /* Manual entry: the rating first, the Add button last, near the thumb. */
@@ -972,20 +1024,44 @@ a {
 }
 
 /*
- * Players: on phones the top bar's menu button shows the panel in place of
- * the current view; from 64rem (WIDE_QUERY in views/players.ts) the panel is
- * a sidebar and the top bar goes away.
+ * Players: on phones the top bar names the shown player, and its button
+ * shows the panel in place of the current view; from 64rem (WIDE_QUERY in
+ * views/players.ts) the panel is a sidebar and the top bar goes away.
+ * .menu-only shows on phones and .wide-only from 64rem.
  */
+
+.wide-only {
+  display: none;
+}
 
 .topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   max-width: 40rem;
   margin: 0 auto;
   padding: 0.75rem var(--gutter) 0;
   padding-left: max(var(--gutter), env(safe-area-inset-left));
   padding-right: max(var(--gutter), env(safe-area-inset-right));
+}
+
+/* A long name wraps; the button keeps its place at the top right. */
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0.25rem 0 0;
+}
+
+.topbar-number {
+  display: block;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.topbar-button {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .favorites {
@@ -1006,14 +1082,7 @@ a {
   display: none;
 }
 
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.panel-head h2 {
+.panel-title {
   margin: 0.5rem 0;
 }
 
@@ -1118,6 +1187,10 @@ a {
   .topbar,
   .menu-only {
     display: none;
+  }
+
+  .wide-only {
+    display: revert;
   }
 
   .favorites,

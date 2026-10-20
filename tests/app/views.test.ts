@@ -15,7 +15,7 @@ import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
 import { CARDS, DEFAULT_CARDS, type CardState, type StoredPlayer } from '../../src/app/storage';
 import { setLanguage } from '../../src/i18n';
-import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
 afterEach(() => setLanguage('en'));
 
@@ -327,6 +327,72 @@ describe('rating view', () => {
     expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
   });
 
+  it('marks an official round PDGA did not evaluate inside its window as not counted by PDGA', () => {
+    const xTier = rawDetailsRow({ eventId: '900005', tier: 'XA', date: '1-Jul-2026', rating: '1050', evaluated: 'No', included: 'No' });
+    const model = buildModel({ ...stored, details: [...stored.details!, xTier] }, 100001, NOW);
+    const view = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const status = view.querySelector('.round-excluded .round-status')!;
+    expect(status.textContent).toContain('Not counted by PDGA');
+    expect(status.querySelector('[aria-hidden="true"]')!.textContent).toBe('⊘');
+    expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
+  });
+
+  describe('unofficial events', () => {
+    const xTier = { ...stored, profileEvents: [rawProfileEvent({ tier: 'XA' })] };
+
+    function toggle(box: HTMLInputElement) {
+      box.checked = !box.checked;
+      box.dispatchEvent(new Event('change'));
+    }
+
+    function page(data: StoredImport, leftOut: string[] = [], onLeaveOut = vi.fn()) {
+      const model = buildModel(data, 100001, NOW, [], leftOut);
+      return ratingView({ model, cards: ALL_OPEN, onLeaveOut, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    }
+
+    it('come first in the Rounds card, each with a checked Count box, X-tier marked', () => {
+      const onLeaveOut = vi.fn();
+      const choices = page(xTier, [], onLeaveOut).querySelector('#rounds #event-choices')!;
+      expect(choices.nextElementSibling!.className).toBe('rounds');
+      expect(choices.querySelector('legend')!.textContent).toBe('Unofficial events that count');
+      const box = choices.querySelector<HTMLInputElement>('#count-event-0')!;
+      expect(box.type).toBe('checkbox');
+      expect(box.checked).toBe(true);
+      expect(choices.querySelector('label[for="count-event-0"]')!.textContent).toBe('Example Cup');
+      expect(box.getAttribute('aria-describedby')).toBe('count-event-0-meta');
+      expect(choices.querySelector('#count-event-0-meta')!.textContent).toMatch(/^\S+ · X-tier: may not count$/);
+      toggle(box);
+      expect(onLeaveOut).toHaveBeenCalledWith('e:900002', true);
+    });
+
+    it('mark X-tier rounds in the round list, and only them', () => {
+      const marked = (view: HTMLElement) => [...view.querySelectorAll('.round-meta')].filter((meta) => meta.textContent!.includes('X-tier'));
+      expect(marked(page(xTier))).toHaveLength(2);
+      expect(marked(page(stored))).toHaveLength(0);
+      expect(page(stored).querySelector('#count-event-0-meta')!.textContent).toMatch(/^\S+$/);
+    });
+
+    it('offer no choice without a handler', () => {
+      const model = buildModel(stored, 100001, NOW);
+      expect(ratingView({ model, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#event-choices')).toBeNull();
+    });
+
+    it('show a left-out event unchecked, its rounds as left out, and what counting it would give', () => {
+      const onLeaveOut = vi.fn();
+      const view = page(xTier, ['e:900002'], onLeaveOut);
+      const box = view.querySelector<HTMLInputElement>('#count-event-0')!;
+      expect(box.checked).toBe(false);
+      toggle(box);
+      expect(onLeaveOut).toHaveBeenCalledWith('e:900002', false);
+      const left = [...view.querySelectorAll('.round-left-out .round-status')];
+      expect(left).toHaveLength(2);
+      expect(left[0]!.textContent).toContain('Left out by you');
+      // With the only event left out there are no new rated rounds, so the rating stays.
+      expect(view.querySelector('#why-unchanged')!.textContent).toBe('No new rated rounds since the last update, so the rating stays at 950');
+      expect(view.querySelector('#why-left-out')!.textContent).toMatch(/^Counting Example Cup would give \d+ \(−\d+\.\d\)$/);
+    });
+  });
+
   it("links each round's event name to its pdga.com page, in the same tab", () => {
     const rounds = [...ratingPage().querySelectorAll('.round')];
     const official = rounds[3]!.querySelector<HTMLAnchorElement>('.round-event a')!;
@@ -436,9 +502,14 @@ describe('rating view', () => {
       expect(why()!.querySelector('#why-difference')).toBeNull();
     });
 
-    it('shows the difference line on its own when no round changed', () => {
+    it('says the rating stays without new rated rounds, instead of a difference line', () => {
       const section = why({ events: [], player: rawPlayer({ currentRating: '950' }) })!;
-      expect([...section.querySelectorAll('.reason')].map((line) => line.id)).toEqual(['why-difference']);
+      const text = 'No new rated rounds since the last update, so the rating stays at 950';
+      expect(section.querySelector('#why-unchanged')!.textContent).toBe(text);
+      expect(section.querySelector('.reason')).toBeNull();
+      expect(section.querySelector('#why-net')).toBeNull();
+      const closed = why({ events: [], player: rawPlayer({ currentRating: '950' }) }, DEFAULT_CARDS)!;
+      expect(closed.querySelector('.card-teaser')!.textContent).toBe(text);
     });
 
     it('suggests a new import only when the details are older than the official rating', () => {
@@ -450,9 +521,9 @@ describe('rating view', () => {
       expect(why({ detailsAt: '2026-09-01T10:00:00.000Z' })!.querySelector('.hint')).toBeNull();
     });
 
-    it('is hidden when nothing changed or the official rating is unknown', () => {
-      expect(why({ events: [] })).toBeNull();
+    it('is hidden when the official rating is unknown', () => {
       expect(why({ player: undefined })).toBeNull();
+      expect(why({ player: undefined, events: [] })).toBeNull();
     });
 
     it('shows the largest effect in its header while closed', () => {
@@ -465,6 +536,11 @@ describe('rating view', () => {
     it("shows the difference from PDGA's last calculation in the header when it is the largest", () => {
       const teaser = why({ player: rawPlayer({ currentRating: '950' }) }, DEFAULT_CARDS)!.querySelector('.card-teaser')!;
       expect(teaser.textContent).toMatch(/^Difference from PDGA's last calculation, \+\d+\.\d$/);
+    });
+
+    it('shows the net total in its header when the change rounds to no change', () => {
+      const closed = why({ player: rawPlayer({ currentRating: '962' }) }, DEFAULT_CARDS)!;
+      expect(closed.querySelector('.card-teaser')!.textContent).toBe('Net 0.0, rounds to no change');
     });
   });
 
@@ -731,6 +807,30 @@ describe('top 8 panel', () => {
     expect(link.hasAttribute('target')).toBe(false);
   });
 
+  describe('header while closed', () => {
+    function teaser(period: TopPeriod, data = stored) {
+      const model = buildModel(data, 100001, NOW);
+      const top8 = { top: topEight(model, period, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+      const view = ratingView({ model, top8, cards: DEFAULT_CARDS, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+      return view.querySelector('#top8 .card-teaser')?.textContent;
+    }
+
+    it('shows the average and the chosen period', () => {
+      expect(teaser(THIS_YEAR)).toBe('Average 975 · 2026');
+      expect(teaser({ kind: 'window' })).toMatch(/^Average \d+ · Rating window$/);
+      expect(teaser({ kind: 'custom', from: '2026-03-01', to: '2026-03-04' })).toMatch(/^Average 985 · 4 of 8 · \S+ – \S+$/);
+    });
+
+    it('says how many of the 8 were found, or that there are none', () => {
+      expect(teaser(THIS_YEAR, { ...stored, details: stored.details!.slice(0, 3) })).toBe('Average 990 · 3 of 8 · 2026');
+      expect(teaser({ kind: 'year', year: 2024 })).toBe('No rounds · 2024');
+    });
+
+    it('is not shown while open', () => {
+      expect(page().querySelector('#top8 .card-teaser')).toBeNull();
+    });
+  });
+
   it('says how many rounds were found when there are fewer than 8', () => {
     const view = page({}, { ...stored, details: stored.details!.slice(0, 3) });
     expect(view.querySelector('#top8-found')!.textContent).toBe('3 rated rounds found; the Top 8 takes 8.');
@@ -922,6 +1022,13 @@ describe('bookmarklet setup', () => {
     vi.unstubAllGlobals();
   });
 
+  it('explains X-tier events: what PDGA leaves out, the mark on unofficial rounds and leaving an event out', () => {
+    const xTier = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
+    for (const part of ['X-tier events', '5.10', 'mulligans', 'Not counted by PDGA', 'X-tier: may not count', 'one tap', 'Top 8 still counts']) {
+      expect(xTier).toContain(part);
+    }
+  });
+
   it('goes back', () => {
     const onBack = vi.fn();
     setupView({ ...setupProps(CODE), onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
@@ -949,9 +1056,9 @@ describe('el', () => {
 describe('players panel', () => {
   const imported: StoredImport = { at: '2026-10-17T10:00:00.000Z', player: rawPlayer(), events: [] };
   const players: StoredPlayer[] = [
-    { pdgaNumber: 100001, favorite: true, import: imported, manualRounds: [] },
-    { pdgaNumber: 100002, favorite: true, import: null, manualRounds: [] },
-    { pdgaNumber: 100003, favorite: false, import: null, manualRounds: [] },
+    { pdgaNumber: 100001, favorite: true, import: imported, manualRounds: [], leftOut: [] },
+    { pdgaNumber: 100002, favorite: true, import: null, manualRounds: [], leftOut: [] },
+    { pdgaNumber: 100003, favorite: false, import: null, manualRounds: [], leftOut: [] },
   ];
 
   function panel(extra: Partial<PlayersProps> = {}): HTMLElement {
@@ -987,6 +1094,20 @@ describe('players panel', () => {
     expect(other!.getAttribute('aria-current')).toBe('true');
     expect(other!.querySelector('[aria-hidden="true"]')!.textContent).toBe('✓ ');
     expect(other!.querySelector('.player-meta')!.textContent).toBe('Not imported yet');
+  });
+
+  it('is headed "Switch player" on phones, with the shown player marked as now', () => {
+    const view = panel();
+    const heading = view.querySelector('#favorites-title')!;
+    expect(heading.querySelector('.menu-only')!.textContent).toBe('Switch player');
+    // The sidebar on wide screens keeps its heading and the check mark.
+    expect(heading.querySelector('.wide-only')!.textContent).toBe('Players');
+    const other = view.querySelector('#player-100002')!;
+    expect(other.querySelector('.badge.menu-only')!.textContent).toBe('Now');
+    expect(other.querySelector('.player-check')!.classList.contains('wide-only')).toBe(true);
+    expect(view.querySelector('#player-100001 .menu-only')).toBeNull();
+    // The top bar's button closes the panel, so it has no Close button of its own.
+    expect(view.querySelector('#players-close')).toBeNull();
   });
 
   it("links each player to its ratings details on pdga.com", () => {
@@ -1055,6 +1176,7 @@ describe('players panel', () => {
       favorite: true,
       import: { at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }), events: [] },
       manualRounds: [],
+      leftOut: [],
     });
     const many = [
       named(100004, 'Zoe Ash', '2026-10-19T10:00:00.000Z'),
@@ -1115,17 +1237,31 @@ describe('players panel', () => {
 });
 
 describe('top bar', () => {
-  it('has a menu button that controls the players panel', () => {
+  it('has a menu button that controls the players panel and reads Close while it is open', () => {
     const onToggle = vi.fn();
-    const bar = topBar(false, onToggle);
+    const bar = topBar({ open: false, onToggle });
     const button = bar.querySelector<HTMLButtonElement>('#players-menu')!;
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-controls')).toBe('favorites');
-    // The heading names the player, so the bar holds only the button.
+    expect(button.textContent).toBe('☰ Players');
+    // Without a player to name, the bar holds only the button.
     expect(bar.children).toHaveLength(1);
     button.click();
     expect(onToggle).toHaveBeenCalled();
-    expect(topBar(true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
+    const open = topBar({ open: true, onToggle: vi.fn() }).querySelector('#players-menu')!;
+    expect(open.getAttribute('aria-expanded')).toBe('true');
+    expect(open.textContent).toBe('Close');
+  });
+
+  it('names the shown player, with the PDGA number on a line of its own, before the button', () => {
+    const bar = topBar({ open: false, onToggle: vi.fn(), player: { name: 'Test Player', pdgaNumber: 100001 } });
+    const heading = bar.querySelector('h1')!;
+    expect(heading.textContent).toBe('Test Player #100001');
+    expect(heading.querySelector('.topbar-number')!.textContent).toBe('#100001');
+    expect(heading.nextElementSibling!.id).toBe('players-menu');
+    const unnamed = topBar({ open: false, onToggle: vi.fn(), player: { name: '', pdgaNumber: 100002 } });
+    expect(unnamed.querySelector('h1')!.textContent).toBe('#100002');
+    expect(unnamed.querySelector('.topbar-number')).toBeNull();
   });
 });
 
@@ -1155,7 +1291,7 @@ describe('how it works', () => {
     const headings = [...view.querySelectorAll('h2')];
     expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
     expect(headings.map((h2) => h2.getAttribute('tabindex'))).toEqual(Array(GUIDE_SECTIONS.length).fill('-1'));
-    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'why', 'target', 'top8']);
+    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'target', 'top8']);
   });
 
   it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
@@ -1175,8 +1311,9 @@ describe('how it works', () => {
     for (const part of ['12 months', '24 months', '2.5 standard deviations', 'at least 7 rounds', 'at least 9 counted rounds', 'highest rated rounds of that event', '9-hole round counts half', 'DNF']) {
       expect(rules).toContain(part);
     }
-    expect(rules).toContain('Two things are not yet checked against a real player');
-    expect(rules).toContain('two low rounds in the same window');
+    expect(rules).toContain('One thing is not yet checked against a real player');
+    expect(rules).toContain('two low rounds dropped in the same window');
+    expect(rules).toContain('A rating only changes when new rated rounds are added');
     expect(rules).toContain('whole round ratings shown on pdga.com');
   });
 
@@ -1219,5 +1356,16 @@ describe('how it works', () => {
     expect(links[1]!.getAttribute('aria-label')).toBe('How it works: Top 8');
     for (const link of links) link.click();
     expect(onGuide.mock.calls.map(([section]) => section)).toEqual(['why', 'top8', 'rules', 'rules']);
+  });
+
+  it('opens at X-tier events from the unofficial events in the Rounds card', () => {
+    const stored: StoredImport = { at: '2026-10-01T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [rawEvent()] };
+    const onGuide = vi.fn();
+    const props = { model: buildModel(stored, 100001, NOW), cards: ALL_OPEN, onLeaveOut: vi.fn(), favorite: true, now: NOW, onAddFavorite: vi.fn() };
+    const link = ratingView({ ...props, onGuide }).querySelector<HTMLButtonElement>('#event-choices #xtier-guide')!;
+    expect(link.getAttribute('aria-label')).toBe('How it works: X-tier events');
+    link.click();
+    expect(onGuide).toHaveBeenCalledWith('xtier');
+    expect(ratingView(props).querySelector('#xtier-guide')).toBeNull();
   });
 });

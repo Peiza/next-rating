@@ -12,14 +12,14 @@ import {
   formatEffect,
   formatRating,
 } from '../format';
-import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
+import { isXTier, STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { targetCalculator, type TargetProps } from './target';
-import { GMS_URL, top8Panel, type Top8Props } from './top8';
+import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
 
 export interface RatingProps {
   model: Model;
@@ -34,6 +34,8 @@ export interface RatingProps {
   /** Which cards are open; only Rounds when left out. */
   cards?: CardState;
   onToggleCard?: (name: CardName) => void;
+  /** Leaves an unofficial event out of the prediction, or counts it again. Without it, the Rounds card offers no choice. */
+  onLeaveOut?: (key: string, leftOut: boolean) => void;
   /** Opens How it works at a section, from a card's explanation. Without it, the explanations have no link. */
   onGuide?: (section: GuideSection) => void;
   /** False for the unsaved player, which gets an Add to favorites button. */
@@ -52,6 +54,8 @@ const STATUS: Record<RoundStatus, { symbol: string; label: MessageKey }> = {
   doubled: { symbol: '×2', label: 'round.status.doubled' },
   dropped: { symbol: '↓', label: 'round.status.dropped' },
   'outside-window': { symbol: '○', label: 'round.status.outside-window' },
+  excluded: { symbol: '⊘', label: 'round.status.excluded' },
+  'left-out': { symbol: '⊖', label: 'round.status.left-out' },
   'after-deadline': { symbol: '»', label: 'round.status.after-deadline' },
   dnf: { symbol: '–', label: 'round.status.dnf' },
 };
@@ -187,12 +191,18 @@ function roundEvent(round: ListedRound): HTMLElement | false {
   return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
 }
 
+/** An unofficial round of an X-tier event counts, but PDGA may leave it out (Competition Manual 5.10). */
+function xTierNote(round: ListedRound): string {
+  return round.source === 'unofficial' && isXTier(round.tier) ? t('round.xTier') : '';
+}
+
 function roundItem({ round, result }: ListedResult): HTMLElement {
   const status = STATUS[result.status];
   const details = [
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
     t(SOURCE[round.source]),
+    xTierNote(round),
   ].filter(Boolean);
   return el(
     'li',
@@ -228,6 +238,7 @@ const NEW_ROUND: Partial<Record<RoundStatus, MessageKey>> = {
   doubled: 'why.newDoubled',
   dropped: 'why.newDropped',
   'outside-window': 'why.newOutsideWindow',
+  'left-out': 'why.newLeftOut',
 };
 
 /** Lines shown before "Show all". */
@@ -252,7 +263,7 @@ function reasonText({ item }: ListedChange): string {
 
 function reasonItem(change: ListedChange): HTMLElement {
   const { round, item } = change;
-  const where = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), formatDate(round.date)];
+  const where = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), formatDate(round.date), xTierNote(round)];
   return el(
     'li',
     { class: 'reason' },
@@ -277,8 +288,23 @@ function hasChanges({ changes, prediction, difference }: Model): boolean {
   return prediction.change !== null && changes !== null && (changes.length > 0 || difference !== null);
 }
 
-/** The largest effect as one line for the closed card, such as "907 no longer counts twice, +0.7". */
-function whyTeaser({ changes, difference }: Model): string | false {
+/** "No new rated rounds since the last update, so the rating stays at 902", when the rating cannot change. */
+function unchangedText({ prediction }: Model): string | null {
+  return prediction.unchanged && prediction.rating !== null
+    ? t('why.noNewRounds', { rating: formatRating(prediction.rating) })
+    : null;
+}
+
+/**
+ * One line for the closed card: the largest effect, such as "907 no longer
+ * counts twice, +0.7", or the net total when the change rounds to nothing,
+ * so the header does not suggest a change that is not there.
+ */
+function whyTeaser(model: Model): string | false {
+  const { changes, difference, netChange, prediction } = model;
+  const unchanged = unchangedText(model);
+  if (unchanged !== null) return unchanged;
+  if (prediction.change === 0 && netChange !== null) return t('why.netNoChange', { net: formatEffect(netChange) });
   const top = changes?.[0];
   const [reason, value] =
     top && (difference === null || Math.abs(top.item.effect) >= Math.abs(difference))
@@ -302,7 +328,33 @@ function netLine(net: number, change: number): HTMLElement {
   return el('p', { id: 'why-net', class: 'why-net' }, text);
 }
 
+/**
+ * What each event the user left out would give if it counted, from the
+ * engine. Outside the sum: the left-out rounds are in the list with 0.0.
+ */
+function leftOutLines({ unofficialEvents }: Model): HTMLElement | false {
+  const lines = unofficialEvents.flatMap(({ name, date, ifCounted }) =>
+    ifCounted
+      ? [
+          el(
+            'li',
+            {},
+            t('why.ifCounted', {
+              event: name || formatDate(date),
+              rating: formatRating(ifCounted.rating),
+              effect: formatEffect(ifCounted.effect),
+            }),
+          ),
+        ]
+      : [],
+  );
+  return lines.length > 0 && el('ul', { id: 'why-left-out', class: 'why-left-out' }, ...lines);
+}
+
 function whyBody(model: Model, changes: ListedChange[]): Child[] {
+  const unchanged = unchangedText(model);
+  // The rating stays, so nothing moved it: no effects and no difference line.
+  if (unchanged !== null) return [el('p', { id: 'why-unchanged', class: 'why-net' }, unchanged), leftOutLines(model)];
   const { difference, staleDetails, player, netChange, prediction } = model;
   const shown = changes.slice(0, REASONS_SHOWN);
   const more = changes.slice(REASONS_SHOWN);
@@ -316,6 +368,7 @@ function whyBody(model: Model, changes: ListedChange[]): Child[] {
         el('summary', {}, t('why.showAll', { total: changes.length })),
         el('ul', { class: 'reasons' }, ...more.map(reasonItem)),
       ),
+    leftOutLines(model),
     difference !== null &&
       staleDetails &&
       player?.ratingDate &&
@@ -367,9 +420,62 @@ function statsList(stats: RatingStats, exact: number | null): HTMLElement {
   );
 }
 
-/** Every round, newest first, after the events that have no rated round for the player yet. */
-function roundsBody(model: Model): Child[] {
+/**
+ * The unofficial events, each with a Count checkbox: one tap leaves an event
+ * out of the prediction, such as an X-tier event that may not count.
+ */
+function eventChoices(
+  { unofficialEvents }: Model,
+  onLeaveOut: RatingProps['onLeaveOut'],
+  onGuide: RatingProps['onGuide'],
+): HTMLElement | false {
+  if (!onLeaveOut || unofficialEvents.length === 0) return false;
+  return el(
+    'fieldset',
+    { id: 'event-choices', class: 'event-choices' },
+    el('legend', {}, t('rounds.events.legend')),
+    el(
+      'p',
+      { class: 'hint' },
+      t('rounds.events.hint'),
+      onGuide && ' ',
+      onGuide &&
+        el(
+          'button',
+          {
+            id: 'xtier-guide',
+            class: 'link-button',
+            type: 'button',
+            'aria-label': t('guide.linkFor', { topic: t('guide.xtier.title') }),
+            onclick: () => onGuide('xtier'),
+          },
+          t('guide.link'),
+        ),
+    ),
+    ...unofficialEvents.map((event, i) => {
+      const id = `count-event-${i}`;
+      const meta = [formatDate(event.date), event.xTier ? t('round.xTier') : ''].filter(Boolean).join(' · ');
+      return el(
+        'div',
+        { class: 'check' },
+        el('input', {
+          id,
+          type: 'checkbox',
+          checked: !event.leftOut,
+          'aria-describedby': `${id}-meta`,
+          onchange: (change) => onLeaveOut(event.key, !(change.target as HTMLInputElement).checked),
+        }),
+        el('label', { for: id }, event.name || formatDate(event.date)),
+        el('p', { id: `${id}-meta`, class: 'check-meta' }, meta),
+      );
+    }),
+  );
+}
+
+/** Every round, newest first, after the unofficial events to choose from and the events that have no rated round for the player yet. */
+function roundsBody(model: Model, onLeaveOut: RatingProps['onLeaveOut'], onGuide: RatingProps['onGuide']): Child[] {
   return [
+    eventChoices(model, onLeaveOut, onGuide),
     model.eventsWithoutRounds.length > 0 &&
       el(
         'p',
@@ -446,16 +552,17 @@ export function ratingView(props: RatingProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
+    // On phones the top bar names the player instead, so only one h1 shows.
     el(
       'h1',
-      { id: 'view-title' },
+      { id: 'view-title', class: 'wide-only' },
       model.player?.name
         ? t('rating.player', { name: model.player.name, number: model.pdgaNumber })
         : t('rating.playerNumber', { number: model.pdgaNumber }),
     ),
     summary(props),
-    hasChanges(model) &&
-      section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes!), whyTeaser(model)),
+    (hasChanges(model) || unchangedText(model) !== null) &&
+      section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes ?? []), whyTeaser(model)),
     manual &&
       section(
         'manual',
@@ -465,12 +572,12 @@ export function ratingView(props: RatingProps): HTMLElement {
         manual.rounds.length > 0 && t('manual.count', { count: manual.rounds.length }),
       ),
     target && section('target', 'target.toggle', () => [t('target.intro')], () => [targetCalculator(target)]),
-    top8 && section('top8', 'top8.title', top8Intro, () => top8Panel(top8)),
+    top8 && section('top8', 'top8.title', top8Intro, () => top8Panel(top8), top8Teaser(top8.top)),
     section('stats', 'stats.title', () => [t('stats.intro')], () => [
       statsList(model.prediction.stats, model.prediction.exact),
     ]),
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
-      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model)),
+      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props.onLeaveOut, onGuide)),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }

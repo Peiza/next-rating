@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { explainChange, predictRating, subtractMonths, targetAverage, topRounds } from '../../src/engine';
+import { explainChange, predictRating, subtractMonths, targetAverage, topRounds, type RoundStatus } from '../../src/engine';
 import { detailsToRounds, eventToRounds, mergeRounds, parseEvent, parsePlayer, parseRatingsDetails } from '../../src/parsers';
 import { fixturePlayers, fixtures } from '../fixture-loader';
 import { parseHtml } from '../parsers/html';
@@ -16,17 +16,19 @@ describe.skipIf(!fixtures)('engine against pdga.com', () => {
   const { html, expected } = fixtures;
   const { rounds } = parseRatingsDetails(parseHtml(html.details));
   const player = parsePlayer(parseHtml(html.profile))!;
-  const prediction = predictRating(detailsToRounds(rounds), { currentRating: player.currentRating });
+  // Without the current rating, so the rating is calculated, not kept.
+  const prediction = predictRating(detailsToRounds(rounds));
 
   it("reproduces PDGA's Included flag for every round", () => {
     const counted = prediction.rounds.map((round) => round.status === 'included' || round.status === 'doubled');
     expect(counted).toEqual(rounds.map((round) => round.included));
   });
 
-  it('reproduces the official rating', () => {
+  it('reproduces the official rating, and keeps it without new rated rounds', () => {
     expect(player.currentRating).not.toBeNull();
     expect(prediction.rating).toBe(player.currentRating);
-    expect(prediction.change).toBe(0);
+    const kept = predictRating(detailsToRounds(rounds), { currentRating: player.currentRating });
+    expect(kept).toMatchObject({ rating: player.currentRating, change: 0, unchanged: true });
   });
 
   it('takes a Top 8 that is sorted and adds up, in the window and in each year', () => {
@@ -69,6 +71,9 @@ describe.skipIf(!fixtures)('engine against pdga.com', () => {
  *   npm test -- tests/engine/fixture.test.ts --silent=false
  * to see the table.
  */
+/** Statuses of the rounds in the prediction's window, the ones PDGA evaluates. */
+const IN_WINDOW = new Set<RoundStatus>(['included', 'doubled', 'dropped']);
+
 describe.skipIf(!fixtures)('rule check against pdga.com', () => {
   if (!fixtures) return;
   const players = fixturePlayers();
@@ -83,11 +88,14 @@ describe.skipIf(!fixtures)('rule check against pdga.com', () => {
     const details = parseRatingsDetails(parseHtml(html.details)).rounds;
     const official = parsePlayer(parseHtml(html.profile))!.currentRating;
     const rounds = detailsToRounds(details);
-    const prediction = predictRating(rounds, { currentRating: official });
-    const window = prediction.rounds.flatMap((result, i) => (result.status === 'outside-window' ? [] : [i]));
+    // Without the current rating, so the rating is calculated, not kept.
+    const prediction = predictRating(rounds);
+    const window = prediction.rounds.flatMap((result, i) => (IN_WINDOW.has(result.status) ? [i] : []));
     const counted = details.flatMap((round, i) => (round.included ? [i] : []));
 
-    const row: Record<string, string> = {};
+    const row: Record<string, string> = {
+      'excluded by PDGA': String(prediction.rounds.filter((result) => result.status === 'excluded').length),
+    };
     const drops: Record<string, boolean> = {};
     for (const [name, rule] of Object.entries(DROP_RULES)) {
       const dropped = rule(rounds, window);
@@ -103,8 +111,8 @@ describe.skipIf(!fixtures)('rule check against pdga.com', () => {
     table[label] = row;
 
     describe(label, () => {
-      it("matches PDGA's window (Evaluated flags)", () => {
-        expect(prediction.rounds.map((result) => result.status !== 'outside-window')).toEqual(
+      it("matches PDGA's window (Evaluated flags), without the rounds PDGA left out", () => {
+        expect(prediction.rounds.map((result) => IN_WINDOW.has(result.status))).toEqual(
           details.map((round) => round.evaluated),
         );
       });

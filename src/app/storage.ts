@@ -47,6 +47,8 @@ const TOP_YEARS = [1970, 2200] as const;
 export const MAX_FAVORITES = 30;
 export const MAX_MANUAL_ROUNDS = 200;
 export const MAX_EVENT_NAME = 100;
+/** Events a player can have left out; the stored events are fewer (MAX_EVENTS). */
+export const MAX_LEFT_OUT = 50;
 
 /** A round the user typed in. Its date may lie ahead, for a round at an upcoming event. */
 export interface StoredManualRound {
@@ -68,6 +70,12 @@ export interface StoredPlayer {
   import: StoredImport | null;
   /** Rounds typed in by the user, in the order they were added. */
   manualRounds: StoredManualRound[];
+  /**
+   * Event keys of the unofficial events the user left out of the
+   * prediction, such as X-tier events that may not count. Only keys of
+   * stored events are kept (players.ts prunes the rest on import).
+   */
+  leftOut: string[];
 }
 
 export interface AppData {
@@ -148,6 +156,16 @@ function validateManualRounds(value: unknown): StoredManualRound[] {
   return rounds;
 }
 
+/** An event key as the parsers make it: "e:" and a pdga.com event id, or "n:" and the event's name and date. */
+const EVENT_KEY = /^(?:e:\d{1,9}|n:.{1,300})$/s;
+
+/** Left-out events one at a time, so a bad key costs only itself. Data saved before they existed has none. */
+function validateLeftOut(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const keys = value.filter((key): key is string => typeof key === 'string' && EVENT_KEY.test(key));
+  return [...new Set(keys)].slice(0, MAX_LEFT_OUT);
+}
+
 /** Each card on its own, so a bad value costs only that card. */
 function validateCards(value: unknown): CardState {
   const fields = record(value) ?? {};
@@ -181,6 +199,7 @@ export function validatePlayer(value: unknown): StoredPlayer | null {
     favorite: fields.favorite,
     import: importOf(fields.import, pdgaNumber),
     manualRounds: validateManualRounds(fields.manualRounds),
+    leftOut: validateLeftOut(fields.leftOut),
   };
 }
 
@@ -240,9 +259,11 @@ export function migrateV1(value: unknown): { data: AppData; complete: boolean } 
   }
 
   const players: StoredPlayer[] = [];
-  if (me !== null) players.push({ pdgaNumber: me, favorite: true, import: owner === me ? migrated : null, manualRounds: [] });
+  if (me !== null) {
+    players.push({ pdgaNumber: me, favorite: true, import: owner === me ? migrated : null, manualRounds: [], leftOut: [] });
+  }
   if (owner !== null && owner !== me && migrated) {
-    players.push({ pdgaNumber: owner, favorite: false, import: migrated, manualRounds: [] });
+    players.push({ pdgaNumber: owner, favorite: false, import: migrated, manualRounds: [], leftOut: [] });
   }
   const lost = fields.lastImport !== undefined && fields.lastImport !== null && migrated === null;
   return { data: validateData({ ...base, me, players }), complete: !lost };

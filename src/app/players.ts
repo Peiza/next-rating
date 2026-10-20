@@ -1,8 +1,9 @@
 import type { ImportParts } from '../handoff';
 import { normalizePlayer } from '../parsers';
-import { applyImport, hasPlayerRow, playerNumber } from './import';
+import { applyImport, eventKey, hasPlayerRow, playerNumber } from './import';
 import {
   MAX_FAVORITES,
+  MAX_LEFT_OUT,
   MAX_MANUAL_ROUNDS,
   type AppData,
   type PlayerOrder,
@@ -73,6 +74,7 @@ export function addFavorite(data: AppData, pdgaNumber: number): AppData {
     favorite: true,
     import: existing?.import ?? null,
     manualRounds: existing?.manualRounds ?? [],
+    leftOut: existing?.leftOut ?? [],
   };
   // Favorites keep the order they were added in, ahead of the unsaved player.
   const others = data.players.filter((other) => other.pdgaNumber !== pdgaNumber);
@@ -152,6 +154,18 @@ export function clearManualRounds(data: AppData, pdgaNumber: number): AppData {
   return player ? replacePlayer(data, { ...player, manualRounds: [] }) : data;
 }
 
+/**
+ * Leaves an unofficial event out of the player's prediction, or counts it
+ * again. Stored per player, by event key.
+ */
+export function setLeftOut(data: AppData, pdgaNumber: number, key: string, leftOut: boolean): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  if (!player || player.leftOut.includes(key) === leftOut) return data;
+  if (leftOut && player.leftOut.length >= MAX_LEFT_OUT) return data;
+  const keys = leftOut ? [...player.leftOut, key] : player.leftOut.filter((other) => other !== key);
+  return replacePlayer(data, { ...player, leftOut: keys });
+}
+
 export interface Routed {
   data: AppData;
   /** The player the import was for, or null for event pages without a player. */
@@ -162,7 +176,13 @@ export interface Routed {
   noPlayer: boolean;
 }
 
-function withImport(data: AppData, player: StoredPlayer): AppData {
+/**
+ * Stores a player's new import. Left-out events that are no longer stored,
+ * such as an event now in the ratings details, are forgotten.
+ */
+function withImport(data: AppData, imported: StoredPlayer): AppData {
+  const stored = new Set((imported.import?.events ?? []).map(eventKey));
+  const player = { ...imported, leftOut: imported.leftOut.filter((key) => stored.has(key)) };
   const exists = data.players.some((other) => other.pdgaNumber === player.pdgaNumber);
   return {
     ...data,
@@ -198,6 +218,7 @@ export function routeImport(
       favorite: existing?.favorite ?? false,
       import: next,
       manualRounds: existing?.manualRounds ?? [],
+      leftOut: existing?.leftOut ?? [],
     };
     return { data: withImport(data, player), owner: pdgaNumber, players: [pdgaNumber], noPlayer: false };
   }
