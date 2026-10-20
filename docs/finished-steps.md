@@ -368,6 +368,14 @@ Built as (docs/plan-x-tier.md):
   and under the list says what counting each left-out event would give,
   from the engine.
 - The Top 8 still counts every rated round, including both kinds.
+- Added after a sixth player whose calculated rating is 1 below the official
+  one with no new rounds: a rating only updates when new rated rounds are
+  added (PDGA ratings guide). With the current rating known and no
+  unofficial or manual round counting in the next update, `predictRating`
+  keeps the current rating (`unchanged`), `targetAverage` keeps it for
+  "without", and Why it changed says "No new rated rounds since the last
+  update, so the rating stays at 902" instead of a difference line. That
+  player's pages are kept to check again after the next update.
 - Rule check: the fifth player reproduces PDGA's flags and official rating;
   4 rounds excluded by PDGA, leave one out matches for all players.
 

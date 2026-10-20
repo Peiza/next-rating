@@ -116,6 +116,12 @@ export interface Prediction {
   rating: number | null;
   /** Unrounded weighted average. */
   exact: number | null;
+  /**
+   * True when the current rating is known and no new rated round (one that
+   * is not official) counts in this update: a rating only updates when new
+   * rated rounds are added, so `rating` is the current rating.
+   */
+  unchanged: boolean;
   /** rating - currentRating, when both are known. */
   change: number | null;
   /** One result per input round, in input order. */

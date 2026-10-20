@@ -75,6 +75,13 @@ describe('targetAverage', () => {
     );
   });
 
+  it('keeps the current rating without new rounds, as the prediction does', () => {
+    const rounds = monthly([950, 950, 950, 950, 950, 950]);
+    const result = targetAverage(rounds, 970, { count: 3, date: TODAY, currentRating: 948 });
+    expect(result.without).toBe(948);
+    expect(result.average).toBe(targetAverage(rounds, 970, { count: 3, date: TODAY }).average);
+  });
+
   it('leaves out new rounds after the deadline', () => {
     const rounds = monthly([950, 950, 950, 950, 950, 950]);
     const later = round(800, '2026-11-15', { source: 'unofficial' });

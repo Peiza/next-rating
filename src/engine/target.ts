@@ -18,6 +18,8 @@ export interface TargetOptions {
   deadline?: PlainDate;
   /** Events the user left out, as in predictRating. */
   leaveOut?: ReadonlySet<string>;
+  /** The current official rating, which `without` keeps when no new rated round counts. */
+  currentRating?: number | null;
 }
 
 export interface TargetResult {
@@ -61,7 +63,7 @@ function upcoming(count: number, date: PlainDate, rating: number): RoundInput[] 
  * rating that falls short gives an answer where every higher rating works too.
  */
 export function targetAverage(rounds: readonly RoundInput[], target: number, options: TargetOptions): TargetResult {
-  const { count, date, deadline, leaveOut } = options;
+  const { count, date, deadline, leaveOut, currentRating } = options;
   if (!Number.isInteger(count) || count < 1) throw new RangeError(`Invalid round count: ${count}`);
   if (!Number.isInteger(target) || target < 1) throw new RangeError(`Invalid target: ${target}`);
   if (deadline !== undefined && compareDates(date, deadline) > 0) {
@@ -73,7 +75,7 @@ export function targetAverage(rounds: readonly RoundInput[], target: number, opt
     ...(leaveOut !== undefined && { leaveOut }),
   };
   const reaches = (rating: number | null) => rating !== null && rating >= target;
-  const without = predictRating(rounds, predict).rating;
+  const without = predictRating(rounds, { ...predict, currentRating }).rating;
   const reached = reaches(without);
 
   // The window follows from the dates alone, and the new rounds' date is

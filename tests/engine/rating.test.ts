@@ -50,10 +50,32 @@ describe('predictRating', () => {
   });
 
   it('reports the change against the current rating', () => {
-    const rounds = weekly([1000, 950, 900]);
+    const rounds = [round(1000, '2026-08-27', { source: 'unofficial' }), ...weekly([950, 900], '2026-08-20')];
     expect(predictRating(rounds, { currentRating: 940 }).change).toBe(10);
     expect(predictRating(rounds, { currentRating: 960 }).change).toBe(-10);
     expect(predictRating(rounds).change).toBeNull();
+  });
+
+  describe('without new rated rounds', () => {
+    // PDGA updates a rating only when new rated rounds are added.
+    const official = weekly([1000, 950, 900]);
+
+    it('keeps the current rating, with the calculated average still in exact', () => {
+      const prediction = predictRating(official, { currentRating: 948 });
+      expect(prediction).toMatchObject({ rating: 948, exact: 950, change: 0, unchanged: true });
+      expect(predictRating(official)).toMatchObject({ rating: 950, unchanged: false });
+    });
+
+    it('counts only new rounds in this update: not DNF rounds, rounds after the deadline or rounds left out', () => {
+      const dnf = { ...round(0, '2026-09-01', { source: 'unofficial', dnf: true }), rating: null };
+      const later = round(1000, '2026-09-10', { source: 'manual' });
+      const left = round(1000, '2026-09-01', { source: 'unofficial', eventKey: 'x' });
+      const options = { currentRating: 948, deadline: '2026-09-06', leaveOut: new Set(['x']) };
+      expect(predictRating([dnf, later, left, ...official], options).unchanged).toBe(true);
+      // Any new rated round updates the rating, also one that is dropped or outside the window.
+      const old = round(700, '2026-08-26', { source: 'manual' });
+      expect(predictRating([old, ...official], options)).toMatchObject({ unchanged: false });
+    });
   });
 
   describe('window', () => {

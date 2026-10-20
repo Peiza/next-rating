@@ -14,8 +14,9 @@ async function start(url: string): Promise<void> {
   await import('../../src/app/main');
 }
 
-const detailsHtml = playerHeader() + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' })]);
-const otherHtml = playerHeader('Other Player', '100002', '990') + detailsTable([detailsRow({ rating: '1000' })]);
+// Official ratings equal to what the rounds give, since without new rated rounds the prediction keeps the official rating.
+const detailsHtml = playerHeader('Test Player', '100001', '960') + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' })]);
+const otherHtml = playerHeader('Other Player', '100002', '1000') + detailsTable([detailsRow({ rating: '1000' })]);
 
 const EVENT_URL = 'https://www.pdga.com/tour/event/900005';
 /** Unofficial results with rows for 100001 and 100002. */
@@ -198,7 +199,7 @@ describe('app start', () => {
 
   it('switches players from the menu, and removes one after asking', async () => {
     const at = '2026-10-01T10:00:00.000Z';
-    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player', currentRating: '1000' });
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -322,7 +323,7 @@ describe('app start', () => {
 
   it('calculates a target, keeps the answer through a re-render, and starts empty for another player', async () => {
     const at = '2026-10-01T10:00:00.000Z';
-    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player', currentRating: '1000' });
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({

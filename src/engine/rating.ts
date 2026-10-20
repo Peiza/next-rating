@@ -173,6 +173,11 @@ function weigh(
  * (excludedByPdga), and neither do rounds of events the user left out. With
  * a deadline, new rounds dated after it wait for the following update. All
  * of these are left out of everything, like DNF rounds.
+ *
+ * A rating only updates when new rated rounds are added (PDGA ratings
+ * guide). So with a current rating and no round in this update that is not
+ * official, the rating stays at the current rating; `exact` is still the
+ * calculated average.
  */
 export function predictRating(
   rounds: readonly RoundInput[],
@@ -239,8 +244,9 @@ export function predictRating(
   for (const i of inWindow) status[i] = countedSet.has(i) ? 'included' : 'dropped';
 
   const { doubleCount, weights, exact } = weigh(rounds, status, counted);
-  const rating = exact === null ? null : Math.round(exact);
   const currentRating = options.currentRating ?? null;
+  const unchanged = currentRating !== null && !rated.some((i) => rounds[i]!.source !== 'official');
+  const rating = unchanged ? currentRating : exact === null ? null : Math.round(exact);
 
   const stats: RatingStats = {
     totalRounds: rated.length,
@@ -266,6 +272,7 @@ export function predictRating(
     rating,
     exact,
     change: rating !== null && currentRating !== null ? rating - currentRating : null,
+    unchanged,
     rounds: rounds.map((round, i) => ({ id: round.id, status: status[i]!, weight: weights[i]! })),
     stats,
   };

@@ -288,12 +288,22 @@ function hasChanges({ changes, prediction, difference }: Model): boolean {
   return prediction.change !== null && changes !== null && (changes.length > 0 || difference !== null);
 }
 
+/** "No new rated rounds since the last update, so the rating stays at 902", when the rating cannot change. */
+function unchangedText({ prediction }: Model): string | null {
+  return prediction.unchanged && prediction.rating !== null
+    ? t('why.noNewRounds', { rating: formatRating(prediction.rating) })
+    : null;
+}
+
 /**
  * One line for the closed card: the largest effect, such as "907 no longer
  * counts twice, +0.7", or the net total when the change rounds to nothing,
  * so the header does not suggest a change that is not there.
  */
-function whyTeaser({ changes, difference, netChange, prediction }: Model): string | false {
+function whyTeaser(model: Model): string | false {
+  const { changes, difference, netChange, prediction } = model;
+  const unchanged = unchangedText(model);
+  if (unchanged !== null) return unchanged;
   if (prediction.change === 0 && netChange !== null) return t('why.netNoChange', { net: formatEffect(netChange) });
   const top = changes?.[0];
   const [reason, value] =
@@ -342,6 +352,9 @@ function leftOutLines({ unofficialEvents }: Model): HTMLElement | false {
 }
 
 function whyBody(model: Model, changes: ListedChange[]): Child[] {
+  const unchanged = unchangedText(model);
+  // The rating stays, so nothing moved it: no effects and no difference line.
+  if (unchanged !== null) return [el('p', { id: 'why-unchanged', class: 'why-net' }, unchanged), leftOutLines(model)];
   const { difference, staleDetails, player, netChange, prediction } = model;
   const shown = changes.slice(0, REASONS_SHOWN);
   const more = changes.slice(REASONS_SHOWN);
@@ -548,8 +561,8 @@ export function ratingView(props: RatingProps): HTMLElement {
         : t('rating.playerNumber', { number: model.pdgaNumber }),
     ),
     summary(props),
-    hasChanges(model) &&
-      section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes!), whyTeaser(model)),
+    (hasChanges(model) || unchangedText(model) !== null) &&
+      section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes ?? []), whyTeaser(model)),
     manual &&
       section(
         'manual',

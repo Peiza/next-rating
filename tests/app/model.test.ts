@@ -20,12 +20,19 @@ const details = [
 
 describe('buildModel', () => {
   it('predicts from the ratings details, with the change vs the official rating', () => {
-    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details }), 100001, NOW);
+    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] }), 100001, NOW);
     expect(model.player).toMatchObject({ pdgaNumber: 100001, currentRating: 950, ratingDate: '2026-09-08' });
-    expect(model.prediction.rating).toBe(960);
-    expect(model.prediction.change).toBe(10);
+    expect(model.prediction.rating).toBe(959);
+    expect(model.prediction.change).toBe(9);
     expect(model.importedAt).toBe(AT);
-    expect(model.rows.map(({ round }) => round.eventName)).toEqual(['Example Open', 'Example Open', 'Example Spring']);
+    expect(model.rows.map(({ round }) => round.eventName)).toEqual(['Example Cup', 'Example Cup', 'Example Open', 'Example Open', 'Example Spring']);
+  });
+
+  it('keeps the official rating without new rated rounds, with nothing to explain', () => {
+    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details }), 100001, NOW);
+    expect(model.prediction).toMatchObject({ rating: 950, change: 0, unchanged: true });
+    expect(model.prediction.exact).toBe(960);
+    expect([model.changes, model.difference, model.netChange]).toEqual([null, null, null]);
   });
 
   it('hides the change without an official rating', () => {

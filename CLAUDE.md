@@ -120,11 +120,12 @@ Open, both optional:
   plain (unweighted) mean and population stdev of the OTHER rounds in the
   window, all taken before any exclusion, so the rule is not iterated. Drop it
   when it is below max(mean - 100, mean - 2.5 * stdev), only if at least 7
-  rounds are in the window. Verified against several players' Included flags;
-  one limit from the mean of all rounds, and a mean with double weighting,
-  both fail (the local rule check in tests/engine/fixture.test.ts).
-  Previously excluded official rounds can become included again when new rounds
-  are added, so never trust PDGA's Included flag for prediction; recompute.
+  rounds are in the window. Verified against several players' Included flags,
+  including two low rounds dropped in the same window; one limit from the
+  mean of all rounds, and a mean with double weighting, both fail (the local
+  rule check in tests/engine/fixture.test.ts). Previously excluded official
+  rounds can become included again when new rounds are added, so never trust
+  PDGA's Included flag for prediction; recompute.
 - Double weighting: the most recent 25% (rounded up) of included rounds count
   twice, only if at least 9 rounds are included.
 - If the 25% boundary falls inside an event, double-weight the HIGHEST rated
@@ -135,6 +136,10 @@ Open, both optional:
   rating); shorter rounds are weighted down (not yet verified against a
   fixture).
 - DNF rounds never count.
+- A rating only updates when new rated rounds are added (PDGA ratings
+  guide): when no unofficial or manual round counts in the next update, the
+  prediction is the official rating, and Why it changed says so instead of
+  showing a difference line.
 - An official round PDGA marks Evaluated No although it is dated inside the
   window PDGA evaluated never counts, also after the window moves (X-tier
   events with non-standard rules, Competition Manual 5.10). Read that window

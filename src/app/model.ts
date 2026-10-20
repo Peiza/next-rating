@@ -2,6 +2,7 @@ import {
   compareDates,
   explainChange,
   nextRatingUpdate,
+  officialState,
   predictRating,
   type ChangeItem,
   type PlainDate,
@@ -138,6 +139,13 @@ export interface Model {
   unofficialEvents: UnofficialEvent[];
 }
 
+/** The official state's unrounded rating, when it rounds to the official rating. */
+function officialExactOf(rounds: readonly ListedRound[], currentRating: number | null): number | null {
+  if (currentRating === null || !rounds.some((round) => round.source === 'official')) return null;
+  const state = officialState(rounds);
+  return state.rating === currentRating ? state.exact : null;
+}
+
 /**
  * One entry per unofficial event among the rounds, newest first. A left-out
  * event also gets the prediction it would give if it counted, from the
@@ -229,8 +237,7 @@ export function buildModel(
     changes,
     difference: explanation?.difference ?? null,
     netChange: explanation ? explanation.total + (explanation.difference ?? 0) : null,
-    officialExact:
-      explanation && currentRating !== null && explanation.before.rating === currentRating ? explanation.before.exact : null,
+    officialExact: officialExactOf(rounds, currentRating),
     staleDetails,
     importedAt: stored.at,
     stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,

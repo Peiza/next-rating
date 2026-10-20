@@ -55,6 +55,7 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
         ),
       ),
       paragraph('guide.rules.result'),
+      paragraph('guide.rules.noNew'),
       paragraph('guide.rules.verified'),
       paragraph('guide.rules.decimals'),
     ],

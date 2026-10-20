@@ -262,10 +262,15 @@ describe('the difference from the official rating', () => {
   });
 
   it('covers what the rules decide differently from PDGA', () => {
-    const after = predictRating(rounds, { currentRating: 950 });
-    const explanation = explainChange(rounds, after, 950)!;
+    const after = predictRating(all, { currentRating: 950 });
+    const explanation = explainChange(all, after, 950)!;
     // The rules drop the 700, which PDGA counted.
-    expect(explanation.items.map((item) => item.kind)).toEqual(['newly-dropped']);
-    expect(explanation.items[0]!.effect + explanation.difference!).toBeCloseTo(after.change!, 9);
+    expect(explanation.items.map((item) => item.kind)).toEqual(['newly-dropped', 'new']);
+  });
+
+  it('is not needed without new rated rounds: the rating stays, so there is nothing to explain', () => {
+    const after = predictRating(rounds, { currentRating: 950 });
+    expect(after).toMatchObject({ rating: 950, change: 0, unchanged: true });
+    expect(explainChange(rounds, after, 950)).toBeNull();
   });
 });

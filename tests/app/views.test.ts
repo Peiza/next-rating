@@ -387,8 +387,8 @@ describe('rating view', () => {
       const left = [...view.querySelectorAll('.round-left-out .round-status')];
       expect(left).toHaveLength(2);
       expect(left[0]!.textContent).toContain('Left out by you');
-      const reasons = [...view.querySelectorAll('#why .reason-text')].map((text) => text.textContent);
-      expect(reasons).toContain('New round 960, left out by you');
+      // With the only event left out there are no new rated rounds, so the rating stays.
+      expect(view.querySelector('#why-unchanged')!.textContent).toBe('No new rated rounds since the last update, so the rating stays at 950');
       expect(view.querySelector('#why-left-out')!.textContent).toMatch(/^Counting Example Cup would give \d+ \(−\d+\.\d\)$/);
     });
   });
@@ -502,9 +502,14 @@ describe('rating view', () => {
       expect(why()!.querySelector('#why-difference')).toBeNull();
     });
 
-    it('shows the difference line on its own when no round changed', () => {
+    it('says the rating stays without new rated rounds, instead of a difference line', () => {
       const section = why({ events: [], player: rawPlayer({ currentRating: '950' }) })!;
-      expect([...section.querySelectorAll('.reason')].map((line) => line.id)).toEqual(['why-difference']);
+      const text = 'No new rated rounds since the last update, so the rating stays at 950';
+      expect(section.querySelector('#why-unchanged')!.textContent).toBe(text);
+      expect(section.querySelector('.reason')).toBeNull();
+      expect(section.querySelector('#why-net')).toBeNull();
+      const closed = why({ events: [], player: rawPlayer({ currentRating: '950' }) }, DEFAULT_CARDS)!;
+      expect(closed.querySelector('.card-teaser')!.textContent).toBe(text);
     });
 
     it('suggests a new import only when the details are older than the official rating', () => {
@@ -516,9 +521,9 @@ describe('rating view', () => {
       expect(why({ detailsAt: '2026-09-01T10:00:00.000Z' })!.querySelector('.hint')).toBeNull();
     });
 
-    it('is hidden when nothing changed or the official rating is unknown', () => {
-      expect(why({ events: [] })).toBeNull();
+    it('is hidden when the official rating is unknown', () => {
       expect(why({ player: undefined })).toBeNull();
+      expect(why({ player: undefined, events: [] })).toBeNull();
     });
 
     it('shows the largest effect in its header while closed', () => {
@@ -1306,8 +1311,9 @@ describe('how it works', () => {
     for (const part of ['12 months', '24 months', '2.5 standard deviations', 'at least 7 rounds', 'at least 9 counted rounds', 'highest rated rounds of that event', '9-hole round counts half', 'DNF']) {
       expect(rules).toContain(part);
     }
-    expect(rules).toContain('Two things are not yet checked against a real player');
-    expect(rules).toContain('two low rounds in the same window');
+    expect(rules).toContain('One thing is not yet checked against a real player');
+    expect(rules).toContain('two low rounds dropped in the same window');
+    expect(rules).toContain('A rating only changes when new rated rounds are added');
     expect(rules).toContain('whole round ratings shown on pdga.com');
   });
 

@@ -32,6 +32,9 @@ App: https://peiza.github.io/next-rating/
   like a big change. The starting point is the set of rounds PDGA itself
   counted; if that still does not give the official rating, the gap shows as
   its own line, "Difference from PDGA's last calculation".
+- A rating only changes when new rated rounds are added. When no unofficial
+  or manual round counts in the next update, the prediction is the official
+  rating, and Why it changed says the rating stays.
 - "How it works", opened from Settings or from the link in each card's
   explanation, explains all this in the app, including which rules are not
   yet checked against a real player.
