@@ -57,6 +57,11 @@ function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
 }
 
+/** A phone or tablet, where text on pdga.com cannot be selected well enough to paste a table. */
+function isTouchDevice(): boolean {
+  return window.matchMedia?.('(pointer: coarse)').matches ?? false;
+}
+
 function applyLanguage(): void {
   setLanguage(resolveLanguage(preferredLanguages(), store.get().language));
   document.title = t('app.name');
@@ -251,7 +256,9 @@ function currentView(): HTMLElement {
       pendingDetails: pendingDetails?.rounds ?? null,
       pdgaNumber: data.pdgaNumber,
       message: pasteMessage,
+      touch: isTouchDevice(),
       onPaste: pasted,
+      onOpenSetup: openSetup,
       onAddEvent: addPastedEvent,
       onImportDetails: importPastedDetails,
       onCancel: cancelPaste,

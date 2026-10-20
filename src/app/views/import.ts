@@ -21,7 +21,10 @@ export interface ImportProps {
   /** The default player, offered as the owner of a pasted table. */
   pdgaNumber: number | null;
   message: PasteMessage | null;
+  /** On touch devices, pdga.com tables cannot be selected for copying, so the bookmarklet is offered first. */
+  touch: boolean;
   onPaste: (html: string, text: string) => void;
+  onOpenSetup: () => void;
   onAddEvent: (date: PlainDate, name: string) => void;
   onImportDetails: (owner: number) => void;
   onCancel: () => void;
@@ -58,14 +61,27 @@ function status(message: PasteMessage | null): HTMLElement {
   );
 }
 
-function pasteForm({ message, onPaste }: ImportProps): HTMLElement {
+function touchHint(onOpenSetup: () => void): HTMLElement {
+  return el(
+    'div',
+    { class: 'field' },
+    el('p', { id: 'paste-touch', class: 'hint' }, t('paste.touchHint')),
+    el(
+      'button',
+      { id: 'paste-setup', class: 'button button-block', type: 'button', onclick: onOpenSetup },
+      t('paste.openSetup'),
+    ),
+  );
+}
+
+function pasteForm({ message, touch, onPaste, onOpenSetup }: ImportProps): HTMLElement {
   const target = el('textarea', {
     id: PASTE_ID,
     class: 'input paste',
     rows: 6,
     autocomplete: 'off',
     spellcheck: 'false',
-    'aria-describedby': 'paste-help paste-status',
+    'aria-describedby': touch ? 'paste-help paste-touch paste-status' : 'paste-help paste-status',
     onpaste: (event) => {
       const data = (event as ClipboardEvent).clipboardData;
       if (!data) return;
@@ -76,6 +92,7 @@ function pasteForm({ message, onPaste }: ImportProps): HTMLElement {
   return el(
     'div',
     { class: 'field' },
+    touch && touchHint(onOpenSetup),
     el('label', { for: PASTE_ID, class: 'label' }, t('paste.label')),
     target,
     status(message),

@@ -319,11 +319,32 @@ describe('import view', () => {
     pendingDetails: null,
     pdgaNumber: 100001,
     message: null,
+    touch: false,
     onPaste: () => {},
     onAddEvent: () => {},
     onImportDetails: () => {},
     onCancel: () => {},
+    onOpenSetup: () => {},
   };
+
+  it('offers the bookmarklet above the paste field on touch devices only', () => {
+    expect(importView(props).querySelector('#paste-touch')).toBeNull();
+    const onOpenSetup = vi.fn();
+    const view = importView({ ...props, touch: true, onOpenSetup });
+    const hint = view.querySelector('#paste-touch')!;
+    expect(hint.textContent).toMatch(/On a phone, use the bookmarklet/);
+    expect(hint.compareDocumentPosition(view.querySelector('#paste-target')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(view.querySelector('#paste-target')!.getAttribute('aria-describedby')).toContain('paste-touch');
+    view.querySelector<HTMLButtonElement>('#paste-setup')!.click();
+    expect(onOpenSetup).toHaveBeenCalled();
+  });
+
+  it('explains how to paste when nothing was recognised', () => {
+    const view = importView({ ...props, message: { key: 'paste.none', error: true } });
+    const text = view.querySelector('#paste-status')!.textContent;
+    expect(text).toMatch(/select the whole pdga\.com page \(Ctrl\+A/);
+    expect(text).toMatch(/On a phone, use the bookmarklet/);
+  });
 
   function submitOwner(view: HTMLElement, value?: string) {
     const input = view.querySelector<HTMLInputElement>('#paste-owner')!;
