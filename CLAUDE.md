@@ -1,21 +1,18 @@
 # Project: next-rating
 
 A PDGA rating predictor: mobile-first rebuild of a Google Apps Script tool.
+Finished steps are specified in docs/finished-steps.md; their rules still apply.
 
 ## Background
-I had a Google Sheets + Apps Script tool (legacy/rating-calculator.gs) that fetched
-my PDGA ratings history from pdga.com/player/<number>/details and predicted my next
-rating update from my rated rounds, including new rounds with unofficial round
-ratings and ratings I added myself. This app never calculates a rating from a score.
-It stopped working because pdga.com now answers server-side requests with a
-Cloudflare challenge (verified from Apps Script: HTTP 403, header
-"cf-mitigated: challenge", "Just a moment..." page). The official PDGA API
-developer program is closed.
-
-Verified on my phone: a bookmarklet runs on pdga.com, and a same-origin fetch
-from /player/188063/details to /player/188063 returns HTTP 200 without a
-Cloudflare challenge. Build the one-tap flow as the primary path and keep the
-manual per-page fallback.
+My Google Sheets + Apps Script tool (legacy/rating-calculator.gs) predicted my
+next PDGA rating from my rated rounds, including new rounds with unofficial
+round ratings and ratings I added myself. This app never calculates a rating
+from a score. The old tool stopped working because pdga.com answers
+server-side requests with a Cloudflare challenge, and the official PDGA API
+developer program is closed. A bookmarklet runs on pdga.com and its
+same-origin fetches pass without a challenge (verified on my phone), so the
+one-tap bookmarklet flow is the primary path. Details in
+docs/finished-steps.md.
 
 App URL: https://peiza.github.io/next-rating/
 It is hard-coded in the bookmarklet, so it must not change later. Keep it as a
@@ -64,71 +61,31 @@ single build-time setting.
   (a 1024 round shows as 1024).
 
 ## Architecture
-1. Rating engine: pure TypeScript, no I/O, fully unit tested.
-2. Parsers: pure functions turning pdga.com HTML (ratings details page, player
-   profile page, event results page) into typed data, including hole count per
-   round where the page shows it. They run in the app, for bookmarklet
-   hand-offs and the paste import alike.
-3. Bookmarklet, fully self-contained (never loads remote code, so no external
-   code ever runs on pdga.com). It parses nothing: it fetches pages and sends
-   the HTML of the parts the app's parsers read, so a pdga.com markup change
-   is fixed by deploying the app, without reinstalling the bookmarklet. It
-   holds only the logic it needs to pick pages (page kind, event ids and
-   dates) and to cut fetched event pages down to the player's rows.
-   - On any player page (/player/<nr> or /player/<nr>/details): send the
-     current page, then fetch the other one with a same-origin GET in the
-     user's session and send it. Find recent events from the profile page that
-     are not yet in the ratings details, fetch those event pages and send them
-     with only this player's rows (a match on the PDGA number). Max 10 event
-     pages, sequential, about 1 second apart, one attempt per page.
-   - On an event results page: send its results tables; the app picks the
-     user's rows by PDGA number.
-   - Send only the page parts the parsers need. When a page's main content
-     cannot be found (as after a markup change), send its whole body without
-     scripts and styles instead, so an updated app can still read it. If the
-     hand-off would exceed the fragment limit, drop event pages from the end
-     and list them as failed.
-   - On Unofficial Results pages, round ratings sit behind a "Show round
-     ratings" toggle. The rating cells are in the page HTML either way, so the
-     app reads them with textContent (never innerText or a visibility check);
-     never click the toggle.
-   - If a request returns a Cloudflare challenge or fails, stop fetching and
-     hand off what was collected, including the URLs of the pages that could
-     not be fetched, so the app can link to them and ask the user to run the
-     bookmarklet there.
-   - The bookmarklet shows no text of its own, only a minimal progress
-     indicator. It always hands off to the app with a status code (also on
-     unsupported pages), and the app shows the message in the user's language.
-     This keeps the bookmarklet small and fully translatable.
-   - Hand-off: navigate the current tab to the app with the data compressed
-     (CompressionStream) and base64url-encoded in the URL fragment (#d=...).
-     Do not use window.open after async work, since browsers block it as a
-     popup. The fragment is never sent to any server and is reserved for this
-     hand-off.
-   - Read only page content (including content hidden behind a toggle, as
-     above). Never read cookies, storage or form fields.
-   - Keep the minified bookmarklet small (target under 5 kB), since on phones it
-     is pasted into the bookmark URL field.
-4. Web app (PWA, works offline after first load):
-   - Enter a PDGA number once (default player; the app works for any player).
-     A button opens that player's ratings details page on pdga.com with a short
-     hint to run the bookmarklet there.
-   - Import from the URL fragment, then remove it with history.replaceState.
-     The received HTML is parsed exactly like pasted HTML: an inert DOMParser
-     document, size limits, textContent only, never inserted into the page.
-     An import never erases data it does not contain: for the same player it
-     replaces only what it brings, and an import for another player replaces
-     everything.
-   - Paste import as fallback (tab-separated and HTML clipboard content). A
-     pasted ratings details table without a player header asks whose rounds
-     they are, with a PDGA number field prefilled with the default player
-     (the selected player once favorites exist). The same player as the stored
-     import merges; a different player replaces.
+Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
+3 bookmarklet, 4 web app import, results and theme, 5 favorites, 6 change
+explanation.
+
+Bookmarklet rules every change keeps:
+- Fully self-contained: it never loads remote code, so no external code runs
+  on pdga.com. It parses nothing; it sends the HTML of the page parts the
+  app's parsers read, so a pdga.com markup change is fixed by deploying the app.
+- Read only page content, including content hidden behind a toggle (read with
+  textContent; never click the toggle). Never read cookies, storage or form
+  fields.
+- At most 10 event pages, sequential, about 1 second apart, one attempt per
+  page. On a Cloudflare challenge or a failure, stop fetching and hand off
+  what was collected, with the URLs of the pages that failed.
+- Hand off by navigating the current tab to the app with the data compressed
+  and base64url-encoded in the fragment (#d=...), reserved for this hand-off.
+  Never window.open after async work.
+- No text of its own: a minimal progress indicator and a status code that the
+  app translates. Minified size under 5 kB.
+
+Open:
+
+4. Web app (PWA, works offline after first load), the open parts:
    - Quick manual entry of rounds (rating, date defaulting to today, optional
      event name and hole count), usable one-handed on a phone.
-   - Results: predicted rating, change vs current official rating, and a round
-     list marking included, dropped and double-weighted rounds, plus the stats
-     panel from the legacy sheet.
    - Data age is obvious: next to the predicted rating, show "Updated X days
      ago" from the last import's timestamp, using Intl.RelativeTimeFormat. When
      the data is more than 7 days old, show a clear notice with a button that
@@ -136,49 +93,15 @@ single build-time setting.
    - Setup page with step-by-step bookmarklet installation for Safari on iPhone,
      Chrome on Android (run it by typing its name in the address bar) and
      desktop browsers, with a copy button.
-   - Theme: a segmented control on the Settings tab with Device (the
-     default), Light and Dark. Both themes pass the contrast test.
    - Store locally only: the language override, the theme choice and the
-     players' data. Each
-     player (each favorite, see 5) keeps its own PDGA number, last import
-     (show its timestamp) and manual rounds. Until the Favorites step, one
-     player's data is stored. When the storage format changes, existing data
-     is migrated, never silently dropped. On iOS, home screen web apps do not
-     share storage with Safari tabs, so the full flow must work in a normal
-     browser tab; installing is optional.
-5. Favorites:
-   - Save several players as favorites. Each favorite keeps its own last
-     import and its own manual rounds, so switching shows the prediction
-     instantly from stored data, within browser storage limits.
-   - On wide screens the favorites sit in a left sidebar; on phones they open
-     from a menu. Each favorite shows when it was last imported and links to
-     its pdga.com ratings details page, where the bookmarklet refreshes it.
-   - An import updates that player's stored data instead of replacing
-     everything. Pasted details tables default to the selected player.
-   - Paste import stays as a fallback but becomes less prominent once the
-     bookmarklet works; manual entry is the main way to add rounds by hand.
-   - Optional, later: a transfer link that moves favorites and manual rounds
-     to another device through the same URL-fragment hand-off, without a
-     server.
-6. Change explanation, on the Rating tab:
-   - Under the change line, a short "Why it changed" list compares the last
-     official update with the prediction, using the real engine.
-   - The official state is exactly what PDGA counted: the official rounds
-     with PDGA's own Evaluated and Included flags, and only the doubling rule
-     and hole weights on top. The new state is all rounds, recomputed.
-   - If the official state still differs from the official rating, a
-     "Difference from PDGA's last calculation" line makes the lines add up
-     to the change shown. A new import is suggested only when the ratings
-     details were imported before the official rating date.
-   - List what differs: new rounds with their ratings, rounds that left the
-     window, rounds that started or stopped counting twice, and rounds newly
-     dropped or no longer dropped.
-   - Estimate each effect with the engine, mark it with an arrow for up or
-     down, and show the largest effects first. Example: a 985 round that no
-     longer counts twice can outweigh a new 938 round.
-   - Each effect is the round's weight change times its distance from the
-     official unrounded average, over the new total weight, so the effects
-     add up exactly to the unrounded change (docs/plan-change-explanation.md).
+     players' data. Each player (each favorite) keeps its own PDGA number,
+     last import (show its timestamp) and manual rounds. When the storage
+     format changes, existing data is migrated, never silently dropped. On
+     iOS, home screen web apps do not share storage with Safari tabs, so the
+     full flow must work in a normal browser tab; installing is optional.
+5. Favorites, optional, later: a transfer link that moves favorites and manual
+   rounds to another device through the same URL-fragment hand-off, without a
+   server.
 7. Polish after favorites:
    1. Links to pdga.com (ratings details, events, player search) open in the
       same tab, not a new one. The bookmarklet brings the user back to the
@@ -205,11 +128,24 @@ single build-time setting.
       tab-separated parsing. It doesn't work from a computer either, because
       of how pdga.com marks up the table headers. The page parsers stay,
       since bookmarklet hand-offs use them. This replaces the paste import
-      text in 2, 4 and 5 and in Security, which is removed when this is
-      built.
+      text in 2, 4 and 5 (now in docs/finished-steps.md), in Hard
+      constraints and in Security, which is removed when this is built.
    9. Next to the prediction, show the expected date of the next ratings
-      update: the second Tuesday of the month.
-8. Target calculator, on the Rating tab:
+      update and its event report deadline: updates come on the second
+      Tuesday of each month, and the deadline is the Sunday before, for
+      example "Next ratings update: 10 Nov (events reported by 8 Nov)". Link
+      to https://www.pdga.com/faq/ratings/when-updated, where PDGA publishes
+      the rule.
+   10. Main page: the player's name shows twice at the top, in the top bar
+       and under the heading. Keep it once, and use the freed line for the
+       data age from point 2.
+8. Deadline-aware prediction: the next update counts events reported by the
+   deadline, the Sunday before the second Tuesday
+   (https://www.pdga.com/faq/ratings/when-updated). Unofficial and manual
+   rounds from events dated after that deadline are left out of the
+   next-update prediction and marked in the round list as counting in the
+   following update.
+9. Target calculator, on the Rating tab:
    - Input: a target rating (for example 1000) and a number of upcoming
      rounds (default 3). Output: the average round rating needed in those
      rounds to reach the target at the next update.
@@ -220,7 +156,7 @@ single build-time setting.
      weighting are then all applied as in the prediction.
    - Say so when the target is already reached without new rounds, or out of
      reach within a plausible rating range.
-9. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
    - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
@@ -235,7 +171,7 @@ single build-time setting.
      the same 24-month fallback.
    - With fewer than 8 rounds, show how many were found and the average of
      those.
-10. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
+11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
@@ -288,16 +224,9 @@ pdga.com cannot be fetched from this environment either, so tests/fixtures/
 - player-188063.html (player profile page)
 - event-rated.html (an event already included in my rating)
 - event-unofficial.html (a recent event with unofficial round ratings)
-Requirements:
-- The engine must reproduce PDGA's Included flags for every round in
-  details-188063.html and the official rating shown in player-188063.html.
-- Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
-  double-weight boundary, a previously dropped round becoming included, and
-  hole weighting.
-- Parser and bookmarklet extraction tests against the fixtures (jsdom).
-- Round-trip tests for fragment encoding/decoding, including oversized and
-  malformed input.
-- A check that lists keys missing from non-English translation catalogs.
+The engine must reproduce PDGA's Included flags for every round in
+details-188063.html and the official rating shown in player-188063.html.
+The other required tests are listed in docs/finished-steps.md.
 Committed code and tests never contain personal data from the fixtures (names,
 PDGA numbers, event ids, event names or results); fixture-specific expected
 values live in the git-ignored tests/fixtures/expected.json.
@@ -305,25 +234,21 @@ values live in the git-ignored tests/fixtures/expected.json.
 ## Process
 Start with a plan for my approval. Changes reach main through pull requests
 that I merge; the workflow builds and tests every pull request and deploys
-every merge, so each version can be tested live on my phone. Build in this
-order, committing after each working step:
-- Engine + tests (done)
-- Parsers + tests (done)
-- Web app, commits 1 and 2 of docs/plan-step-3.md (done)
-- GitHub Pages workflow (done)
-- Bookmarklet (docs/plan-step-5.md), with a minimal setup page (version, copy
-  button, short install steps for Safari on iPhone, Chrome on Android and
-  desktop), so it can be installed and tested on my phone (done)
-- Fixes after testing on a phone: rating change arrow and colour, theme
-  setting, stats layout, paste hint (done)
-- Favorites (docs/plan-favorites.md; before manual entry, so manual rounds
-  are stored per player from the start) (done)
-- Change explanation: why the prediction differs from the official rating
-  (docs/plan-change-explanation.md) (done)
+every merge, so each version can be tested live on my phone. Done so far:
+engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
+minimal setup page, fixes after phone testing, favorites and the change
+explanation (docs/finished-steps.md). Build the rest in this order,
+committing after each working step:
 - Polish after favorites (Architecture 7)
+- Deadline-aware prediction (Architecture 8)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
 - Target calculator
 - Top 8 panel
 - Setup page: complete the minimal one with the full step-by-step
   installation
+
+Verification runs typecheck, tests, the i18n check and the build only: no
+local preview servers or handoff runs. I test on my phone after merging.
+
+Ideas that are not planned: docs/ideas.md. Don't build them unless asked.
