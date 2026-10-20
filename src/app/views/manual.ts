@@ -54,7 +54,8 @@ export function latestManualDate(today: PlainDate): PlainDate {
 
 export type ManualRead = { round: ManualRoundInput } | { field: ManualField; error: MessageKey };
 
-function readWhole(text: string, range: readonly [number, number]): number | null {
+/** A typed whole number within `range`: digits only, so "9.5", "-5" and "1e3" are not read. */
+export function readWhole(text: string, range: readonly [number, number]): number | null {
   const digits = text.trim();
   return /^\d{1,4}$/.test(digits) ? parseInteger(digits, range) : null;
 }

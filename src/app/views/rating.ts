@@ -15,11 +15,14 @@ import {
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
+import { targetCalculator, type TargetProps } from './target';
 
 export interface RatingProps {
   model: Model;
   /** Quick manual entry, under the prediction. */
   manual?: ManualProps;
+  /** The target calculator, before the statistics. */
+  target?: TargetProps;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
   /** For the data age and the next update. */
@@ -331,6 +334,7 @@ export function ratingView(props: RatingProps): HTMLElement {
             .join(', '),
         }),
       ),
+    props.target && targetCalculator(props.target),
     statsPanel(model.prediction.stats, model.prediction.exact),
     model.rows.length > 0 && el('h2', {}, t('rating.rounds')),
     model.rows.length > 0 && el('ol', { class: 'rounds' }, ...model.rows.map(roundItem)),

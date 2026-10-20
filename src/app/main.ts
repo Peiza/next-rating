@@ -1,12 +1,13 @@
 import './styles.css';
 import bookmarklet from 'virtual:bookmarklet';
+import type { PlainDate } from '../engine';
 import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { readPages } from './handoff';
 import { today } from './format';
 import { takeFragment } from './import';
-import { buildModel, manualToRounds } from './model';
+import { buildModel, manualToRounds, type Model } from './model';
 import {
   addFavorite,
   addManualRound,
@@ -28,9 +29,11 @@ import {
   STORAGE_KEY,
   type PlayerOrder,
   type StoredManualRound,
+  type StoredPlayer,
   type Theme,
 } from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
+import { calculateTarget, emptyTargetDraft, type TargetAnswer, type TargetDraft, type TargetQuery } from './target';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
   emptyDraft,
@@ -56,6 +59,7 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { ratingView } from './views/rating';
+import { TARGET_RATING_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID } from './views/target';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
@@ -107,7 +111,16 @@ let confirmClear = false;
  * it lasts through re-renders until the next change to the manual rounds.
  */
 let manualUndo: { round: StoredManualRound; index: number } | null = null;
-/** The player the manual entry state belongs to; another player starts with it closed and empty. */
+/** Target calculator: open or not, what has been typed (filled in when first shown) and the last calculation. */
+let targetOpen = false;
+let targetDraft: TargetDraft | null = null;
+let targetQuery: TargetQuery | null = null;
+/** The last answer and what it came from, so a re-render does not run the search again. */
+let targetMemo: { key: string; answer: TargetAnswer } | null = null;
+/**
+ * The player the manual entry and target calculator state belongs to;
+ * another player starts with them closed and empty.
+ */
 let manualPlayer: number | null = selected;
 /** A new version of the app is installed and waits for a reload. */
 let updateReady = false;
@@ -307,6 +320,25 @@ function clearManual(): void {
   render(MANUAL_TOGGLE_ID);
 }
 
+function toggleTarget(): void {
+  targetOpen = !targetOpen;
+  render(targetOpen ? TARGET_RATING_ID : TARGET_TOGGLE_ID);
+}
+
+/** Focus goes to the answer, so a phone keyboard closes and a screen reader reads it. */
+function calculate(query: TargetQuery): void {
+  targetQuery = query;
+  render(TARGET_STATUS_ID);
+}
+
+/** The answer for the shown player's current rounds, from the memo when nothing it depends on changed. */
+function targetAnswer(player: StoredPlayer, model: Model, date: PlainDate): TargetAnswer | null {
+  if (targetQuery === null) return null;
+  const key = JSON.stringify([player.pdgaNumber, player.import?.at, player.manualRounds, targetQuery, date]);
+  if (targetMemo?.key !== key) targetMemo = { key, answer: calculateTarget(model, targetQuery, date) };
+  return targetMemo.answer;
+}
+
 function setPlayerOrder(playerOrder: PlayerOrder): void {
   store.update({ playerOrder });
   render(orderId(playerOrder));
@@ -444,11 +476,26 @@ function currentView(): HTMLElement {
     manualDraft = emptyDraft(today());
     confirmClear = false;
     manualUndo = null;
+    targetOpen = false;
+    targetDraft = null;
+    targetQuery = null;
   }
   if (player?.import) {
     const now = new Date();
+    const model = buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds));
+    targetDraft ??= emptyTargetDraft(model.prediction.rating);
     return ratingView({
-      model: buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds)),
+      model,
+      target: {
+        open: targetOpen,
+        draft: targetDraft,
+        answer: targetAnswer(player, model, today(now)),
+        onToggle: toggleTarget,
+        onDraft: (field, value) => {
+          targetDraft = { ...targetDraft!, [field]: value };
+        },
+        onCalculate: calculate,
+      },
       manual: {
         rounds: player.manualRounds,
         open: manualOpen,
