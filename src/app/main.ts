@@ -123,6 +123,8 @@ let targetDraft: TargetDraft | null = null;
 let targetQuery: TargetQuery | null = null;
 /** The last answer and what it came from, so a re-render does not run the search again. */
 let targetMemo: { key: string; answer: TargetAnswer } | null = null;
+/** "How to refresh" opened or closed by hand; null follows the data age (open when it is old). */
+let refreshOpen: boolean | null = null;
 /** The Top 8 period. It lasts until the page reloads, for every player. */
 let top8Period: TopPeriod = 'year';
 /**
@@ -377,6 +379,8 @@ function saveImport(parts: ImportParts, owner: number | null = null): Routed {
   const routed = routeImport(data, parts, new Date().toISOString(), owner, selected);
   if (routed.data !== data) store.update({ players: routed.data.players });
   if (routed.owner !== null && routed.players.length > 0) selected = routed.owner;
+  // Fresh data: "How to refresh" follows the data age again.
+  refreshOpen = null;
   return routed;
 }
 
@@ -485,6 +489,7 @@ function currentView(): HTMLElement {
   const player = findPlayer(data, selected);
   if (manualPlayer !== selected) {
     manualPlayer = selected;
+    refreshOpen = null;
     manualDraft = emptyDraft(today());
     confirmClear = false;
     manualUndo = null;
@@ -499,6 +504,12 @@ function currentView(): HTMLElement {
       model,
       cards: data.cards,
       onToggleCard: toggleCard,
+      refresh: {
+        open: refreshOpen ?? model.stale,
+        onToggle: (open) => {
+          refreshOpen = open;
+        },
+      },
       target: {
         draft: targetDraft,
         answer: targetAnswer(player, model, today(now)),

@@ -181,13 +181,45 @@ describe('rating view', () => {
     return ratingView({ model: buildModel(stored, 100001, NOW), cards: ALL_OPEN, favorite, now: NOW, onAddFavorite });
   }
 
-  it('names the player once, in the heading, with the data age on the line below', () => {
+  it('names the player once, in the heading, then the prediction, the change, the next update and the data age', () => {
     const view = ratingPage();
     expect(view.querySelector('h1')!.textContent).toBe('Test Player #100001');
-    expect(view.querySelector('h1')!.nextElementSibling!.firstElementChild!.textContent).toBe('Updated 3 days ago');
     expect(view.textContent!.split('Test Player #100001')).toHaveLength(2);
-    // The exact time stays further down.
-    expect(view.querySelector('.summary .hint')!.textContent).toMatch(/^Last import: /);
+    const summary = view.querySelector('.summary')!;
+    expect([...summary.children].map((child) => child.id || child.className)).toEqual([
+      'visually-hidden',
+      'predicted',
+      'change change-up',
+      'official',
+      'next-update',
+      'refresh-box',
+    ]);
+  });
+
+  it('shows the data age with a closed "How to refresh" and the Refresh button under it', () => {
+    const box = ratingPage().querySelector('#refresh-box')!;
+    expect(box.className).toBe('refresh');
+    const help = box.querySelector<HTMLDetailsElement>('details#refresh-help')!;
+    expect(help.open).toBe(false);
+    expect(help.querySelector('summary')!.textContent).toBe('Updated 3 days agoHow to refresh');
+    expect(help.querySelector('p')!.textContent).toBe(
+      'Opens your ratings details on pdga.com in this tab. Run your bookmarklet there and you come back here with fresh data.',
+    );
+    // The exact time is inside.
+    expect(help.querySelector('.hint')!.textContent).toMatch(/^Last import: /);
+    expect(help.nextElementSibling!.id).toBe('refresh');
+    expect(box.querySelector('#refresh')!.className).toBe('button button-block');
+  });
+
+  it('keeps "How to refresh" open or closed as main.ts says', () => {
+    const onToggle = vi.fn();
+    const model = buildModel(stored, 100001, NOW);
+    const view = ratingView({ model, refresh: { open: true, onToggle }, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const help = view.querySelector<HTMLDetailsElement>('#refresh-help')!;
+    expect(help.open).toBe(true);
+    help.open = false;
+    help.dispatchEvent(new Event('toggle'));
+    expect(onToggle).toHaveBeenLastCalledWith(false);
   });
 
   it('gives the predicted number a label for screen readers', () => {
@@ -196,15 +228,18 @@ describe('rating view', () => {
     expect(label.textContent).toBe('Predicted rating');
   });
 
-  it('asks for a refresh on pdga.com once the data is more than 7 days old, with the button only there', () => {
+  it('turns "How to refresh" into an open warning once the data is more than 7 days old', () => {
     expect(ratingPage().querySelector('#stale')).toBeNull();
-    expect(ratingPage().querySelector('#refresh')!.className).toBe('button button-block');
     const later = new Date('2026-10-08T10:01:00.000Z');
     const view = ratingView({ model: buildModel(stored, 100001, later), favorite: true, now: later, onAddFavorite: vi.fn() });
-    const notice = view.querySelector('#stale')!;
-    expect(notice.previousElementSibling!.id).toBe('updated');
+    const box = view.querySelector('#refresh-box')!;
+    expect(box.className).toBe('refresh refresh-warning');
+    const help = box.querySelector<HTMLDetailsElement>('#refresh-help')!;
+    expect(help.open).toBe(true);
+    const notice = help.querySelector('#stale')!;
+    expect(notice.previousElementSibling!.tagName).toBe('SUMMARY');
     expect(notice.textContent).toMatch(/^This data is more than 7 days old\./);
-    const refresh = notice.querySelector<HTMLAnchorElement>('#refresh')!;
+    const refresh = box.querySelector<HTMLAnchorElement>('#refresh')!;
     expect(refresh.className).toBe('button button-primary button-block');
     expect(refresh.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
     expect(view.querySelectorAll('#refresh')).toHaveLength(1);

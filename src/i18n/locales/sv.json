@@ -94,6 +94,8 @@
   "rating.updated": "Uppdaterad {age}",
   "rating.nextUpdate": "Nästa ratinguppdatering: {update} (tävlingar rapporterade senast {deadline})",
   "rating.refresh": "Uppdatera på pdga.com",
+  "rating.howToRefresh": "Så uppdaterar du",
+  "rating.refreshHow": "Öppnar dina ratingdetaljer på pdga.com i den här fliken. Kör ditt bokmärke där så kommer du tillbaka hit med färsk data.",
   "rating.stale": "Den här datan är mer än {days} dagar gammal. Uppdatera den på pdga.com för att få med nya rundor och den senaste officiella ratingen.",
   "rating.addFavorite": "Spara #{number} som favorit",
   "rating.eventsWithoutRounds": "Inga ratade rundor för #{number} än i: {events}",

@@ -1,7 +1,7 @@
 import { type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
-import { el, textWithNodes, type Child } from '../dom';
+import { disclosure, el, textWithNodes, type Child, type Disclosure } from '../dom';
 import {
   formatAge,
   formatAverage,
@@ -28,6 +28,8 @@ export interface RatingProps {
   target?: TargetProps;
   /** The Top 8 card's content. */
   top8?: Top8Props;
+  /** Whether "How to refresh" is open; it follows the data age when left out. */
+  refresh?: Disclosure;
   /** Which cards are open; only Rounds when left out. */
   cards?: CardState;
   onToggleCard?: (name: CardName) => void;
@@ -104,30 +106,44 @@ function refreshButton(pdgaNumber: number, primary: boolean): HTMLElement {
   );
 }
 
-/** Old data: a notice with the refresh button, which then shows only here. */
-function staleNotice(pdgaNumber: number): HTMLElement {
+/**
+ * The data age with a small "How to refresh" that explains the round trip,
+ * and the Refresh button under it. Old data turns it into a warning that
+ * opens by itself.
+ */
+function refreshBox(model: Model, now: Date, state: Disclosure | undefined): HTMLElement {
+  const { stale, pdgaNumber, importedAt } = model;
   return el(
     'div',
-    { id: 'stale', class: 'banner banner-warning' },
-    el('p', { class: 'banner-message' }, t('rating.stale', { days: STALE_DAYS })),
-    refreshButton(pdgaNumber, true),
+    { id: 'refresh-box', class: stale ? 'refresh refresh-warning' : 'refresh' },
+    el(
+      'details',
+      { id: 'refresh-help', class: 'refresh-help', ...disclosure(state ?? { open: stale, onToggle: () => {} }) },
+      el(
+        'summary',
+        {},
+        el('span', { id: 'updated', class: 'updated' }, t('rating.updated', { age: formatAge(importedAt, now) })),
+        el('span', { class: 'refresh-how' }, t('rating.howToRefresh')),
+      ),
+      stale && el('p', { id: 'stale', class: 'refresh-stale' }, t('rating.stale', { days: STALE_DAYS })),
+      el('p', {}, t('rating.refreshHow')),
+      el('p', { class: 'hint' }, t('rating.lastImport', { time: formatDateTime(importedAt) })),
+    ),
+    refreshButton(pdgaNumber, stale),
   );
 }
 
-function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElement {
+function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps): HTMLElement {
   const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
   return el(
     'div',
     { class: 'summary' },
-    el('p', { id: 'updated', class: 'updated' }, t('rating.updated', { age: formatAge(model.importedAt, now) })),
-    model.stale && staleNotice(pdgaNumber),
     prediction.rating !== null && el('p', { class: 'visually-hidden' }, t('rating.title')),
     prediction.rating !== null
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
     prediction.change !== null && change(prediction.change),
-    nextUpdate(model.nextUpdate),
     official !== null &&
       el(
         'p',
@@ -136,8 +152,8 @@ function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElem
           ? t('rating.official', { rating: formatRating(official), date: formatDate(player.ratingDate) })
           : t('rating.officialNoDate', { rating: formatRating(official) }),
       ),
-    el('p', { class: 'hint' }, t('rating.lastImport', { time: formatDateTime(model.importedAt) })),
-    !model.stale && refreshButton(pdgaNumber, false),
+    nextUpdate(model.nextUpdate),
+    refreshBox(model, now, refresh),
     !favorite &&
       el(
         'button',
