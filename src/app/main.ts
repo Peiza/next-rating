@@ -10,12 +10,12 @@ import { readPages } from './handoff';
 import { applyImport, takeFragment } from './import';
 import { buildModel } from './model';
 import { readPaste } from './paste';
-import { browserStorage, createStore } from './storage';
+import { browserStorage, createStore, type Theme } from './storage';
 import { BANNER_ID, bannerView, type Banner } from './views/banner';
 import { EVENT_DATE_ID, importView, OWNER_ID, PASTE_ID, type PasteMessage } from './views/import';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
 import { ratingView } from './views/rating';
-import { settingsView } from './views/settings';
+import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
 
@@ -60,6 +60,28 @@ function preferredLanguages(): readonly string[] {
 function applyLanguage(): void {
   setLanguage(resolveLanguage(preferredLanguages(), store.get().language));
   document.title = t('app.name');
+}
+
+/** --bg of each theme in styles.css, for the browser's toolbar colour. */
+const THEME_COLORS: Record<Theme, string> = { light: '#ffffff', dark: '#000000' };
+
+/** Follows the device unless Settings overrides it; styles.css reads data-theme. */
+function applyTheme(): void {
+  const { theme } = store.get();
+  const html = document.documentElement;
+  if (theme) html.dataset.theme = theme;
+  else delete html.dataset.theme;
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    // Each meta keeps its original colour, which applies when following the device.
+    meta.dataset.device ??= meta.content;
+    meta.content = theme ? THEME_COLORS[theme] : meta.dataset.device;
+  }
+}
+
+function setTheme(theme: Theme | null): void {
+  store.update({ theme });
+  applyTheme();
+  render(themeId(theme));
 }
 
 function savePdgaNumber(pdgaNumber: number | null): void {
@@ -215,9 +237,11 @@ function currentView(): HTMLElement {
       flash,
       language: data.language,
       preferred: preferredLanguages(),
+      theme: data.theme,
       persistent: store.persistent,
       onSavePdgaNumber: savePdgaNumber,
       onLanguage: setLanguageOverride,
+      onTheme: setTheme,
       onOpenSetup: openSetup,
     });
   }
@@ -271,6 +295,7 @@ window.addEventListener('hashchange', () => {
 });
 
 const payload = takeFragment();
+applyTheme();
 applyLanguage();
 render();
 if (payload !== null) void receiveHandoff(payload);

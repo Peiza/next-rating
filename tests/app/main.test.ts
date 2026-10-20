@@ -73,6 +73,27 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('open-setup');
   });
 
+  it('applies the theme from Settings and keeps it after a reload', async () => {
+    const meta = document.head.appendChild(
+      Object.assign(document.createElement('meta'), { name: 'theme-color', content: '#ffffff' }),
+    );
+    await start('/next-rating/');
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('theme-dark')!.click();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(meta.content).toBe('#000000');
+    expect(document.activeElement?.id).toBe('theme-dark');
+
+    await start('/next-rating/');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('theme-device')!.click();
+    expect(document.documentElement.dataset.theme).toBeUndefined();
+    expect(meta.content).toBe('#ffffff');
+    meta.remove();
+  });
+
   it('shows an error for a broken hand-off and stores nothing', async () => {
     await start('/next-rating/#d=not-a-hand-off');
     expect(location.hash).toBe('');

@@ -136,7 +136,10 @@ single build-time setting.
    - Setup page with step-by-step bookmarklet installation for Safari on iPhone,
      Chrome on Android (run it by typing its name in the address bar) and
      desktop browsers, with a copy button.
-   - Store locally only: the language override and the players' data. Each
+   - Theme: a segmented control on the Settings tab with Device (the
+     default), Light and Dark. Both themes pass the contrast test.
+   - Store locally only: the language override, the theme choice and the
+     players' data. Each
      player (each favorite, see 5) keeps its own PDGA number, last import
      (show its timestamp) and manual rounds. Until the Favorites step, one
      player's data is stored. When the storage format changes, existing data

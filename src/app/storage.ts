@@ -10,30 +10,39 @@ import { validateStoredImport, type StoredImport } from './import';
 
 export const STORAGE_KEY = 'next-rating:v1';
 
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+
 export interface AppData {
   /** The default player. */
   pdgaNumber: number | null;
   /** The language picked in Settings; null follows the device. */
   language: string | null;
+  /** The theme picked in Settings; null follows the device. */
+  theme: Theme | null;
   /** The imported pdga.com data, or null before the first import. */
   lastImport: StoredImport | null;
 }
 
-export const EMPTY_DATA: AppData = { pdgaNumber: null, language: null, lastImport: null };
+export const EMPTY_DATA: AppData = { pdgaNumber: null, language: null, theme: null, lastImport: null };
 
 const LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i;
 
-/** Reads stored data field by field, so one bad field does not lose the others. */
+/**
+ * Reads stored data field by field, so one bad field does not lose the
+ * others, and data saved before a field existed loads with its default.
+ */
 export function validateData(value: unknown): AppData {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return { ...EMPTY_DATA };
   const record = value as Record<string, unknown>;
-  const { pdgaNumber, language, lastImport } = record;
+  const { pdgaNumber, language, theme, lastImport } = record;
   return {
     pdgaNumber:
       typeof pdgaNumber === 'number' && Number.isInteger(pdgaNumber)
         ? parseInteger(String(pdgaNumber), RANGES.id)
         : null,
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
+    theme: THEMES.find((name) => name === theme) ?? null,
     lastImport: validateStoredImport(lastImport),
   };
 }

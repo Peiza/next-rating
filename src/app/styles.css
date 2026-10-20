@@ -3,6 +3,10 @@
  * redefined for dark mode, and tests/app/contrast.test.ts checks that
  * every text colour reaches 7:1 (WCAG AAA) on every background. Status is
  * never shown by colour alone.
+ *
+ * The theme follows the device unless Settings sets data-theme on <html>.
+ * The dark tokens appear twice, for the device setting and for the
+ * override; the contrast test fails if the two blocks differ.
  */
 
 :root {
@@ -22,8 +26,13 @@
   --gutter: 1rem;
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
     --bg: #000000;
     --surface: #1a1a1a;
     --text: #ffffff;
@@ -38,8 +47,25 @@
   }
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #1a1a1a;
+  --text: #ffffff;
+  --text-muted: #d9d9d9;
+  --border: #b3b3b3;
+  --accent: #9cc2ff;
+  --on-accent: #000000;
+  --good: #7ee2a0;
+  --bad: #ff9c9c;
+  --warn-bg: #3d3000;
+  --focus: #ffd60a;
+}
+
+/* Same specificity as the dark blocks and later, so it wins over them. */
 @media (prefers-contrast: more) {
-  :root {
+  :root,
+  :root[data-theme] {
     --text-muted: var(--text);
     --border: var(--text);
   }
@@ -279,6 +305,65 @@ a.button[target='_blank']::after {
   flex: 1;
 }
 
+/* Segmented control: native radios, with the labels as the segments. */
+
+.segmented {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: none;
+}
+
+.segmented legend {
+  padding: 0;
+}
+
+.segments {
+  position: relative;
+  display: flex;
+  border: 2px solid var(--text);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.segments input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segments label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.segments label + input + label {
+  border-left: 2px solid var(--text);
+}
+
+.segments input:checked + label {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+/* The check mark shows the choice without relying on colour. */
+.segments input:checked + label::before {
+  content: '\2713' / '';
+  margin-right: 0.35em;
+}
+
+.segments input:focus-visible + label {
+  outline: 3px solid var(--focus);
+  outline-offset: -5px;
+}
+
 .paste {
   min-height: 9rem;
   resize: vertical;
@@ -495,6 +580,12 @@ a.button[target='_blank']::after {
   .button:disabled {
     color: GrayText;
     border-color: GrayText;
+  }
+
+  .segments input:checked + label {
+    forced-color-adjust: none;
+    color: HighlightText;
+    background: Highlight;
   }
 }
 

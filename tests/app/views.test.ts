@@ -82,11 +82,37 @@ describe('settings view', () => {
     flash: null,
     language: null,
     preferred: ['sv-SE'],
+    theme: null,
     persistent: true,
     onSavePdgaNumber: () => {},
     onLanguage: () => {},
+    onTheme: () => {},
     onOpenSetup: () => {},
   };
+
+  it('offers Device, Light and Dark themes, with Device by default', () => {
+    const view = settingsView(props);
+    expect(view.querySelector('.segmented legend')!.textContent).toBe('Theme');
+    const radios = [...view.querySelectorAll<HTMLInputElement>('input[name="theme"]')];
+    expect(radios.map((radio) => view.querySelector(`label[for="${radio.id}"]`)!.textContent)).toEqual([
+      'Device',
+      'Light',
+      'Dark',
+    ]);
+    expect(radios.map((radio) => radio.checked)).toEqual([true, false, false]);
+    const dark = settingsView({ ...props, theme: 'dark' });
+    expect(dark.querySelector<HTMLInputElement>('#theme-dark')!.checked).toBe(true);
+  });
+
+  it('changes the theme', () => {
+    const onTheme = vi.fn();
+    const view = document.body.appendChild(settingsView({ ...props, theme: 'light', onTheme }));
+    view.querySelector<HTMLInputElement>('#theme-dark')!.click();
+    expect(onTheme).toHaveBeenLastCalledWith('dark');
+    view.querySelector<HTMLInputElement>('#theme-device')!.click();
+    expect(onTheme).toHaveBeenLastCalledWith(null);
+    view.remove();
+  });
 
   it('offers the device setting and every language', () => {
     const options = [...settingsView(props).querySelectorAll('#language option')];
