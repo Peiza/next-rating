@@ -60,7 +60,8 @@ function kindOf(before: RoundStatus, after: RoundStatus): ChangeKind {
  * double-weight boundary) are credited to the rounds whose weight changed.
  *
  * Listed: every new round with a rating, also one that does not count (effect
- * 0), and every official round whose weight changed.
+ * 0), and every official round whose weight changed. Rounds after the
+ * deadline are not listed: they belong to the following update.
  */
 export function explainChange(
   rounds: readonly RoundInput[],
@@ -78,7 +79,7 @@ export function explainChange(
   rounds.forEach((round, i) => {
     const result = after.rounds[i]!;
     const previous = beforeById.get(round.id) ?? null;
-    if (round.rating === null || result.status === 'dnf') return;
+    if (round.rating === null || result.status === 'dnf' || result.status === 'after-deadline') return;
     const weightChange = result.weight - (previous?.weight ?? 0);
     if (previous !== null && weightChange === 0) return;
     items.push({

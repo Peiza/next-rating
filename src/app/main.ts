@@ -327,10 +327,11 @@ function currentView(): HTMLElement {
   }
   const player = findPlayer(data, selected);
   if (player?.import) {
+    const now = new Date();
     return ratingView({
-      model: buildModel(player.import, player.pdgaNumber),
+      model: buildModel(player.import, player.pdgaNumber, now),
       favorite: player.favorite,
-      now: new Date(),
+      now,
       onAddFavorite: (pdgaNumber) => addToFavorites(pdgaNumber),
     });
   }

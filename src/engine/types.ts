@@ -33,6 +33,11 @@ export type RoundStatus =
   | 'dropped'
   /** Older than the 12- or 24-month window. */
   | 'outside-window'
+  /**
+   * A new round dated after the report deadline of the next update: that
+   * update leaves it out, and it counts in the following one.
+   */
+  | 'after-deadline'
   | 'dnf';
 
 export interface RoundResult {
@@ -44,7 +49,7 @@ export interface RoundResult {
 
 /** Figures behind the prediction, matching the stats panel of the legacy sheet. */
 export interface RatingStats {
-  /** Rated rounds, DNF rounds not included. */
+  /** Rated rounds, DNF rounds and rounds after the deadline not included. */
   totalRounds: number;
   dnfRounds: number;
   /** Distinct events among official and unofficial rounds (manual rounds not included). */
@@ -81,6 +86,12 @@ export interface RatingStats {
 export interface PredictOptions {
   /** The current official rating, used for the change. */
   currentRating?: number | null;
+  /**
+   * The event report deadline of the next update. Unofficial and manual
+   * rounds dated after it are 'after-deadline' and left out of everything,
+   * including the window and the stats. Official rounds always count.
+   */
+  deadline?: PlainDate;
 }
 
 export interface Prediction {

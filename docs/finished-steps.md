@@ -162,6 +162,18 @@ manual per-page fallback.
    could not stay there). The players list order is stored with the other
    settings, and the next update date comes from `nextRatingUpdate` in
    src/engine/dates.ts.
+8. Deadline-aware prediction: the next update counts events reported by the
+   deadline, the Sunday before the second Tuesday
+   (https://www.pdga.com/faq/ratings/when-updated). Unofficial and manual
+   rounds from events dated after that deadline are left out of the
+   next-update prediction and marked in the round list as counting in the
+   following update.
+   Built as: the `deadline` option of `predictRating` gives those rounds the
+   status 'after-deadline' and leaves them out of the window, the stats and
+   the change explanation; official rounds always count. On update day,
+   once the official rating is dated that day, the next update is the
+   following month's, so the prediction does not fall back to the new
+   official rating.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
@@ -189,3 +201,4 @@ Built in this order:
 - Change explanation: why the prediction differs from the official rating
   (docs/plan-change-explanation.md) (done)
 - Polish after favorites (Architecture 7) (done)
+- Deadline-aware prediction (Architecture 8) (done)

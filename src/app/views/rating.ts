@@ -1,4 +1,4 @@
-import { nextRatingUpdate, type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
+import { type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
 import { el } from '../dom';
@@ -11,7 +11,6 @@ import {
   formatDayMonth,
   formatEffect,
   formatRating,
-  today,
 } from '../format';
 import type { ListedChange, ListedResult, Model } from '../model';
 import { detailsUrl, eventUrl } from './pdga';
@@ -34,6 +33,7 @@ const STATUS: Record<RoundStatus, { symbol: string; label: MessageKey }> = {
   doubled: { symbol: '×2', label: 'round.status.doubled' },
   dropped: { symbol: '↓', label: 'round.status.dropped' },
   'outside-window': { symbol: '○', label: 'round.status.outside-window' },
+  'after-deadline': { symbol: '»', label: 'round.status.after-deadline' },
   dnf: { symbol: '–', label: 'round.status.dnf' },
 };
 
@@ -60,9 +60,11 @@ function change(value: number): HTMLElement {
   );
 }
 
-/** When the next update comes and which events it counts, linked to PDGA's page with the rule. */
-function nextUpdate(now: Date): HTMLElement {
-  const { update, deadline } = nextRatingUpdate(today(now));
+/**
+ * When the next update comes and which events it counts, linked to PDGA's
+ * page with the rule. The same dates the prediction is made for.
+ */
+function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
   return el(
     'p',
     { id: 'next-update', class: 'next-update' },
@@ -86,7 +88,7 @@ function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElem
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
     prediction.change !== null && change(prediction.change),
-    nextUpdate(now),
+    nextUpdate(model.nextUpdate),
     official !== null &&
       el(
         'p',

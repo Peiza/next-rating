@@ -55,13 +55,17 @@ export interface RatingUpdate {
  * The next ratings update on or after `today`, and its report deadline, as
  * PDGA publishes them (https://www.pdga.com/faq/ratings/when-updated). The
  * second Tuesday is never before the 8th, so the deadline is in the same month.
+ *
+ * `lastUpdate` is the date of the official rating. On update day, once PDGA
+ * has published (the official rating is dated that day), the next update is
+ * the following month's.
  */
-export function nextRatingUpdate(today: PlainDate): RatingUpdate {
+export function nextRatingUpdate(today: PlainDate, lastUpdate: PlainDate | null = null): RatingUpdate {
   const parts = splitDate(today);
   if (!parts) throw new RangeError(`Invalid date: ${today}`);
   let [year, month] = parts;
   let day = secondTuesday(year, month);
-  if (parts[2] > day) {
+  if (parts[2] > day || (lastUpdate !== null && compareDates(lastUpdate, formatDate(year, month, day)) >= 0)) {
     [year, month] = month === 12 ? [year + 1, 1] : [year, month + 1];
     day = secondTuesday(year, month);
   }

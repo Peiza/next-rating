@@ -62,6 +62,13 @@ describe('nextRatingUpdate', () => {
     expect(nextRatingUpdate('2026-12-09')).toEqual({ update: '2027-01-12', deadline: '2027-01-10' });
   });
 
+  it('moves to next month on update day once the official rating is dated that day', () => {
+    expect(nextRatingUpdate('2026-11-10', '2026-11-10')).toEqual({ update: '2026-12-08', deadline: '2026-12-06' });
+    expect(nextRatingUpdate('2026-11-10', '2026-10-13').update).toBe('2026-11-10');
+    expect(nextRatingUpdate('2026-11-10', null).update).toBe('2026-11-10');
+    expect(nextRatingUpdate('2026-11-01', '2026-10-13').update).toBe('2026-11-10');
+  });
+
   it('handles a month that starts on a Tuesday', () => {
     // September 2026 starts on a Tuesday.
     expect(nextRatingUpdate('2026-09-01')).toEqual({ update: '2026-09-08', deadline: '2026-09-06' });

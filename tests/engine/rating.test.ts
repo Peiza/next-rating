@@ -334,6 +334,56 @@ describe('predictRating', () => {
     });
   });
 
+  describe('report deadline', () => {
+    const deadline = '2026-09-06';
+
+    it('leaves out unofficial and manual rounds dated after it', () => {
+      const official = weekly([950, 960, 940]);
+      const unofficial = round(1000, '2026-09-07', { source: 'unofficial' });
+      const manual = round(1000, '2026-09-10', { source: 'manual' });
+      const prediction = predictRating([unofficial, manual, ...official], { deadline });
+      expect(statusOf(prediction, unofficial)).toBe('after-deadline');
+      expect(statusOf(prediction, manual)).toBe('after-deadline');
+      expect(prediction.rounds[0]!.weight).toBe(0);
+      expect(prediction.rounds[1]!.weight).toBe(0);
+      expect(prediction.exact).toBe(predictRating(official).exact);
+      expect(prediction.stats).toMatchObject({ totalRounds: 3, careerEvents: 3, windowEnd: '2026-08-27' });
+    });
+
+    it('counts a round on the deadline day', () => {
+      const onDeadline = round(1000, deadline, { source: 'unofficial' });
+      expect(statusOf(predictRating([onDeadline, ...weekly([950, 960])], { deadline }), onDeadline)).toBe('included');
+    });
+
+    it('always counts official rounds', () => {
+      const official = round(1000, '2026-09-10');
+      expect(statusOf(predictRating([official, ...weekly([950, 960])], { deadline }), official)).toBe('included');
+    });
+
+    it('counts every round without a deadline', () => {
+      const later = round(1000, '2026-09-10', { source: 'unofficial' });
+      expect(statusOf(predictRating([later, ...weekly([950, 960])]), later)).toBe('included');
+    });
+
+    it('does not move the window with a round after it', () => {
+      // A round on 2026-09-10 would start the window on 2025-09-10 and push this one out.
+      const old = round(950, '2025-09-01');
+      const later = round(950, '2026-09-10', { source: 'unofficial' });
+      const rounds = [later, ...weekly([950, 955, 945, 950, 955, 945, 950, 955]), old];
+      expect(statusOf(predictRating(rounds), old)).toBe('outside-window');
+      const prediction = predictRating(rounds, { deadline });
+      expect(statusOf(prediction, old)).toBe('included');
+      expect(prediction.stats.windowEnd).toBe('2026-08-27');
+    });
+
+    it('keeps a DNF round after it as DNF', () => {
+      const dnf = { ...round(0, '2026-09-10', { source: 'unofficial', dnf: true }), rating: null };
+      const prediction = predictRating([dnf, ...weekly([950, 960])], { deadline });
+      expect(statusOf(prediction, dnf)).toBe('dnf');
+      expect(prediction.stats.dnfRounds).toBe(1);
+    });
+  });
+
   describe('validation', () => {
     it('rejects duplicate ids', () => {
       expect(() => predictRating([round(950, '2026-08-27', { id: 'x' }), round(950, '2026-08-20', { id: 'x' })])).toThrow(RangeError);

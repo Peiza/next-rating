@@ -173,7 +173,7 @@ describe('rating view', () => {
   };
 
   function ratingPage(favorite = true, onAddFavorite = vi.fn()) {
-    return ratingView({ model: buildModel(stored, 100001), favorite, now: NOW, onAddFavorite });
+    return ratingView({ model: buildModel(stored, 100001, NOW), favorite, now: NOW, onAddFavorite });
   }
 
   it('names the player once, in the heading, with the data age on the line below', () => {
@@ -219,7 +219,7 @@ describe('rating view', () => {
     ['970', 'down', '↓', '−8'],
     ['962', 'none', '→', '0'],
   ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
-    const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
+    const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001, NOW);
     const line = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.change')!;
     expect(line.classList.contains(`change-${direction}`)).toBe(true);
     const icon = line.querySelector('.change-arrow')!;
@@ -246,6 +246,19 @@ describe('rating view', () => {
     expect(rounds[3]!.querySelector('.round-event')!.textContent).toBe('Example Open, Finals');
   });
 
+  it('marks rounds after the report deadline as counting in the following update', () => {
+    // The deadline for the update on 13 Oct is 11 Oct.
+    const later = rawEvent({ eventId: '900004', date: '12-Oct-2026' });
+    const model = buildModel({ ...stored, events: [rawEvent(), later] }, 100001, NOW);
+    const view = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const deferred = [...view.querySelectorAll('.round-after-deadline')];
+    expect(deferred).toHaveLength(2);
+    const status = deferred[0]!.querySelector('.round-status')!;
+    expect(status.textContent).toContain('Counts in the following update');
+    expect(status.querySelector('[aria-hidden="true"]')!.textContent).toBe('»');
+    expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
+  });
+
   it("links each round's event name to its pdga.com page, in the same tab", () => {
     const rounds = [...ratingPage().querySelectorAll('.round')];
     const official = rounds[3]!.querySelector<HTMLAnchorElement>('.round-event a')!;
@@ -258,7 +271,7 @@ describe('rating view', () => {
   });
 
   it('shows the event name without a link when its id is unknown', () => {
-    const model = buildModel({ ...stored, details: [rawDetailsRow({ eventId: '' })], events: [] }, 100001);
+    const model = buildModel({ ...stored, details: [rawDetailsRow({ eventId: '' })], events: [] }, 100001, NOW);
     const event = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.round-event')!;
     expect(event.querySelector('a')).toBeNull();
     expect(event.textContent).toBe('Example Open, Round 1');
@@ -290,7 +303,7 @@ describe('rating view', () => {
     const reproduced = rawPlayer({ currentRating: '965' });
 
     function why(extra: Partial<StoredImport> = {}): HTMLElement | null {
-      const model = buildModel({ ...stored, player: reproduced, ...extra }, 100001);
+      const model = buildModel({ ...stored, player: reproduced, ...extra }, 100001, NOW);
       return ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#why');
     }
 
@@ -365,7 +378,7 @@ describe('rating view', () => {
   });
 
   it('names the player by number before a player header is imported', () => {
-    const model = buildModel({ ...stored, player: undefined }, 100001);
+    const model = buildModel({ ...stored, player: undefined }, 100001, NOW);
     expect(ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('h1')!.textContent).toBe('#100001');
   });
 

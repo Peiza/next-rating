@@ -63,7 +63,7 @@ single build-time setting.
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 3 bookmarklet, 4 web app import, results and theme, 5 favorites, 6 change
-explanation, 7 polish after favorites.
+explanation, 7 polish after favorites, 8 deadline-aware prediction.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -102,12 +102,6 @@ Open:
 5. Favorites, optional, later: a transfer link that moves favorites and manual
    rounds to another device through the same URL-fragment hand-off, without a
    server.
-8. Deadline-aware prediction: the next update counts events reported by the
-   deadline, the Sunday before the second Tuesday
-   (https://www.pdga.com/faq/ratings/when-updated). Unofficial and manual
-   rounds from events dated after that deadline are left out of the
-   next-update prediction and marked in the round list as counting in the
-   following update.
 9. Target calculator, on the Rating tab:
    - Input: a target rating (for example 1000) and a number of upcoming
      rounds (default 3). Output: the average round rating needed in those
@@ -119,6 +113,9 @@ Open:
      weighting are then all applied as in the prediction.
    - Say so when the target is already reached without new rounds, or out of
      reach within a plausible rating range.
+   - Between the report deadline and the update (Monday and Tuesday of
+     update week), rounds dated today count only in the following update
+     (Architecture 8); handle that case.
 10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
@@ -200,9 +197,9 @@ that I merge; the workflow builds and tests every pull request and deploys
 every merge, so each version can be tested live on my phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
-explanation and the polish after favorites (docs/finished-steps.md). Build
-the rest in this order, committing after each working step:
-- Deadline-aware prediction (Architecture 8)
+explanation, the polish after favorites and the deadline-aware prediction
+(docs/finished-steps.md). Build the rest in this order, committing after
+each working step:
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
 - Target calculator
