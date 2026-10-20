@@ -109,20 +109,20 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
 function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
   const count = (value: number) => formatRating(value);
   const average = (value: number | null) => (value === null ? DASH : formatAverage(value));
-  const window =
-    stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null
-      ? t('stats.windowValue', {
-          months: stats.windowMonths,
-          start: formatDate(stats.windowStart),
-          end: formatDate(stats.windowEnd),
-        })
-      : DASH;
-  const rows: [MessageKey, string][] = [
+  const hasWindow = stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null;
+  // The window length sits next to its label, and the dates on their own line below.
+  const window: [string, string?] = hasWindow
+    ? [
+        t('stats.windowMonths', { count: stats.windowMonths! }),
+        t('stats.windowRange', { start: formatDate(stats.windowStart!), end: formatDate(stats.windowEnd!) }),
+      ]
+    : [DASH];
+  const rows: [MessageKey, string, string?][] = [
     ['stats.exact', average(exact)],
     ['stats.totalRounds', count(stats.totalRounds)],
     ['stats.dnfRounds', count(stats.dnfRounds)],
     ['stats.careerEvents', count(stats.careerEvents)],
-    ['stats.window', window],
+    ['stats.window', ...window],
     ['stats.roundsInWindow', count(stats.roundsInWindow)],
     ['stats.roundsOutsideWindow', count(stats.roundsOutsideWindow)],
     ['stats.roundsDropped', count(stats.roundsDropped)],
@@ -140,7 +140,19 @@ function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
     'details',
     { id: 'stats', class: 'stats' },
     el('summary', {}, t('stats.title')),
-    el('dl', {}, ...rows.map(([key, value]) => el('div', { class: 'stat' }, el('dt', {}, t(key)), el('dd', {}, value)))),
+    el(
+      'dl',
+      {},
+      ...rows.map(([key, value, detail]) =>
+        el(
+          'div',
+          { class: 'stat' },
+          el('dt', {}, t(key)),
+          el('dd', {}, value),
+          detail !== undefined && el('dd', { class: 'stat-detail' }, detail),
+        ),
+      ),
+    ),
   );
 }
 

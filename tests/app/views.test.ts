@@ -220,7 +220,19 @@ describe('rating view', () => {
     const rows = [...stats.querySelectorAll('dl > div.stat')];
     expect(rows.length).toBeGreaterThan(0);
     expect(stats.querySelectorAll('dt').length).toBe(rows.length);
-    for (const row of rows) expect([...row.children].map((child) => child.tagName)).toEqual(['DT', 'DD']);
+    for (const row of rows) expect([...row.children].map((child) => child.tagName).slice(0, 2)).toEqual(['DT', 'DD']);
+  });
+
+  it('shows the window length next to its label and the dates below', () => {
+    const row = [...ratingPage().querySelectorAll('#stats div.stat')].find((stat) =>
+      stat.querySelector('dt')!.textContent!.startsWith('Window'),
+    )!;
+    const [label, months, range] = [...row.children];
+    expect(label!.textContent).toBe('Window');
+    // Fewer than 8 rounds, so the 24-month fallback applies.
+    expect(months!.textContent).toBe('24 months');
+    expect(range!.className).toBe('stat-detail');
+    expect(range!.textContent).toMatch(/^\S+ to \S+$/);
   });
 
   it('offers to make the imported player the default player', () => {
