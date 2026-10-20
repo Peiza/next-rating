@@ -3,30 +3,38 @@ import { el } from '../dom';
 import { detailsLink, pdgaNumberForm, type PdgaFlash } from './pdga';
 
 export interface StartProps {
+  /** Your own PDGA number, for the first step. */
   pdgaNumber: number | null;
+  /** The selected player, when it has no imported data yet. Null before any player is stored. */
+  player: { pdgaNumber: number; label: string } | null;
   flash: PdgaFlash;
   onSavePdgaNumber: (pdgaNumber: number | null) => void;
   onOpenImport: () => void;
   onOpenSetup: () => void;
 }
 
-/** The Rating tab while there is no data yet: the steps to get some. */
-export function startView({ pdgaNumber, flash, onSavePdgaNumber, onOpenImport, onOpenSetup }: StartProps): HTMLElement {
+/**
+ * The Rating tab while there is no data yet: the steps to get some. Before
+ * any player is stored, the first step asks for your own PDGA number; for a
+ * player without data, the steps refer to that player.
+ */
+export function startView({ pdgaNumber, player, flash, onSavePdgaNumber, onOpenImport, onOpenSetup }: StartProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
-    el('h1', { id: 'view-title' }, t('app.name')),
-    el('p', { class: 'lead' }, t('app.tagline')),
+    el('h1', { id: 'view-title' }, player ? player.label : t('app.name')),
+    el('p', { class: 'lead' }, player ? t('start.noData') : t('app.tagline')),
     el('h2', {}, t('start.title')),
     el(
       'ol',
       { class: 'steps' },
-      el(
-        'li',
-        { class: 'step' },
-        el('p', { class: 'step-title' }, t('start.stepNumber')),
-        pdgaNumberForm(pdgaNumber, flash, onSavePdgaNumber),
-      ),
+      !player &&
+        el(
+          'li',
+          { class: 'step' },
+          el('p', { class: 'step-title' }, t('start.stepNumber')),
+          pdgaNumberForm(pdgaNumber, flash, onSavePdgaNumber),
+        ),
       el(
         'li',
         { class: 'step' },
@@ -37,7 +45,12 @@ export function startView({ pdgaNumber, flash, onSavePdgaNumber, onOpenImport, o
           t('start.openSetup'),
         ),
       ),
-      el('li', { class: 'step' }, el('p', { class: 'step-title' }, t('start.stepOpen')), detailsLink(pdgaNumber)),
+      el(
+        'li',
+        { class: 'step' },
+        el('p', { class: 'step-title' }, player ? t('start.stepOpenPlayer', { player: player.label }) : t('start.stepOpen')),
+        detailsLink(player ? player.pdgaNumber : pdgaNumber),
+      ),
       el(
         'li',
         { class: 'step' },

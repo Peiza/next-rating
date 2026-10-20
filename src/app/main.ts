@@ -10,11 +10,21 @@ import { readPages } from './handoff';
 import { takeFragment } from './import';
 import { buildModel } from './model';
 import { readPaste } from './paste';
-import { addFavorite, findPlayer, initialSelection, playerName, routeImport, setMe, type Routed } from './players';
+import { addFavorite, findPlayer, initialSelection, removePlayer, routeImport, setMe, type Routed } from './players';
 import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type Theme } from './storage';
 import { BANNER_ID, bannerView, type Banner } from './views/banner';
 import { EVENT_DATE_ID, importView, OWNER_ID, PASTE_ID, type PasteMessage } from './views/import';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
+import {
+  ADD_INPUT_ID,
+  MENU_BUTTON_ID,
+  PANEL_TITLE_ID,
+  playerButtonId,
+  playerLabel,
+  playersPanel,
+  topBar,
+  WIDE_QUERY,
+} from './views/players';
 import { ratingView } from './views/rating';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
@@ -55,6 +65,11 @@ let pendingDetails: { details: RawDetailsRow[]; rounds: number } | null = null;
 let pasteMessage: PasteMessage | null = null;
 /** The bookmarklet setup shows over the current tab, and the id of what opened it gets focus back. */
 let setupOpener: string | null = null;
+/** On phones, the players panel shows in place of the current view. */
+let menuOpen = false;
+let editingPlayers = false;
+let confirmRemove: number | null = null;
+let addFlash: PdgaFlash = null;
 
 function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -106,7 +121,8 @@ function savePdgaNumber(pdgaNumber: number | null): void {
   render(PDGA_SAVE_ID);
 }
 
-function addToFavorites(pdgaNumber: number): void {
+/** Saves the unsaved player as a favorite, then puts focus on `focusId`. */
+function addToFavorites(pdgaNumber: number, focusId = `tab-${tab}`): void {
   const data = store.get();
   const next = addFavorite(data, pdgaNumber);
   if (next === data) {
@@ -114,14 +130,81 @@ function addToFavorites(pdgaNumber: number): void {
     return;
   }
   store.update(next);
-  render(`tab-${tab}`);
+  render(focusId);
 }
 
-/** "Name #12345", or "#12345" before the first import. */
-function playerLabel(pdgaNumber: number): string {
+function labelOf(pdgaNumber: number): string {
   const player = findPlayer(store.get(), pdgaNumber);
-  const name = player ? playerName(player) : '';
-  return name ? t('rating.player', { name, number: pdgaNumber }) : t('rating.playerNumber', { number: pdgaNumber });
+  return player ? playerLabel(player) : t('rating.playerNumber', { number: pdgaNumber });
+}
+
+function isWide(): boolean {
+  return window.matchMedia?.(WIDE_QUERY).matches ?? false;
+}
+
+function toggleMenu(): void {
+  menuOpen = !menuOpen;
+  editingPlayers = false;
+  confirmRemove = null;
+  render(menuOpen ? PANEL_TITLE_ID : MENU_BUTTON_ID);
+  window.scrollTo(0, 0);
+}
+
+function closeMenu(): void {
+  if (!menuOpen) return;
+  toggleMenu();
+}
+
+/** Shows a player on the Rating tab. On phones the menu closes, and focus returns to its button. */
+function selectPlayer(pdgaNumber: number): void {
+  selected = pdgaNumber;
+  tab = 'rating';
+  setupOpener = null;
+  banner = null;
+  menuOpen = false;
+  confirmRemove = null;
+  render(isWide() ? playerButtonId(pdgaNumber) : MENU_BUTTON_ID);
+  window.scrollTo(0, 0);
+}
+
+function toggleEditPlayers(): void {
+  editingPlayers = !editingPlayers;
+  confirmRemove = null;
+  render('players-edit');
+}
+
+function setMeFromPanel(pdgaNumber: number): void {
+  store.update(setMe(store.get(), pdgaNumber));
+  render(playerButtonId(pdgaNumber));
+}
+
+function askRemove(pdgaNumber: number | null): void {
+  const before = confirmRemove;
+  confirmRemove = pdgaNumber;
+  // Focus goes to Cancel, the safe choice, and back to Remove when cancelled.
+  render(pdgaNumber !== null ? `remove-cancel-${pdgaNumber}` : `remove-${before}`);
+}
+
+function removeFromPanel(pdgaNumber: number): void {
+  const data = store.update(removePlayer(store.get(), pdgaNumber));
+  confirmRemove = null;
+  if (selected === pdgaNumber) selected = initialSelection(data);
+  const anyFavorite = data.players.some((player) => player.favorite);
+  if (!anyFavorite) editingPlayers = false;
+  render(anyFavorite ? 'players-edit' : PANEL_TITLE_ID);
+}
+
+/** Adds a player from the panel's form and shows it, so its pdga.com page is one tap away. */
+function addFromPanel(pdgaNumber: number): void {
+  const data = store.get();
+  const next = addFavorite(data, pdgaNumber);
+  if (next === data && !findPlayer(data, pdgaNumber)?.favorite) {
+    addFlash = 'full';
+    render(`${ADD_INPUT_ID}-save`);
+    return;
+  }
+  store.update(next);
+  selectPlayer(pdgaNumber);
 }
 
 function setLanguageOverride(language: string | null): void {
@@ -134,6 +217,7 @@ function selectTab(next: Tab): void {
   tab = next;
   setupOpener = null;
   pasteMessage = null;
+  menuOpen = false;
   render(`tab-${next}`);
   window.scrollTo(0, 0);
 }
@@ -155,7 +239,7 @@ function importNotes(routed: Routed): Pick<Banner, 'storageFull'> {
 function eventAddedBanner(routed: Routed): Banner {
   return {
     message: 'import.eventFor',
-    params: { players: routed.players.map(playerLabel).join(', ') },
+    params: { players: routed.players.map(labelOf).join(', ') },
     tone: 'info',
     ...importNotes(routed),
   };
@@ -163,6 +247,7 @@ function eventAddedBanner(routed: Routed): Banner {
 
 function openSetup(): void {
   setupOpener = document.activeElement?.id || `tab-${tab}`;
+  menuOpen = false;
   render(SETUP_ID);
   window.scrollTo(0, 0);
 }
@@ -178,6 +263,7 @@ function showBanner(next: Banner): void {
   banner = next;
   tab = 'rating';
   setupOpener = null;
+  menuOpen = false;
   render(BANNER_ID);
   window.scrollTo(0, 0);
 }
@@ -298,13 +384,10 @@ function currentView(): HTMLElement {
   const data = store.get();
   if (tab === 'settings') {
     return settingsView({
-      pdgaNumber: data.me,
-      flash,
       language: data.language,
       preferred: preferredLanguages(),
       theme: data.theme,
       persistent: store.persistent,
-      onSavePdgaNumber: savePdgaNumber,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
       onOpenSetup: openSetup,
@@ -329,11 +412,12 @@ function currentView(): HTMLElement {
     return ratingView({
       model: buildModel(player.import, player.pdgaNumber),
       favorite: player.favorite,
-      onAddFavorite: addToFavorites,
+      onAddFavorite: (pdgaNumber) => addToFavorites(pdgaNumber),
     });
   }
   return startView({
-    pdgaNumber: selected,
+    pdgaNumber: data.me,
+    player: player ? { pdgaNumber: player.pdgaNumber, label: playerLabel(player) } : null,
     flash,
     onSavePdgaNumber: savePdgaNumber,
     onOpenImport: () => selectTab('import'),
@@ -343,11 +427,36 @@ function currentView(): HTMLElement {
 
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
+  const data = store.get();
+  const shown = findPlayer(data, selected);
   root.replaceChildren(
-    el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
+    el(
+      'div',
+      { class: menuOpen ? 'shell menu-open' : 'shell' },
+      topBar(shown ? playerLabel(shown) : null, menuOpen, toggleMenu),
+      playersPanel({
+        players: data.players,
+        me: data.me,
+        selected,
+        editing: editingPlayers,
+        confirmRemove,
+        flash: addFlash,
+        now: new Date(),
+        onSelect: selectPlayer,
+        onClose: closeMenu,
+        onToggleEdit: toggleEditPlayers,
+        onSetMe: setMeFromPanel,
+        onAskRemove: askRemove,
+        onRemove: removeFromPanel,
+        onSave: (pdgaNumber) => addToFavorites(pdgaNumber, playerButtonId(pdgaNumber)),
+        onAdd: addFromPanel,
+      }),
+      el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
+    ),
     tabBar(),
   );
   flash = null;
+  addFlash = null;
   if (focusId) document.getElementById(focusId)?.focus();
 }
 

@@ -1,4 +1,5 @@
 import type { PlainDate } from '../engine/dates';
+import { activeLanguage } from '../i18n';
 
 /*
  * Dates and numbers follow the device locale, also when the user picks
@@ -28,6 +29,20 @@ export function formatDate(date: PlainDate, locale = deviceLocale()): string {
 /** A point in time, such as an import timestamp, in the device's time zone. */
 export function formatDateTime(timestamp: string, locale = deviceLocale()): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));
+}
+
+/**
+ * How long ago a timestamp was, such as "3 days ago" or "yesterday". These
+ * are words, so they follow the app's language rather than the device locale.
+ */
+export function formatAge(timestamp: string, now = new Date(), language = activeLanguage()): string {
+  const minutes = Math.max(0, Math.round((now.getTime() - Date.parse(timestamp)) / 60_000));
+  const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
+  if (minutes < 1) return format.format(0, 'second');
+  if (minutes < 60) return format.format(-minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return format.format(-hours, 'hour');
+  return format.format(-Math.round(hours / 24), 'day');
 }
 
 /** Today's date in the device's time zone. */

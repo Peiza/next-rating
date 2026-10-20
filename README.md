@@ -19,6 +19,22 @@ App: https://peiza.github.io/next-rating/
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 
+## Players and favorites
+
+The app keeps the data of several players, each separately, so you can
+follow friends as well as yourself:
+
+- Save players as favorites from the Players menu (a sidebar on wide
+  screens). Each favorite shows when it was last imported and links to its
+  ratings details on pdga.com, where the bookmarklet refreshes it.
+- One favorite is you. The app always opens on you.
+- Running the bookmarklet on another player's page shows that player without
+  touching anyone else's data. A player who is not a favorite is kept until
+  the next such import, with an "Add to favorites" button.
+- Event results go to every stored player who played the event.
+- Data saved by earlier versions of the app is moved over the first time a
+  new version opens.
+
 ## The bookmarklet
 
 The bookmarklet is a bookmark that brings your rounds from pdga.com into the

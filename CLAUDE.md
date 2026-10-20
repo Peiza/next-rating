@@ -272,7 +272,7 @@ order, committing after each working step:
 - Fixes after testing on a phone: rating change arrow and colour, theme
   setting, stats layout, paste hint (done)
 - Favorites (docs/plan-favorites.md; before manual entry, so manual rounds
-  are stored per player from the start)
+  are stored per player from the start) (done)
 - Change explanation: why the prediction differs from the official rating
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA

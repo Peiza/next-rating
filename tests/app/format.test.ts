@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAverage, formatChange, formatDate, formatRating } from '../../src/app/format';
+import { formatAge, formatAverage, formatChange, formatDate, formatRating } from '../../src/app/format';
 
 describe('formatting', () => {
   it('formats dates in the locale', () => {
@@ -30,5 +30,22 @@ describe('formatting', () => {
     expect(formatChange(-3, 'en-US')).toBe('−3');
     expect(formatChange(-3, 'sv-SE')).toBe('−3');
     expect(formatChange(0, 'en-US')).toBe('0');
+  });
+});
+
+describe('formatAge', () => {
+  const now = new Date('2026-10-20T12:00:00.000Z');
+
+  it('says how long ago, in the app language', () => {
+    expect(formatAge('2026-10-20T11:59:50.000Z', now, 'en')).toBe('now');
+    expect(formatAge('2026-10-20T11:15:00.000Z', now, 'en')).toBe('45 minutes ago');
+    expect(formatAge('2026-10-20T07:00:00.000Z', now, 'en')).toBe('5 hours ago');
+    expect(formatAge('2026-10-19T10:00:00.000Z', now, 'en')).toBe('yesterday');
+    expect(formatAge('2026-10-10T12:00:00.000Z', now, 'en')).toBe('10 days ago');
+    expect(formatAge('2026-10-17T12:00:00.000Z', now, 'sv')).toBe('för 3 dagar sedan');
+  });
+
+  it('never says a time in the future', () => {
+    expect(formatAge('2026-10-21T12:00:00.000Z', now, 'en')).toBe('now');
   });
 });

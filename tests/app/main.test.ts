@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEY } from '../../src/app/storage';
 import { encodeHandoff } from '../../src/handoff';
-import { envelope, handoffPage } from '../handoff/raw';
+import { envelope, handoffPage, rawDetailsRow, rawPlayer } from '../handoff/raw';
 import { detailsRow, detailsTable, eventDivision, eventPage, eventRow, playerHeader } from '../parsers/html';
 
 /** Loads the app as a fresh page load would. */
@@ -184,13 +184,51 @@ describe('app start', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
+  it('switches players from the menu, and removes one after asking', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [
+          { pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } },
+          { pdgaNumber: 100002, favorite: true, import: { at, player: other, details: [rawDetailsRow({ rating: '1000' })], events: [] } },
+        ],
+      }),
+    );
+    await start('/next-rating/');
+    expect(predicted()).toBe('950');
+    const menu = () => document.getElementById('players-menu')!;
+    expect(menu().textContent).toContain('Players');
+
+    menu().click();
+    expect(menu().getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('.shell')!.classList.contains('menu-open')).toBe(true);
+    expect(document.activeElement?.id).toBe('favorites-title');
+    document.getElementById('player-100002')!.click();
+    expect(predicted()).toBe('1000');
+    expect(menu().getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(menu());
+
+    menu().click();
+    document.getElementById('players-edit')!.click();
+    document.getElementById('remove-100002')!.click();
+    expect(document.activeElement?.id).toBe('remove-cancel-100002');
+    document.getElementById('remove-confirm-100002')!.click();
+    expect(stored().players.map((player: { pdgaNumber: number }) => player.pdgaNumber)).toEqual([100001]);
+    menu().click();
+    expect(predicted()).toBe('950');
+  });
+
   it('shows what another tab stored', async () => {
     await start('/next-rating/');
     expect(predicted()).toBeUndefined();
     const other = JSON.stringify({ me: 100001, players: [{ pdgaNumber: 100001, favorite: true, import: null }] });
     localStorage.setItem(STORAGE_KEY, other);
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
-    expect((document.getElementById('pdga-number') as HTMLInputElement).value).toBe('100001');
+    expect(document.getElementById('player-100001')!.textContent).toContain('#100001');
+    expect(document.querySelector('h1')!.textContent).toBe('#100001');
   });
 
   it('migrates data stored by the previous version', async () => {
