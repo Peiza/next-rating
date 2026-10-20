@@ -4,11 +4,36 @@ import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus,
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { readPages } from './handoff';
+import { today } from './format';
 import { takeFragment } from './import';
-import { buildModel } from './model';
-import { addFavorite, findPlayer, initialSelection, removePlayer, routeImport, setMe, type Routed } from './players';
+import { buildModel, manualToRounds } from './model';
+import {
+  addFavorite,
+  addManualRound,
+  clearManualRounds,
+  findPlayer,
+  initialSelection,
+  removeManualRound,
+  removePlayer,
+  routeImport,
+  setMe,
+  type ManualRoundInput,
+  type Routed,
+} from './players';
 import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type PlayerOrder, type Theme } from './storage';
-import { BANNER_ID, bannerView, type Banner } from './views/banner';
+import { applyUpdate, registerServiceWorker } from './pwa';
+import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
+import {
+  emptyDraft,
+  MANUAL_ADD_ID,
+  MANUAL_CLEAR_CANCEL_ID,
+  MANUAL_CLEAR_ID,
+  MANUAL_LIST_ID,
+  MANUAL_RATING_ID,
+  MANUAL_TOGGLE_ID,
+  type ManualDraft,
+  type ManualFlash,
+} from './views/manual';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
 import {
   ADD_INPUT_ID,
@@ -63,6 +88,15 @@ let menuOpen = false;
 let editingPlayers = false;
 let confirmRemove: number | null = null;
 let addFlash: PdgaFlash = null;
+/** Manual entry: open or not, and what has been typed, so a re-render keeps it. */
+let manualOpen = false;
+let manualDraft: ManualDraft = emptyDraft(today());
+let manualFlash: ManualFlash = null;
+let confirmClear = false;
+/** The player the manual entry state belongs to; another player starts with it closed and empty. */
+let manualPlayer: number | null = selected;
+/** A new version of the app is installed and waits for a reload. */
+let updateReady = false;
 
 function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -193,6 +227,51 @@ function addFromPanel(pdgaNumber: number): void {
   }
   store.update(next);
   selectPlayer(pdgaNumber);
+}
+
+function toggleManual(): void {
+  manualOpen = !manualOpen;
+  confirmClear = false;
+  // A form opened on a later day starts on that day.
+  if (manualOpen && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
+  render(manualOpen ? MANUAL_RATING_ID : MANUAL_TOGGLE_ID);
+}
+
+/** Adds a round and keeps the form open for the next one, with the date and event kept. */
+function addManual(round: ManualRoundInput): void {
+  if (selected === null) return;
+  const { data, error, savedFavorite } = addManualRound(store.get(), selected, round);
+  if (error) {
+    manualFlash = { kind: error };
+    render(MANUAL_ADD_ID);
+    return;
+  }
+  store.update(data);
+  manualFlash = { kind: 'added', rating: round.rating, savedFavorite };
+  manualDraft = { ...manualDraft, rating: '' };
+  render(MANUAL_RATING_ID);
+}
+
+function deleteManual(id: string): void {
+  if (selected === null) return;
+  const data = store.update(removeManualRound(store.get(), selected, id));
+  manualFlash = { kind: 'deleted' };
+  const left = findPlayer(data, selected)?.manualRounds.length ?? 0;
+  render(left > 0 ? MANUAL_LIST_ID : MANUAL_TOGGLE_ID);
+}
+
+function askClearManual(ask: boolean): void {
+  confirmClear = ask;
+  // Focus goes to Cancel, the safe choice, and back to Delete all when cancelled.
+  render(ask ? MANUAL_CLEAR_CANCEL_ID : MANUAL_CLEAR_ID);
+}
+
+function clearManual(): void {
+  if (selected === null) return;
+  store.update(clearManualRounds(store.get(), selected));
+  confirmClear = false;
+  manualFlash = { kind: 'cleared' };
+  render(MANUAL_TOGGLE_ID);
 }
 
 function setPlayerOrder(playerOrder: PlayerOrder): void {
@@ -326,10 +405,33 @@ function currentView(): HTMLElement {
     });
   }
   const player = findPlayer(data, selected);
+  if (manualPlayer !== selected) {
+    manualPlayer = selected;
+    manualOpen = false;
+    manualDraft = emptyDraft(today());
+    confirmClear = false;
+  }
   if (player?.import) {
     const now = new Date();
     return ratingView({
-      model: buildModel(player.import, player.pdgaNumber, now),
+      model: buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds)),
+      manual: {
+        rounds: player.manualRounds,
+        open: manualOpen,
+        draft: manualDraft,
+        flash: manualFlash,
+        confirmClear,
+        player: playerLabel(player),
+        today: today(now),
+        onToggle: toggleManual,
+        onDraft: (field, value) => {
+          manualDraft = { ...manualDraft, [field]: value };
+        },
+        onAdd: addManual,
+        onDelete: deleteManual,
+        onAskClear: askClearManual,
+        onClear: clearManual,
+      },
       favorite: player.favorite,
       now,
       onAddFavorite: (pdgaNumber) => addToFavorites(pdgaNumber),
@@ -373,12 +475,19 @@ function render(focusId = document.activeElement?.id): void {
         onSave: (pdgaNumber) => addToFavorites(pdgaNumber, playerButtonId(pdgaNumber)),
         onAdd: addFromPanel,
       }),
-      el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
+      el(
+        'main',
+        { class: 'main' },
+        updateReady && updateNotice(applyUpdate),
+        setupOpener === null && banner && bannerView(banner, closeBanner, openSetup),
+        currentView(),
+      ),
     ),
     tabBar(),
   );
   flash = null;
   addFlash = null;
+  manualFlash = null;
   if (focusId) document.getElementById(focusId)?.focus();
 }
 
@@ -414,3 +523,7 @@ applyTheme();
 applyLanguage();
 render();
 if (payload !== null) void receiveHandoff(payload);
+registerServiceWorker(() => {
+  updateReady = true;
+  render();
+});

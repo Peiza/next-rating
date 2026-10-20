@@ -615,6 +615,65 @@ a {
   color: var(--text-muted);
 }
 
+/* Manual entry: the rating first, the Add button last, near the thumb. */
+
+.manual {
+  margin: 1.5rem 0;
+}
+
+.manual > .hint {
+  margin-bottom: 0;
+}
+
+.manual-form {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.hint-tight {
+  margin: 0 0 0.375rem;
+}
+
+.manual-more {
+  margin: 0 0 1rem;
+}
+
+.manual-more summary {
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.manual-list {
+  margin-top: 1.5rem;
+}
+
+.manual-rounds {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.manual-round {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.manual-round p {
+  margin: 0;
+}
+
+.confirm-flush {
+  margin: 0;
+}
+
 /*
  * Players: on phones the top bar's menu button shows the panel in place of
  * the current view; from 64rem (WIDE_QUERY in views/players.ts) the panel is

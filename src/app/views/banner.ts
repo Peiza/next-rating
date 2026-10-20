@@ -50,3 +50,15 @@ export function bannerView(banner: Banner, onClose: () => void, onOpenSetup: () 
     ),
   );
 }
+
+export const UPDATE_ID = 'update-notice';
+
+/** A new version of the app is installed and waits; Reload switches to it. */
+export function updateNotice(onReload: () => void): HTMLElement {
+  return el(
+    'div',
+    { id: UPDATE_ID, class: 'banner', role: 'status' },
+    el('p', { class: 'banner-message' }, t('update.ready')),
+    el('button', { id: 'update-reload', class: 'button', type: 'button', onclick: onReload }, t('update.reload')),
+  );
+}

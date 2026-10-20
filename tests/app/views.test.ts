@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
-import { bannerView } from '../../src/app/views/banner';
+import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { ratingView } from '../../src/app/views/rating';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
@@ -189,6 +189,20 @@ describe('rating view', () => {
     const label = ratingPage().querySelector('#predicted')!.previousElementSibling!;
     expect(label.className).toBe('visually-hidden');
     expect(label.textContent).toBe('Predicted rating');
+  });
+
+  it('asks for a refresh on pdga.com once the data is more than 7 days old, with the button only there', () => {
+    expect(ratingPage().querySelector('#stale')).toBeNull();
+    expect(ratingPage().querySelector('#refresh')!.className).toBe('button button-block');
+    const later = new Date('2026-10-08T10:01:00.000Z');
+    const view = ratingView({ model: buildModel(stored, 100001, later), favorite: true, now: later, onAddFavorite: vi.fn() });
+    const notice = view.querySelector('#stale')!;
+    expect(notice.previousElementSibling!.id).toBe('updated');
+    expect(notice.textContent).toMatch(/^This data is more than 7 days old\./);
+    const refresh = notice.querySelector<HTMLAnchorElement>('#refresh')!;
+    expect(refresh.className).toBe('button button-primary button-block');
+    expect(refresh.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
+    expect(view.querySelectorAll('#refresh')).toHaveLength(1);
   });
 
   it('shows the next update and its report deadline, linked to the rule on pdga.com', () => {
@@ -415,6 +429,17 @@ describe('import banner', () => {
   });
 });
 
+describe('update notice', () => {
+  it('offers a reload to switch to the new version', () => {
+    const onReload = vi.fn();
+    const notice = updateNotice(onReload);
+    expect(notice.getAttribute('role')).toBe('status');
+    expect(notice.textContent).toContain('A new version of the app is available.');
+    notice.querySelector<HTMLButtonElement>('#update-reload')!.click();
+    expect(onReload).toHaveBeenCalled();
+  });
+});
+
 describe('bookmarklet setup', () => {
   const CODE = 'javascript:(function(){location.assign("https://example.github.io/next-rating/#d=")})();void 0';
 
@@ -486,9 +511,9 @@ describe('el', () => {
 describe('players panel', () => {
   const imported: StoredImport = { at: '2026-10-17T10:00:00.000Z', player: rawPlayer(), events: [] };
   const players: StoredPlayer[] = [
-    { pdgaNumber: 100001, favorite: true, import: imported },
-    { pdgaNumber: 100002, favorite: true, import: null },
-    { pdgaNumber: 100003, favorite: false, import: null },
+    { pdgaNumber: 100001, favorite: true, import: imported, manualRounds: [] },
+    { pdgaNumber: 100002, favorite: true, import: null, manualRounds: [] },
+    { pdgaNumber: 100003, favorite: false, import: null, manualRounds: [] },
   ];
 
   function panel(extra: Partial<PlayersProps> = {}): HTMLElement {
@@ -591,6 +616,7 @@ describe('players panel', () => {
       pdgaNumber,
       favorite: true,
       import: { at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }), events: [] },
+      manualRounds: [],
     });
     const many = [
       named(100004, 'Zoe Ash', '2026-10-19T10:00:00.000Z'),

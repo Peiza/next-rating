@@ -11,6 +11,7 @@ import {
 } from '../engine';
 import {
   detailsToRounds,
+  eventKeyOf,
   eventToRounds,
   mergeRounds,
   normalizeEvent,
@@ -21,11 +22,36 @@ import {
 } from '../parsers';
 import { today } from './format';
 import type { StoredImport } from './import';
+import type { StoredManualRound } from './storage';
 
 /*
- * Turns one player's stored import (and, from step 3 on, manual rounds) into
- * what the Rating tab shows. Pure, so it is tested with synthetic data.
+ * Turns one player's stored import and manual rounds into what the Rating
+ * tab shows. Pure, so it is tested with synthetic data.
  */
+
+/**
+ * Manual rounds for the engine. Rounds with the same event name (in any
+ * case) and date form one event, so the mid-event double-weight rule applies;
+ * a round without a name is an event of its own. The "m:" prefix keeps manual
+ * events apart from imported ones.
+ */
+export function manualToRounds(rounds: readonly StoredManualRound[]): ListedRound[] {
+  return rounds.map((round) => ({
+    id: `m:${round.id}`,
+    rating: round.rating,
+    date: round.date,
+    eventKey: round.eventName ? `m:${eventKeyOf(null, round.eventName.toLowerCase(), round.date)}` : `m:${round.id}`,
+    ...(round.holes !== null && { holes: round.holes }),
+    source: 'manual',
+    eventId: null,
+    eventName: round.eventName,
+    roundLabel: '',
+  }));
+}
+
+/** Data older than this many days gets a notice to refresh it on pdga.com. */
+export const STALE_DAYS = 7;
+const DAY_MS = 86_400_000;
 
 export interface ListedResult {
   round: ListedRound;
@@ -61,6 +87,8 @@ export interface Model {
    */
   staleDetails: boolean;
   importedAt: string;
+  /** The last import is more than STALE_DAYS old, so the Rating tab suggests a refresh on pdga.com. */
+  stale: boolean;
   /** Imported events with no rated rounds for the player. */
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
 }
@@ -107,6 +135,7 @@ export function buildModel(
     difference: explanation?.difference ?? null,
     staleDetails,
     importedAt: stored.at,
+    stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,
     eventsWithoutRounds,
   };
 }

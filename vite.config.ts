@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vitest/config';
 import { buildBookmarklet } from './scripts/bookmarklet.ts';
+import { serviceWorker } from './scripts/service-worker.ts';
 
 /*
  * The app's address. It is hard-coded in every installed bookmarklet, so it
@@ -67,7 +68,7 @@ export default defineConfig(({ mode }) => ({
   define: {
     __BUILD_ID__: JSON.stringify(buildId(mode)),
   },
-  plugins: [contentSecurityPolicy(), bookmarklet()],
+  plugins: [contentSecurityPolicy(), bookmarklet(), serviceWorker()],
   build: {
     // Small assets would become data: URIs, which the policy blocks.
     assetsInlineLimit: 0,

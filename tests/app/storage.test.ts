@@ -3,7 +3,9 @@ import { eventForPlayer, type StoredImport } from '../../src/app/import';
 import {
   createStore,
   EMPTY_DATA,
+  MAX_EVENT_NAME,
   MAX_FAVORITES,
+  MAX_MANUAL_ROUNDS,
   migrateV1,
   STORAGE_KEY,
   V1_KEY,
@@ -24,7 +26,7 @@ const IMPORT: StoredImport = {
 const MIGRATED: StoredImport = { ...IMPORT, detailsAt: IMPORT.at };
 
 function player(pdgaNumber: number, extra: Partial<StoredPlayer> = {}): StoredPlayer {
-  return { pdgaNumber, favorite: true, import: null, ...extra };
+  return { pdgaNumber, favorite: true, import: null, manualRounds: [], ...extra };
 }
 
 /** A minimal in-memory Storage. */
@@ -263,5 +265,45 @@ describe('migration from v1', () => {
     storage.setItem(STORAGE_KEY, JSON.stringify({ ...EMPTY_DATA, language: 'en' }));
     storage.setItem(V1_KEY, JSON.stringify({ pdgaNumber: 100001 }));
     expect(createStore(storage).get()).toEqual({ ...EMPTY_DATA, language: 'en' });
+  });
+});
+
+describe('manual rounds', () => {
+  const round = { id: 'm1', rating: 985, date: '2026-10-16', eventName: 'Club night', holes: 9 };
+
+  it('load as none for players stored before they existed', () => {
+    const { manualRounds, ...old } = player(100001);
+    expect(manualRounds).toEqual([]);
+    expect(validateData({ players: [old] }).players).toEqual([player(100001)]);
+  });
+
+  it('keep valid rounds, also ones dated ahead, and drop bad ones one at a time', () => {
+    const later = { ...round, id: 'm2', date: '2027-06-01', eventName: '', holes: null };
+    const bad = [
+      { ...round, id: 'x1' },
+      { ...round, id: 'm3', rating: 2001 },
+      { ...round, id: 'm4', rating: 9.5 },
+      { ...round, id: 'm5', date: '2026-02-30' },
+      { ...round, id: 'm6', eventName: 'x'.repeat(MAX_EVENT_NAME + 1) },
+      { ...round, id: 'm7', holes: 0 },
+      { ...round, id: 'm8', holes: undefined },
+      { ...round, id: 'm1', rating: 900 },
+      'm9',
+    ];
+    const stored = validateData({ players: [player(100001, { manualRounds: [round, ...bad, later] as never })] });
+    expect(stored.players[0]!.manualRounds).toEqual([round, later]);
+  });
+
+  it(`keep at most ${MAX_MANUAL_ROUNDS} per player`, () => {
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS + 5 }, (_, i) => ({ ...round, id: `m${i + 1}` }));
+    expect(validateData({ players: [player(100001, { manualRounds: many })] }).players[0]!.manualRounds).toHaveLength(
+      MAX_MANUAL_ROUNDS,
+    );
+  });
+
+  it('survive a round trip through storage', () => {
+    const storage = new MemoryStorage();
+    createStore(storage).update({ players: [player(100001, { manualRounds: [round] })] });
+    expect(createStore(storage).get().players[0]!.manualRounds).toEqual([round]);
   });
 });

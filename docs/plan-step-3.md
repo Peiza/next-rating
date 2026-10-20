@@ -1,14 +1,17 @@
 # Step 3 plan: the web app
 
-Step 3 is split into three commits, each done in one session. Commits 1 (app
-shell, theme, translations and settings) and 2 (import and results) are done;
-this document holds the approved plan, updated with the decisions made while
-building commit 2.
+Step 3 is split into three commits, each done in one session. All three are
+done: 1 (app shell, theme, translations and settings), 2 (import and
+results) and 3 (manual entry, data age and the offline PWA). This document
+holds the approved plan, updated with the decisions made while building
+commit 2.
 
-Commit 3 now comes after the GitHub Pages workflow, the bookmarklet and the
-Favorites step (see Process in CLAUDE.md). Its plan below is revised for
+Commit 3 came after the GitHub Pages workflow, the bookmarklet and the
+Favorites step (see Process in CLAUDE.md). Its plan below was revised for
 that: manual rounds are stored per player (`docs/plan-favorites.md`), and the
-data age display joins it.
+data age display joined it. The decisions made while building it (the form
+under the prediction, dates up to a year ahead, `display: browser`) are in
+docs/finished-steps.md, Architecture 4.
 
 ## Already in place (commit 1)
 

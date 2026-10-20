@@ -200,6 +200,39 @@ describe('app start', () => {
     expect(predicted()).toBe('950');
   });
 
+  it('adds a manual round, keeps the form open for the next one, and deletes it again', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ me: 100001, players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }] }),
+    );
+    await start('/next-rating/');
+    document.getElementById('manual-toggle')!.click();
+    expect(document.activeElement?.id).toBe('manual-rating');
+    const rating = () => document.querySelector<HTMLInputElement>('#manual-rating')!;
+    rating().value = '1010';
+    document.querySelector('#manual-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
+
+    const [round] = stored().players[0].manualRounds;
+    expect(round).toMatchObject({ id: 'm1', rating: 1010, eventName: '', holes: null });
+    expect(document.getElementById('manual-status')!.textContent).toBe('Added 1010.');
+    expect(document.activeElement).toBe(rating());
+    expect(rating().value).toBe('');
+    expect([...document.querySelectorAll('.round-meta')].some((meta) => meta.textContent!.includes('Manual'))).toBe(true);
+
+    // Typed but not added: a re-render, as when another tab stores data, keeps it.
+    rating().value = '99';
+    rating().dispatchEvent(new Event('input'));
+    const before = rating();
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(rating()).not.toBe(before);
+    expect(rating().value).toBe('99');
+
+    document.getElementById('manual-delete-m1')!.click();
+    expect(stored().players[0].manualRounds).toEqual([]);
+    expect(document.activeElement?.id).toBe('manual-toggle');
+  });
+
   it('shows what another tab stored', async () => {
     await start('/next-rating/');
     expect(predicted()).toBeUndefined();
