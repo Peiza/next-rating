@@ -208,8 +208,21 @@ single build-time setting.
       text in 2, 4 and 5 and in Security, which is removed when this is
       built.
    9. Next to the prediction, show the expected date of the next ratings
-      update: the second Tuesday of the month.
-8. Target calculator, on the Rating tab:
+      update and its event report deadline: updates come on the second
+      Tuesday of each month, and the deadline is the Sunday before, for
+      example "Next ratings update: 10 Nov (events reported by 8 Nov)". Link
+      to https://www.pdga.com/faq/ratings/when-updated, where PDGA publishes
+      the rule.
+   10. Main page: the player's name shows twice at the top, in the top bar
+       and under the heading. Keep it once, and use the freed line for the
+       data age from point 2.
+8. Deadline-aware prediction: the next update counts events reported by the
+   deadline, the Sunday before the second Tuesday
+   (https://www.pdga.com/faq/ratings/when-updated). Unofficial and manual
+   rounds from events dated after that deadline are left out of the
+   next-update prediction and marked in the round list as counting in the
+   following update.
+9. Target calculator, on the Rating tab:
    - Input: a target rating (for example 1000) and a number of upcoming
      rounds (default 3). Output: the average round rating needed in those
      rounds to reach the target at the next update.
@@ -220,7 +233,7 @@ single build-time setting.
      weighting are then all applied as in the prediction.
    - Say so when the target is already reached without new rounds, or out of
      reach within a plausible rating range.
-9. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
    - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
@@ -235,7 +248,7 @@ single build-time setting.
      the same 24-month fallback.
    - With fewer than 8 rounds, show how many were found and the average of
      those.
-10. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
+11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
@@ -321,9 +334,15 @@ order, committing after each working step:
 - Change explanation: why the prediction differs from the official rating
   (docs/plan-change-explanation.md) (done)
 - Polish after favorites (Architecture 7)
+- Deadline-aware prediction (Architecture 8)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
 - Target calculator
 - Top 8 panel
 - Setup page: complete the minimal one with the full step-by-step
   installation
+
+Verification runs typecheck, tests, the i18n check and the build only: no
+local preview servers or handoff runs. I test on my phone after merging.
+
+Ideas that are not planned: docs/ideas.md. Don't build them unless asked.
