@@ -217,7 +217,10 @@ describe('rating view', () => {
   it('has a stats panel', () => {
     const stats = ratingPage().querySelector('details#stats')!;
     expect(stats.querySelector('summary')!.textContent).toBe('Statistics');
-    expect(stats.querySelectorAll('dt').length).toBe(stats.querySelectorAll('dd').length);
+    const rows = [...stats.querySelectorAll('dl > div.stat')];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(stats.querySelectorAll('dt').length).toBe(rows.length);
+    for (const row of rows) expect([...row.children].map((child) => child.tagName)).toEqual(['DT', 'DD']);
   });
 
   it('offers to make the imported player the default player', () => {

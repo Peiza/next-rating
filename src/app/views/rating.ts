@@ -140,7 +140,7 @@ function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
     'details',
     { id: 'stats', class: 'stats' },
     el('summary', {}, t('stats.title')),
-    el('dl', {}, ...rows.flatMap(([key, value]) => [el('dt', {}, t(key)), el('dd', {}, value)])),
+    el('dl', {}, ...rows.map(([key, value]) => el('div', { class: 'stat' }, el('dt', {}, t(key)), el('dd', {}, value)))),
   );
 }
 

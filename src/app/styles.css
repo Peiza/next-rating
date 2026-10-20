@@ -457,15 +457,27 @@ a.button[target='_blank']::after {
 }
 
 .stats dl {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem 1rem;
   margin: 0;
   padding: 0 1rem 1rem;
 }
 
-.stats dd {
-  margin: 0;
+/*
+ * Each row wraps on its own, so a long value such as the window period
+ * moves to its own line instead of squeezing every label.
+ */
+.stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat dt {
+  flex: 1 1 10rem;
+}
+
+.stat dd {
+  margin: 0 0 0 auto;
   text-align: right;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
