@@ -11,6 +11,7 @@ export {
 } from './codec';
 export {
   HANDOFF_VERSION,
+  isBookmarkletVersion,
   MAX_FAILED,
   MAX_PAGES,
   PDGA_PAGE,

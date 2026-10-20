@@ -5,6 +5,8 @@ import { el } from '../dom';
 export interface SetupProps {
   /** The bookmarklet, a javascript: URL. */
   bookmarklet: string;
+  /** The bookmarklet version of the last hand-off, or null before one. */
+  stored: string | null;
   onBack: () => void;
 }
 
@@ -22,6 +24,21 @@ export function isOlderVersion(version: string, current = BOOKMARKLET_VERSION): 
   return false;
 }
 
+/**
+ * The bookmarklet installed in this browser, as the last hand-off told it,
+ * against this app's: up to date, outdated, or not known before an import.
+ */
+export function bookmarkletStatus(stored: string | null, current = BOOKMARKLET_VERSION): HTMLElement {
+  const outdated = stored !== null && isOlderVersion(stored, current);
+  const text =
+    stored === null
+      ? t('setup.statusNone', { current })
+      : outdated
+        ? t('setup.statusOutdated', { version: stored, current })
+        : t('setup.statusCurrent', { version: stored });
+  return el('p', { id: 'bookmarklet-status', class: outdated ? 'warning' : 'hint' }, text);
+}
+
 function instructions(title: MessageKey, steps: MessageKey[]): HTMLElement[] {
   return [
     el('h2', {}, t(title)),
@@ -30,7 +47,7 @@ function instructions(title: MessageKey, steps: MessageKey[]): HTMLElement[] {
 }
 
 /** The bookmarklet code with a copy button, and short steps to install it in each kind of browser. */
-export function setupView({ bookmarklet, onBack }: SetupProps): HTMLElement {
+export function setupView({ bookmarklet, stored, onBack }: SetupProps): HTMLElement {
   const statusId = `${CODE_ID}-status`;
   const code = el('textarea', {
     id: CODE_ID,
@@ -58,6 +75,7 @@ export function setupView({ bookmarklet, onBack }: SetupProps): HTMLElement {
     'section',
     { class: 'view', 'aria-labelledby': SETUP_ID },
     el('h1', { id: SETUP_ID, tabindex: -1 }, t('setup.title')),
+    bookmarkletStatus(stored),
     el('p', { class: 'lead' }, t('setup.intro')),
     el('p', {}, t('setup.reads')),
     el('p', { id: 'bookmarklet-version', class: 'hint' }, t('setup.version', { version: BOOKMARKLET_VERSION })),

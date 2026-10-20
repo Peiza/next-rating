@@ -8,7 +8,7 @@ import { ratingView } from '../../src/app/views/rating';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
-import { isOlderVersion, setupView } from '../../src/app/views/setup';
+import { bookmarkletStatus, isOlderVersion, setupView } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
@@ -95,6 +95,7 @@ describe('settings view', () => {
     preferred: ['sv-SE'],
     theme: null,
     persistent: true,
+    bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
     onOpenSetup: () => {},
@@ -140,10 +141,10 @@ describe('settings view', () => {
     expect(settingsView({ ...props, persistent: false }).querySelector('.warning')).not.toBeNull();
   });
 
-  it('shows the bookmarklet version and opens the setup', () => {
+  it('shows the bookmarklet status and opens the setup', () => {
     const onOpenSetup = vi.fn();
     const view = settingsView({ ...props, onOpenSetup });
-    expect(view.textContent).toContain(`Bookmarklet version ${BOOKMARKLET_VERSION}`);
+    expect(view.querySelector('#bookmarklet-status')!.textContent).toBe(`Your bookmarklet: ${BOOKMARKLET_VERSION}, up to date`);
     view.querySelector<HTMLButtonElement>('#open-setup')!.click();
     expect(onOpenSetup).toHaveBeenCalled();
   });
@@ -795,6 +796,27 @@ describe('update notice', () => {
   });
 });
 
+describe('bookmarklet status', () => {
+  it('says whether the bookmarklet of the last hand-off is up to date', () => {
+    expect(bookmarkletStatus('1.0.0', '1.0.0')).toMatchObject({ className: 'hint', textContent: 'Your bookmarklet: 1.0.0, up to date' });
+    // A newer one than the app knows, as from a cached app: nothing to update.
+    expect(bookmarkletStatus('1.2.0', '1.1.0').textContent).toBe('Your bookmarklet: 1.2.0, up to date');
+    expect(bookmarkletStatus('1.0.0', '1.1.0')).toMatchObject({
+      className: 'warning',
+      textContent: 'Your bookmarklet: 1.0.0, a newer one (1.1.0) is available',
+    });
+    expect(bookmarkletStatus(null, '1.1.0').textContent).toBe(
+      'Your bookmarklet: no import in this browser yet (current version 1.1.0)',
+    );
+  });
+
+  it('shows at the top of the setup page', () => {
+    const view = setupView({ bookmarklet: 'javascript:void 0', stored: '0.9', onBack: vi.fn() });
+    expect(view.querySelector('h1')!.nextElementSibling!.id).toBe('bookmarklet-status');
+    expect(view.querySelector('#bookmarklet-status')!.textContent).toContain('0.9, a newer one');
+  });
+});
+
 describe('bookmarklet setup', () => {
   const CODE = 'javascript:(function(){location.assign("https://example.github.io/next-rating/#d=")})();void 0';
 
@@ -806,7 +828,7 @@ describe('bookmarklet setup', () => {
   });
 
   it('shows the code as plain text, with the version and steps for each browser', () => {
-    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    const view = setupView({ bookmarklet: CODE, stored: null, onBack: vi.fn() });
     const code = view.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
     expect(code.value).toBe(CODE);
     expect(code.readOnly).toBe(true);
@@ -819,7 +841,7 @@ describe('bookmarklet setup', () => {
   it('copies the code to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
-    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    const view = setupView({ bookmarklet: CODE, stored: null, onBack: vi.fn() });
     view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
     await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toMatch(/^Copied/));
     expect(writeText).toHaveBeenCalledWith(CODE);
@@ -828,7 +850,7 @@ describe('bookmarklet setup', () => {
 
   it('selects the code for the user to copy when the clipboard is not available', async () => {
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
-    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    const view = setupView({ bookmarklet: CODE, stored: null, onBack: vi.fn() });
     document.body.append(view);
     view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
     await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toBe('Copy the selected text.'));
@@ -841,7 +863,7 @@ describe('bookmarklet setup', () => {
 
   it('goes back', () => {
     const onBack = vi.fn();
-    setupView({ bookmarklet: CODE, onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
+    setupView({ bookmarklet: CODE, stored: null, onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
     expect(onBack).toHaveBeenCalled();
   });
 });

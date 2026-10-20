@@ -359,3 +359,14 @@ describe('Rating tab settings', () => {
     expect(data.top8Period).toEqual({ kind: 'window' });
   });
 });
+
+describe('bookmarklet version', () => {
+  it('keeps a version as a hand-off carries it, and nothing else', () => {
+    expect(validateData({}).bookmarklet).toBeNull();
+    expect(validateData({ bookmarklet: '1.0.0' }).bookmarklet).toBe('1.0.0');
+    expect(validateData({ bookmarklet: '2' }).bookmarklet).toBe('2');
+    for (const bad of ['1.0.0.0', 'v1', '<b>', '1'.repeat(21), 1, null]) {
+      expect(validateData({ bookmarklet: bad }).bookmarklet).toBeNull();
+    }
+  });
+});

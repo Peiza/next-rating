@@ -427,6 +427,8 @@ function closeBanner(): void {
 async function receiveHandoff(payload: string): Promise<void> {
   try {
     const envelope = await decodeHandoff(payload);
+    // Whatever the import brings, the hand-off tells which bookmarklet this browser has.
+    store.update({ bookmarklet: envelope.bookmarklet });
     const { parts, owner, unreadable } = readPages(envelope.pages ?? []);
     const routed = saveImport(parts, owner);
     const status = envelope.status === 'ok' && unreadable.length > 0 ? 'partial' : envelope.status;
@@ -471,7 +473,7 @@ function tabBar(): HTMLElement {
 }
 
 function currentView(): HTMLElement {
-  if (setupOpener !== null) return setupView({ bookmarklet, onBack: closeSetup });
+  if (setupOpener !== null) return setupView({ bookmarklet, stored: store.get().bookmarklet, onBack: closeSetup });
   const data = store.get();
   if (tab === 'settings') {
     return settingsView({
@@ -479,6 +481,7 @@ function currentView(): HTMLElement {
       preferred: preferredLanguages(),
       theme: data.theme,
       persistent: store.persistent,
+      bookmarklet: data.bookmarklet,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
       onOpenSetup: openSetup,

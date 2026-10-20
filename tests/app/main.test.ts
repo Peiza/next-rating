@@ -160,7 +160,9 @@ describe('app start', () => {
     expect(document.getElementById('import-banner')!.getAttribute('role')).toBe('alert');
     expect(bannerText()).toContain('Enter your PDGA number');
     expect(document.querySelector<HTMLAnchorElement>('#import-banner a')!.href).toBe(EVENT_URL);
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    // No player is stored, only which bookmarklet this browser has.
+    expect(stored().players).toEqual([]);
+    expect(stored().bookmarklet).toBe(envelope().bookmarklet);
   });
 
   it('switches players from the menu, and removes one after asking', async () => {
