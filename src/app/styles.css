@@ -88,6 +88,16 @@ html {
   text-size-adjust: 100%;
 }
 
+/*
+ * 15px from tablet width up, where 17px reads too large on a laptop. Before
+ * the rule below, so iPhone and iPad keep following Dynamic Type.
+ */
+@media (min-width: 48rem) {
+  html {
+    font-size: 93.75%;
+  }
+}
+
 /* On iPhone, follow the Dynamic Type text size. */
 @supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html {
