@@ -63,7 +63,7 @@ single build-time setting.
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 3 bookmarklet, 4 web app import, results and theme, 5 favorites, 6 change
-explanation.
+explanation, 7 polish after favorites.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -86,15 +86,15 @@ Open:
 4. Web app (PWA, works offline after first load), the open parts:
    - Quick manual entry of rounds (rating, date defaulting to today, optional
      event name and hole count), usable one-handed on a phone.
-   - Data age is obvious: next to the predicted rating, show "Updated X days
-     ago" from the last import's timestamp, using Intl.RelativeTimeFormat. When
-     the data is more than 7 days old, show a clear notice with a button that
-     opens the player's pdga.com ratings details page to refresh.
+   - Data age is obvious: "Updated X days ago" already shows under the
+     player's name (Polish 2). When the data is more than 7 days old, show a
+     clear notice with a button that opens the player's pdga.com ratings
+     details page to refresh.
    - Setup page with step-by-step bookmarklet installation for Safari on iPhone,
      Chrome on Android (run it by typing its name in the address bar) and
      desktop browsers, with a copy button.
-   - Store locally only: the language override, the theme choice and the
-     players' data. Each player (each favorite) keeps its own PDGA number,
+   - Store locally only: the language override, the theme choice, the
+     players list order and the players' data. Each player (each favorite) keeps its own PDGA number,
      last import (show its timestamp) and manual rounds. When the storage
      format changes, existing data is migrated, never silently dropped. On
      iOS, home screen web apps do not share storage with Safari tabs, so the
@@ -102,43 +102,6 @@ Open:
 5. Favorites, optional, later: a transfer link that moves favorites and manual
    rounds to another device through the same URL-fragment hand-off, without a
    server.
-7. Polish after favorites:
-   1. Links to pdga.com (ratings details, events, player search) open in the
-      same tab, not a new one. The bookmarklet brings the user back to the
-      app in that same tab, so repeated imports don't pile up tabs.
-   2. Main page header: show the data age as relative time ("58 minutes
-      ago") right after the player's name and number; keep the exact import
-      date further down.
-   3. Main page: a "Refresh on pdga.com" button that opens the shown player's
-      ratings details page, like the link in the players list.
-   4. Players list: "me" always first; the others sorted A to Z by default,
-      with a switch for "last updated".
-   5. Round list: each official or unofficial round's event name links to its
-      pdga.com event page. A plain link; the app loads nothing itself.
-   6. Player search by name: one name field in the players panel that opens
-      pdga.com's player search in this format:
-      https://www.pdga.com/players?FirstName=Anna&LastName=Svensson. With one
-      word, search it as the last name; with two or more words, the first
-      word is the first name and the rest the last name. The search matches
-      parts of names, so partial names work. The user picks the player there
-      and runs the bookmarklet.
-   7. Text size: on laptop-sized screens the text is too large; scale the
-      type down from tablet width and up.
-   8. Remove paste import completely: the Import tab, the phone hint and the
-      tab-separated parsing. It doesn't work from a computer either, because
-      of how pdga.com marks up the table headers. The page parsers stay,
-      since bookmarklet hand-offs use them. This replaces the paste import
-      text in 2, 4 and 5 (now in docs/finished-steps.md), in Hard
-      constraints and in Security, which is removed when this is built.
-   9. Next to the prediction, show the expected date of the next ratings
-      update and its event report deadline: updates come on the second
-      Tuesday of each month, and the deadline is the Sunday before, for
-      example "Next ratings update: 10 Nov (events reported by 8 Nov)". Link
-      to https://www.pdga.com/faq/ratings/when-updated, where PDGA publishes
-      the rule.
-   10. Main page: the player's name shows twice at the top, in the top bar
-       and under the heading. Keep it once, and use the freed line for the
-       data age from point 2.
 8. Deadline-aware prediction: the next update counts events reported by the
    deadline, the Sunday before the second Tuesday
    (https://www.pdga.com/faq/ratings/when-updated). Unofficial and manual
@@ -236,10 +199,9 @@ Start with a plan for my approval. Changes reach main through pull requests
 that I merge; the workflow builds and tests every pull request and deploys
 every merge, so each version can be tested live on my phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
-minimal setup page, fixes after phone testing, favorites and the change
-explanation (docs/finished-steps.md). Build the rest in this order,
-committing after each working step:
-- Polish after favorites (Architecture 7)
+minimal setup page, fixes after phone testing, favorites, the change
+explanation and the polish after favorites (docs/finished-steps.md). Build
+the rest in this order, committing after each working step:
 - Deadline-aware prediction (Architecture 8)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
