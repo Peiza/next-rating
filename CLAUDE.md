@@ -160,7 +160,18 @@ single build-time setting.
    - Optional, later: a transfer link that moves favorites and manual rounds
      to another device through the same URL-fragment hand-off, without a
      server.
-6. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+6. Target calculator, on the Rating tab:
+   - Input: a target rating (for example 1000) and a number of upcoming
+     rounds (default 3). Output: the average round rating needed in those
+     rounds to reach the target at the next update.
+   - Computed with the real engine, never a shortcut formula: add that many
+     hypothetical 18-hole rounds dated today to the player's rounds (manual
+     rounds included) and search for the lowest whole round rating whose
+     prediction reaches the target. Window, outlier drops and double
+     weighting are then all applied as in the prediction.
+   - Say so when the target is already reached without new rounds, or out of
+     reach within a plausible rating range.
+7. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
    - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
@@ -175,7 +186,7 @@ single build-time setting.
      the same 24-month fallback.
    - With fewer than 8 rounds, show how many were found and the average of
      those.
-7. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
+8. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
    on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
@@ -246,11 +257,14 @@ order, committing after each working step:
 - GitHub Pages workflow (done)
 - Bookmarklet (docs/plan-step-5.md), with a minimal setup page (version, copy
   button, short install steps for Safari on iPhone, Chrome on Android and
-  desktop), so it can be installed and tested on my phone
+  desktop), so it can be installed and tested on my phone (done)
+- Fixes after testing on a phone: rating change arrow and colour, theme
+  setting, stats layout, paste hint (done)
 - Favorites (before manual entry, so manual rounds are stored per player from
   the start)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
+- Target calculator
 - Top 8 panel
 - Setup page: complete the minimal one with the full step-by-step
   installation
