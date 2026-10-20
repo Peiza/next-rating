@@ -700,9 +700,9 @@ a {
 }
 
 /*
- * Top 8, laid out like the GMS player card: a band with the period, Sum,
- * Average and High side by side, then the rounds with the rating on the
- * right. The three figures stay in one row at 320 px.
+ * Top 8, laid out like the GMS player card: Sum, Average and High side by
+ * side, then the rounds with the rating on the right. The three figures stay
+ * in one row at 320 px.
  */
 .top8-card {
   border: 2px solid var(--border);
@@ -710,12 +710,21 @@ a {
   overflow: hidden;
 }
 
-.top8-band {
+/* From and to side by side; both date fields fit at 320 px. */
+.top8-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.top8-range .field {
+  min-width: 0;
   margin: 0;
-  padding: 0.5rem 0.75rem;
-  font-weight: 700;
-  color: var(--on-accent);
-  background: var(--accent);
+}
+
+.top8-range .status {
+  grid-column: 1 / -1;
 }
 
 .top8-figures {

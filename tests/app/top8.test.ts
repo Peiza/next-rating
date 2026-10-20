@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import type { StoredManualRound } from '../../src/app/storage';
-import { topEight } from '../../src/app/top8';
+import { periodYears, topEight, type TopPeriod } from '../../src/app/top8';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
 
 /** Monday of update week: after the 11 Oct report deadline, before the 13 Oct update. */
 const NOW = new Date('2026-10-12T10:00:00.000Z');
 const TODAY = '2026-10-12';
+
+const THIS_YEAR: TopPeriod = { kind: 'year', year: null };
+const WINDOW: TopPeriod = { kind: 'window' };
 
 const stored: StoredImport = {
   at: '2026-10-12T09:00:00.000Z',
@@ -29,7 +32,7 @@ const ratingsOf = (top: ReturnType<typeof topEight>) => top.result.rounds.map((r
 
 describe('topEight', () => {
   it('takes the calendar year of today', () => {
-    const top = topEight(buildModel(stored, 100001, NOW), 'year', TODAY);
+    const top = topEight(buildModel(stored, 100001, NOW), THIS_YEAR, TODAY);
     expect(top.year).toBe(2026);
     // 31 Dec 2025 is last year; the unofficial rounds after the deadline count.
     expect(ratingsOf(top)).toEqual([960, 955, 950, 940]);
@@ -37,7 +40,7 @@ describe('topEight', () => {
   });
 
   it('starts the new year empty', () => {
-    const top = topEight(buildModel(stored, 100001, NOW), 'year', '2027-01-01');
+    const top = topEight(buildModel(stored, 100001, NOW), THIS_YEAR, '2027-01-01');
     expect(top.year).toBe(2027);
     expect(top.result.found).toBe(0);
     expect(top.result.sum).toBeNull();
@@ -46,7 +49,7 @@ describe('topEight', () => {
   it("uses the prediction's window, without rounds after the deadline", () => {
     const model = buildModel(stored, 100001, NOW);
     const { windowMonths, windowStart, windowEnd } = model.prediction.stats;
-    const top = topEight(model, 'window', TODAY);
+    const top = topEight(model, WINDOW, TODAY);
     expect(top.window).toEqual({ months: windowMonths, start: windowStart, end: windowEnd });
     // Fewer than 8 rounds in 12 months, so the 24-month fallback takes in 2025.
     expect(top.window).toEqual({ months: 24, start: '2024-08-02', end: '2026-08-02' });
@@ -56,16 +59,46 @@ describe('topEight', () => {
   it('never lists a manual round, though one can anchor the window', () => {
     const rounds = manualToRounds([manual(1100, '2026-10-10'), manual(1090, '2026-10-12')]);
     const model = buildModel(stored, 100001, NOW, rounds);
-    expect(ratingsOf(topEight(model, 'year', TODAY))).toEqual([960, 955, 950, 940]);
-    const top = topEight(model, 'window', TODAY);
+    expect(ratingsOf(topEight(model, THIS_YEAR, TODAY))).toEqual([960, 955, 950, 940]);
+    const top = topEight(model, WINDOW, TODAY);
     // The manual round on 10 Oct is the most recent one before the deadline.
     expect(top.window?.end).toBe('2026-10-10');
     expect(ratingsOf(top)).toEqual([1000, 950, 940]);
   });
 
+  it('takes a chosen year', () => {
+    const top = topEight(buildModel(stored, 100001, NOW), { kind: 'year', year: 2025 }, TODAY);
+    expect(top).toMatchObject({ year: 2025, currentYear: 2026 });
+    expect(ratingsOf(top)).toEqual([1000]);
+  });
+
+  it('takes a custom range with both dates included', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const top = topEight(model, { kind: 'custom', from: '2025-12-31', to: '2026-01-01' }, TODAY);
+    expect(top.year).toBeNull();
+    expect(ratingsOf(top)).toEqual([1000, 940]);
+    expect(ratingsOf(topEight(model, { kind: 'custom', from: '2026-01-02', to: '2026-08-01' }, TODAY))).toEqual([]);
+  });
+
   it('has no window without rated rounds', () => {
-    const top = topEight(buildModel({ ...stored, details: [], events: [] }, 100001, NOW), 'window', TODAY);
+    const top = topEight(buildModel({ ...stored, details: [], events: [] }, 100001, NOW), WINDOW, TODAY);
     expect(top.window).toBeNull();
     expect(top.result.found).toBe(0);
+  });
+});
+
+describe('periodYears', () => {
+  it('lists the years with a rated round and the current year, newest first', () => {
+    const model = buildModel(stored, 100001, NOW);
+    expect(periodYears(model, THIS_YEAR, TODAY)).toEqual([2026, 2025]);
+    expect(periodYears(model, THIS_YEAR, '2028-03-01')).toEqual([2028, 2026, 2025]);
+  });
+
+  it('leaves out years with only manual or DNF rounds, but keeps a chosen year', () => {
+    const rounds = manualToRounds([manual(990, '2023-05-01')]);
+    const dnf = rawDetailsRow({ eventId: '900020', date: '1-May-2022', score: '999', rating: '' });
+    const model = buildModel({ ...stored, details: [...stored.details!, dnf] }, 100001, NOW, rounds);
+    expect(periodYears(model, THIS_YEAR, TODAY)).toEqual([2026, 2025]);
+    expect(periodYears(model, { kind: 'year', year: 2019 }, TODAY)).toEqual([2026, 2025, 2019]);
   });
 });

@@ -63,7 +63,6 @@ import {
 import { cardToggleId } from './views/card';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
-import { TOP8_PERIODS } from './views/top8';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
@@ -125,8 +124,6 @@ let targetQuery: TargetQuery | null = null;
 let targetMemo: { key: string; answer: TargetAnswer } | null = null;
 /** "How to refresh" opened or closed by hand; null follows the data age (open when it is old). */
 let refreshOpen: boolean | null = null;
-/** The Top 8 period. It lasts until the page reloads, for every player. */
-let top8Period: TopPeriod = 'year';
 /**
  * The player the manual entry and target calculator drafts belong to;
  * another player starts with them empty.
@@ -335,9 +332,10 @@ function clearManual(): void {
   render(MANUAL_TOGGLE_ID);
 }
 
-function setTop8Period(period: TopPeriod): void {
-  top8Period = period;
-  render(TOP8_PERIODS.find((segment) => segment.value === period)!.id);
+/** Stores the Top 8 period with the settings; focus stays on the control that changed it. */
+function setTop8Period(top8Period: TopPeriod): void {
+  store.update({ top8Period });
+  render();
 }
 
 /** Focus goes to the answer, so a phone keyboard closes and a screen reader reads it. */
@@ -519,7 +517,8 @@ function currentView(): HTMLElement {
         onCalculate: calculate,
       },
       top8: {
-        top: topEight(model, top8Period, today(now)),
+        top: topEight(model, data.top8Period, today(now)),
+        today: today(now),
         onPeriod: setTop8Period,
       },
       manual: {

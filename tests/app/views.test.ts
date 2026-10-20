@@ -5,7 +5,7 @@ import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { ratingView } from '../../src/app/views/rating';
-import { topEight } from '../../src/app/top8';
+import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
@@ -22,6 +22,8 @@ afterEach(() => setLanguage('en'));
 const NOW = new Date('2026-10-04T10:00:00.000Z');
 
 /** Every Rating tab card open, so their content shows. */
+const THIS_YEAR: TopPeriod = { kind: 'year', year: null };
+
 const ALL_OPEN = Object.fromEntries(CARDS.map((name) => [name, true])) as CardState;
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
@@ -480,7 +482,7 @@ describe('rating tab cards', () => {
       onAskClear: vi.fn(),
       onClear: vi.fn(),
     };
-    const top8 = { top: topEight(model, 'year', '2026-10-04'), onPeriod: vi.fn() };
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
     return ratingView({ model, manual, target, top8, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
@@ -582,7 +584,8 @@ describe('top 8 panel', () => {
   function page(props: Partial<Top8Props> = {}, data = stored) {
     const model = buildModel(data, 100001, NOW);
     const top8: Top8Props = {
-      top: topEight(model, props.top?.period ?? 'year', '2026-10-04'),
+      top: topEight(model, props.top?.period ?? THIS_YEAR, '2026-10-04'),
+      today: '2026-10-04',
       onPeriod: vi.fn(),
       ...props,
     };
@@ -591,7 +594,7 @@ describe('top 8 panel', () => {
 
   it('is a card right before Statistics, closed by default', () => {
     const model = buildModel(stored, 100001, NOW);
-    const top8 = { top: topEight(model, 'year', '2026-10-04'), onPeriod: vi.fn() };
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
     const view = ratingView({ model, top8, favorite: true, now: NOW, onAddFavorite: vi.fn() });
     const card = view.querySelector('#top8')!;
     expect(card.querySelector('#top8-toggle')!.getAttribute('aria-expanded')).toBe('false');
@@ -599,15 +602,71 @@ describe('top 8 panel', () => {
     expect(card.nextElementSibling!.id).toBe('stats');
   });
 
-  it('shows the calendar year by default and switches to the rating window', () => {
+  function pick(view: HTMLElement, value: string) {
+    const select = view.querySelector<HTMLSelectElement>('#top8-period')!;
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+  }
+
+  it('offers each year with rated rounds newest first, the rating window and a custom range, in one labelled select', () => {
+    const view = page();
+    const select = view.querySelector<HTMLSelectElement>('#top8-period')!;
+    expect(view.querySelector('label[for="top8-period"]')!.textContent).toBe('Period');
+    expect([...select.options].map((option) => [option.value, option.textContent])).toEqual([
+      ['year:2026', '2026'],
+      ['year:2025', '2025'],
+      ['window', expect.stringMatching(/^Rating window \(12 months, \S+ to \S+\)$/)],
+      ['custom', 'Custom range'],
+    ]);
+    // The current year by default, and the period is not repeated under the select.
+    expect(select.value).toBe('year:2026');
+    expect(view.querySelector('.top8-band')).toBeNull();
+    expect(view.querySelector('#top8-from')).toBeNull();
+  });
+
+  it('reports the picked period, with no year for the current one', () => {
     const onPeriod = vi.fn();
     const view = page({ onPeriod });
-    expect(view.querySelector<HTMLInputElement>('#top8-year')!.checked).toBe(true);
-    expect(view.querySelector('.top8-band')!.textContent).toBe('Calendar year 2026');
-    const windowPeriod = view.querySelector<HTMLInputElement>('#top8-window')!;
-    windowPeriod.checked = true;
-    windowPeriod.dispatchEvent(new Event('change'));
-    expect(onPeriod).toHaveBeenCalledWith('window');
+    pick(view, 'year:2025');
+    expect(onPeriod).toHaveBeenLastCalledWith({ kind: 'year', year: 2025 });
+    pick(view, 'year:2026');
+    expect(onPeriod).toHaveBeenLastCalledWith({ kind: 'year', year: null });
+    pick(view, 'window');
+    expect(onPeriod).toHaveBeenLastCalledWith({ kind: 'window' });
+    pick(view, 'custom');
+    expect(onPeriod).toHaveBeenLastCalledWith({ kind: 'custom', from: '2025-10-04', to: '2026-10-04' });
+  });
+
+  it('shows the from and to dates of a custom range, and reports a valid change', () => {
+    const onPeriod = vi.fn();
+    const model = buildModel(stored, 100001, NOW);
+    const top = topEight(model, { kind: 'custom', from: '2026-03-01', to: '2026-03-04' }, '2026-10-04');
+    const view = page({ top, onPeriod });
+    expect(view.querySelector<HTMLSelectElement>('#top8-period')!.value).toBe('custom');
+    const from = view.querySelector<HTMLInputElement>('#top8-from')!;
+    const to = view.querySelector<HTMLInputElement>('#top8-to')!;
+    expect([from.type, from.value, to.value]).toEqual(['date', '2026-03-01', '2026-03-04']);
+    expect(view.querySelectorAll('.top8-row')).toHaveLength(4);
+    to.value = '2026-03-02';
+    to.dispatchEvent(new Event('change'));
+    expect(onPeriod).toHaveBeenCalledWith({ kind: 'custom', from: '2026-03-01', to: '2026-03-02' });
+  });
+
+  it('says why a custom range cannot be used, without reporting it', () => {
+    const onPeriod = vi.fn();
+    const model = buildModel(stored, 100001, NOW);
+    const top = topEight(model, { kind: 'custom', from: '2026-03-01', to: '2026-03-04' }, '2026-10-04');
+    const view = page({ top, onPeriod });
+    const from = view.querySelector<HTMLInputElement>('#top8-from')!;
+    const status = view.querySelector('#top8-range-status')!;
+    from.value = '2026-04-01';
+    from.dispatchEvent(new Event('change'));
+    expect(from.getAttribute('aria-invalid')).toBe('true');
+    expect(status.textContent).toBe('Pick a from date on or before the to date.');
+    from.value = '';
+    from.dispatchEvent(new Event('change'));
+    expect(status.textContent).toBe('Pick both dates.');
+    expect(onPeriod).not.toHaveBeenCalled();
   });
 
   it('shows Sum, Average and High, then the 8 highest rounds', () => {
@@ -647,17 +706,16 @@ describe('top 8 panel', () => {
     expect(view.querySelectorAll('.top8-figure dd')[1]!.textContent).toBe('990');
   });
 
-  it('shows the rating window with its dates', () => {
+  it('shows the rating window', () => {
     const model = buildModel(stored, 100001, NOW);
-    const view = page({ top: topEight(model, 'window', '2026-10-04') });
-    expect(view.querySelector<HTMLInputElement>('#top8-window')!.checked).toBe(true);
-    expect(view.querySelector('.top8-band')!.textContent).toMatch(/^Rating window, 12 months: \S+ to \S+$/);
+    const view = page({ top: topEight(model, { kind: 'window' }, '2026-10-04') });
+    expect(view.querySelector<HTMLSelectElement>('#top8-period')!.value).toBe('window');
     expect(view.querySelectorAll('.top8-row')).toHaveLength(8);
   });
 
-  it('says so when no round was rated this year', () => {
+  it('says so when no round was rated in the period', () => {
     const view = page({}, { ...stored, details: stored.details!.slice(-1) });
-    expect(view.querySelector('.top8-empty')!.textContent).toBe('No rated rounds in 2026 yet.');
+    expect(view.querySelector('.top8-empty')!.textContent).toBe('No rated rounds in this period.');
     expect(view.querySelector('.top8-figures')).toBeNull();
   });
 

@@ -17,11 +17,18 @@ export interface TopResult<T extends RoundInput> {
 }
 
 /**
- * The Top 8: the highest rated official and unofficial rounds dated from
- * `from` to `to`, both inclusive. Every rated round counts, also one the
- * prediction drops as an outlier, with no hole weighting. DNF and manual
- * rounds do not count. Equal ratings list the newer round first, then keep
- * input order.
+ * A round the Top 8 can take: a rated official or unofficial round. Every
+ * one counts, also one the prediction drops as an outlier. DNF and manual
+ * rounds do not.
+ */
+export function isTopRound(round: RoundInput): boolean {
+  return !round.dnf && round.rating !== null && round.source !== 'manual';
+}
+
+/**
+ * The Top 8: the highest rated rounds (isTopRound) dated from `from` to
+ * `to`, both inclusive, with no hole weighting. Equal ratings list the newer
+ * round first, then keep input order.
  */
 export function topRounds<T extends RoundInput>(
   rounds: readonly T[],
@@ -31,12 +38,7 @@ export function topRounds<T extends RoundInput>(
   const rated = rounds
     .map((round, index) => ({ round, index }))
     .filter(
-      ({ round }) =>
-        !round.dnf &&
-        round.rating !== null &&
-        round.source !== 'manual' &&
-        compareDates(round.date, from) >= 0 &&
-        compareDates(round.date, to) <= 0,
+      ({ round }) => isTopRound(round) && compareDates(round.date, from) >= 0 && compareDates(round.date, to) <= 0,
     )
     .sort(
       (a, b) =>

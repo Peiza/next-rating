@@ -310,7 +310,7 @@ describe('app start', () => {
     expect(['top8', 'stats', 'rounds'].map(expanded)).toEqual(['true', 'true', 'false']);
   });
 
-  it('keeps the Top 8 period through a re-render', async () => {
+  it('remembers the Top 8 period across launches', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(
       STORAGE_KEY,
@@ -321,15 +321,16 @@ describe('app start', () => {
       }),
     );
     await start('/next-rating/');
-    expect(document.querySelector<HTMLInputElement>('#top8-year')!.checked).toBe(true);
-    const windowPeriod = document.querySelector<HTMLInputElement>('#top8-window')!;
-    windowPeriod.checked = true;
-    windowPeriod.dispatchEvent(new Event('change'));
-    expect(document.activeElement?.id).toBe('top8-window');
+    const select = () => document.querySelector<HTMLSelectElement>('#top8-period')!;
+    expect(select().value).toBe(`year:${new Date().getFullYear()}`);
+    select().focus();
+    select().value = 'window';
+    select().dispatchEvent(new Event('change'));
+    expect(document.activeElement).toBe(select());
+    expect(stored().top8Period).toEqual({ kind: 'window' });
 
-    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
-    expect(document.querySelector<HTMLInputElement>('#top8-window')!.checked).toBe(true);
-    expect(document.querySelector('.top8-band')!.textContent).toMatch(/^Rating window/);
+    await start('/next-rating/');
+    expect(select().value).toBe('window');
   });
 
   it('shows what another tab stored', async () => {
