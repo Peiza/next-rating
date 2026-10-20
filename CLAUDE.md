@@ -5,7 +5,8 @@ A PDGA rating predictor: mobile-first rebuild of a Google Apps Script tool.
 ## Background
 I had a Google Sheets + Apps Script tool (legacy/rating-calculator.gs) that fetched
 my PDGA ratings history from pdga.com/player/<number>/details and predicted my next
-rating, including hypothetical or not yet rated rounds entered manually.
+rating update from my rated rounds, including new rounds with unofficial round
+ratings and ratings I added myself. This app never calculates a rating from a score.
 It stopped working because pdga.com now answers server-side requests with a
 Cloudflare challenge (verified from Apps Script: HTTP 403, header
 "cf-mitigated: challenge", "Just a moment..." page). The official PDGA API

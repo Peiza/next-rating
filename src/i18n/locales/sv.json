@@ -1,7 +1,7 @@
 {
   "language.name": "Svenska",
   "app.name": "Next Rating",
-  "app.tagline": "Räkna ut din nästa PDGA-rating, även med rundor som inte är ratade än.",
+  "app.tagline": "Beräknar din nästa PDGA-ratinguppdatering utifrån dina ratade rundor, även nya rundor med inofficiella rundratingar och ratingar du lägger till själv.",
   "app.unofficial": "Inofficiellt verktyg, inte anslutet till eller godkänt av PDGA (Professional Disc Golf Association).",
   "app.privacy": "Dina data stannar i den här webbläsaren. Inget skickas till någon server.",
   "tabs.label": "Vyer",

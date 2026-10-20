@@ -1,7 +1,7 @@
 # Next Rating
 
-Predicts your next PDGA player rating from your rated rounds, plus rounds that
-are not rated yet or that you enter yourself.
+Predicts your next PDGA rating update from your rated rounds, including new
+rounds with unofficial round ratings and ratings you add yourself.
 
 **Unofficial tool. Not affiliated with or endorsed by the PDGA (Professional
 Disc Golf Association).**
