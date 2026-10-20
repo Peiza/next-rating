@@ -1,7 +1,7 @@
 import type { ImportParts } from '../handoff';
 import { normalizePlayer } from '../parsers';
 import { applyImport, hasPlayerRow, playerNumber } from './import';
-import { MAX_FAVORITES, type AppData, type StoredPlayer } from './storage';
+import { MAX_FAVORITES, type AppData, type PlayerOrder, type StoredPlayer } from './storage';
 
 /*
  * The stored players: favorites, "me" (the favorite the app opens on) and at
@@ -21,6 +21,32 @@ export function playerName(player: StoredPlayer): string {
 /** Who the app shows when it opens: me, else the first favorite, else the unsaved player. */
 export function initialSelection(data: AppData): number | null {
   return data.me ?? data.players.find((player) => player.favorite)?.pdgaNumber ?? data.players[0]?.pdgaNumber ?? null;
+}
+
+/**
+ * The order the players panel lists players in: "me" first, then by name in
+ * the locale's alphabet (players without a name yet after, by number), or
+ * newest import first (never imported last).
+ */
+export function sortFavorites(
+  players: readonly StoredPlayer[],
+  me: number | null,
+  order: PlayerOrder,
+  locale: string,
+): StoredPlayer[] {
+  const collator = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
+  const byName = (a: StoredPlayer, b: StoredPlayer): number => {
+    const [first, second] = [playerName(a), playerName(b)];
+    if (!first !== !second) return first ? -1 : 1;
+    return collator.compare(first, second) || a.pdgaNumber - b.pdgaNumber;
+  };
+  const byUpdated = (a: StoredPlayer, b: StoredPlayer): number => {
+    // ISO timestamps sort as strings; no import sorts as the oldest.
+    const [first, second] = [a.import?.at ?? '', b.import?.at ?? ''];
+    return first === second ? byName(a, b) : first < second ? 1 : -1;
+  };
+  const isMe = (player: StoredPlayer) => (player.pdgaNumber === me ? 1 : 0);
+  return [...players].sort((a, b) => isMe(b) - isMe(a) || (order === 'name' ? byName : byUpdated)(a, b));
 }
 
 export function favoriteCount(data: AppData): number {

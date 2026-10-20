@@ -7,12 +7,13 @@ import { readPages } from './handoff';
 import { takeFragment } from './import';
 import { buildModel } from './model';
 import { addFavorite, findPlayer, initialSelection, removePlayer, routeImport, setMe, type Routed } from './players';
-import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type Theme } from './storage';
+import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type PlayerOrder, type Theme } from './storage';
 import { BANNER_ID, bannerView, type Banner } from './views/banner';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
 import {
   ADD_INPUT_ID,
   MENU_BUTTON_ID,
+  orderId,
   PANEL_TITLE_ID,
   playerButtonId,
   playerLabel,
@@ -194,6 +195,11 @@ function addFromPanel(pdgaNumber: number): void {
   selectPlayer(pdgaNumber);
 }
 
+function setPlayerOrder(playerOrder: PlayerOrder): void {
+  store.update({ playerOrder });
+  render(orderId(playerOrder));
+}
+
 function setLanguageOverride(language: string | null): void {
   store.update({ language });
   applyLanguage();
@@ -352,7 +358,11 @@ function render(focusId = document.activeElement?.id): void {
         editing: editingPlayers,
         confirmRemove,
         flash: addFlash,
+        order: data.playerOrder,
         now: new Date(),
+        onOrder: setPlayerOrder,
+        // The same tab, so the bookmarklet run on the player's page comes back here.
+        onSearch: (url) => window.location.assign(url),
         onSelect: selectPlayer,
         onClose: closeMenu,
         onToggleEdit: toggleEditPlayers,

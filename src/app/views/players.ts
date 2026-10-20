@@ -1,12 +1,14 @@
 import { t } from '../../i18n';
 import { el } from '../dom';
-import { formatAge } from '../format';
-import { playerName } from '../players';
-import type { StoredPlayer } from '../storage';
-import { detailsUrl, pdgaNumberForm, type PdgaFlash } from './pdga';
+import { deviceLocale, formatAge } from '../format';
+import { playerName, sortFavorites } from '../players';
+import type { PlayerOrder, StoredPlayer } from '../storage';
+import { detailsUrl, pdgaNumberForm, playerSearchUrl, type PdgaFlash } from './pdga';
+import { segmented, type Segment } from './segmented';
 
 /*
- * The players panel: favorites, the unsaved player and a form to add one.
+ * The players panel: favorites, the unsaved player, a form to add one by
+ * number and a search by name on pdga.com.
  * On wide screens it is a sidebar next to the current view; on phones the
  * menu button in the top bar shows it in place of the view.
  */
@@ -15,6 +17,17 @@ export const PANEL_ID = 'favorites';
 export const PANEL_TITLE_ID = 'favorites-title';
 export const MENU_BUTTON_ID = 'players-menu';
 export const ADD_INPUT_ID = 'player-add';
+export const SEARCH_INPUT_ID = 'player-search';
+
+const ORDER_OPTIONS: Segment<PlayerOrder>[] = [
+  { value: 'name', id: 'order-name', label: 'players.orderName' },
+  { value: 'updated', id: 'order-updated', label: 'players.orderUpdated' },
+];
+
+/** The id of the radio for an order, so focus can return to it. */
+export function orderId(order: PlayerOrder): string {
+  return ORDER_OPTIONS.find((option) => option.value === order)!.id;
+}
 
 /** Matches the breakpoint in styles.css where the panel becomes a sidebar. */
 export const WIDE_QUERY = '(min-width: 64rem)';
@@ -41,7 +54,11 @@ export interface PlayersProps {
   confirmRemove: number | null;
   /** What the add form says after a save. */
   flash: PdgaFlash;
+  order: PlayerOrder;
   now: Date;
+  onOrder: (order: PlayerOrder) => void;
+  /** Opens pdga.com's player search. */
+  onSearch: (url: string) => void;
   onSelect: (pdgaNumber: number) => void;
   onClose: () => void;
   onToggleEdit: () => void;
@@ -164,9 +181,56 @@ function unsavedItem(player: StoredPlayer, props: PlayersProps): HTMLElement {
   );
 }
 
+/** Opens pdga.com's player search for a name; the user picks the player there and runs the bookmarklet. */
+function searchForm(onSearch: (url: string) => void): HTMLFormElement {
+  const statusId = `${SEARCH_INPUT_ID}-status`;
+  const input = el('input', {
+    id: SEARCH_INPUT_ID,
+    class: 'input',
+    type: 'search',
+    autocomplete: 'off',
+    enterkeyhint: 'search',
+    maxlength: 100,
+    'aria-describedby': `${SEARCH_INPUT_ID}-hint ${statusId}`,
+  });
+  const status = el('p', { id: statusId, class: 'status', role: 'status' });
+  const submit = (event: Event) => {
+    event.preventDefault();
+    const url = playerSearchUrl(input.value);
+    if (url === null) {
+      input.setAttribute('aria-invalid', 'true');
+      status.classList.add('error');
+      status.textContent = t('players.searchEmpty');
+      input.focus();
+      return;
+    }
+    onSearch(url);
+  };
+  return el(
+    'form',
+    { class: 'field', novalidate: true, onsubmit: submit },
+    el('label', { for: SEARCH_INPUT_ID, class: 'label' }, t('players.searchLabel')),
+    el('p', { id: `${SEARCH_INPUT_ID}-hint`, class: 'hint' }, t('players.searchHint')),
+    el(
+      'div',
+      { class: 'row' },
+      input,
+      el('button', { id: `${SEARCH_INPUT_ID}-submit`, class: 'button', type: 'submit' }, t('players.search')),
+    ),
+    status,
+  );
+}
+
 export function playersPanel(props: PlayersProps): HTMLElement {
-  const favorites = props.players.filter((player) => player.favorite);
+  const favorites = sortFavorites(
+    props.players.filter((player) => player.favorite),
+    props.me,
+    props.order,
+    deviceLocale(),
+  );
   const unsaved = props.players.filter((player) => !player.favorite);
+  // Ordering only matters with at least two players after "me".
+  const sortable = favorites.filter((player) => player.pdgaNumber !== props.me).length >= 2;
   return el(
     'nav',
     {
@@ -187,6 +251,7 @@ export function playersPanel(props: PlayersProps): HTMLElement {
         t('players.close'),
       ),
     ),
+    sortable && segmented('players.order', 'player-order', ORDER_OPTIONS, props.order, props.onOrder),
     favorites.length > 0
       ? el('ul', { class: 'player-list' }, ...favorites.map((player) => favoriteItem(player, props)))
       : el('p', { class: 'hint' }, t('players.none')),
@@ -210,6 +275,7 @@ export function playersPanel(props: PlayersProps): HTMLElement {
       submit: 'players.add',
       allowEmpty: false,
     }),
+    searchForm(props.onSearch),
   );
 }
 

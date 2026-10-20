@@ -16,6 +16,10 @@ export const V1_KEY = 'next-rating:v1';
 export const THEMES = ['light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
 
+/** How the players panel orders favorites after "me": by name, or newest import first. */
+export const PLAYER_ORDERS = ['name', 'updated'] as const;
+export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
+
 export const MAX_FAVORITES = 30;
 
 export interface StoredPlayer {
@@ -31,13 +35,15 @@ export interface AppData {
   language: string | null;
   /** The theme picked in Settings; null follows the device. */
   theme: Theme | null;
+  /** The order picked in the players panel. */
+  playerOrder: PlayerOrder;
   /** The favorite the app opens on. */
   me: number | null;
   /** Favorites in the order they were added, and at most one unsaved player. */
   players: StoredPlayer[];
 }
 
-export const EMPTY_DATA: AppData = { language: null, theme: null, me: null, players: [] };
+export const EMPTY_DATA: AppData = { language: null, theme: null, playerOrder: 'name', me: null, players: [] };
 
 const LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i;
 
@@ -85,12 +91,13 @@ function validatePlayers(value: unknown): StoredPlayer[] {
 export function validateData(value: unknown): AppData {
   const fields = record(value);
   if (!fields) return { ...EMPTY_DATA };
-  const { language, theme } = fields;
+  const { language, theme, playerOrder } = fields;
   const players = validatePlayers(fields.players);
   const me = pdgaNumberOf(fields.me);
   return {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
+    playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     players,
   };

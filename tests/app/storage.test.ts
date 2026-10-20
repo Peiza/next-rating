@@ -71,7 +71,7 @@ describe('store', () => {
 
   it('keeps data across page loads', () => {
     const storage = new MemoryStorage();
-    const data = { language: 'sv', theme: 'dark' as const, me: 100001, players: [player(100001, { import: IMPORT })] };
+    const data = { language: 'sv', theme: 'dark' as const, playerOrder: 'updated' as const, me: 100001, players: [player(100001, { import: IMPORT })] };
     createStore(storage).update(data);
     expect(createStore(storage).get()).toEqual(data);
   });
@@ -120,6 +120,12 @@ describe('validateData', () => {
     expect(validateData({ language: '<b>', theme: 'light' })).toEqual({ ...EMPTY_DATA, theme: 'light' });
     expect(validateData({ theme: 'sepia' })).toEqual(EMPTY_DATA);
     expect(validateData({ players: 'x' })).toEqual(EMPTY_DATA);
+  });
+
+  it('keeps the players order, sorting by name when it is missing or unknown', () => {
+    expect(validateData({ playerOrder: 'updated' }).playerOrder).toBe('updated');
+    expect(validateData({}).playerOrder).toBe('name');
+    expect(validateData({ playerOrder: 'rating' }).playerOrder).toBe('name');
   });
 
   it('drops invalid and repeated players and keeps the others', () => {
@@ -171,7 +177,7 @@ describe('migration from v1', () => {
   it('makes the default player a favorite and "me", with its import', () => {
     const { data, complete } = migrateV1({ pdgaNumber: 100001, language: 'sv', theme: 'dark', lastImport: IMPORT });
     expect(complete).toBe(true);
-    expect(data).toEqual({ language: 'sv', theme: 'dark', me: 100001, players: [player(100001, { import: MIGRATED })] });
+    expect(data).toEqual({ language: 'sv', theme: 'dark', playerOrder: 'name', me: 100001, players: [player(100001, { import: MIGRATED })] });
   });
 
   it('keeps a default player without an import', () => {
@@ -207,6 +213,7 @@ describe('migration from v1', () => {
     expect(store.get()).toEqual({
       language: null,
       theme: null,
+      playerOrder: 'name',
       me: 100001,
       players: [
         player(100001),

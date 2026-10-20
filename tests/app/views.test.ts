@@ -486,7 +486,10 @@ describe('players panel', () => {
       editing: false,
       confirmRemove: null,
       flash: null,
+      order: 'name',
       now: new Date('2026-10-20T10:00:00.000Z'),
+      onOrder: vi.fn(),
+      onSearch: vi.fn(),
       onSelect: vi.fn(),
       onClose: vi.fn(),
       onToggleEdit: vi.fn(),
@@ -568,6 +571,57 @@ describe('players panel', () => {
     input.value = '100004';
     submit(input.form!);
     expect(onAdd).toHaveBeenCalledWith(100004);
+  });
+
+  describe('order', () => {
+    const named = (pdgaNumber: number, name: string, at: string): StoredPlayer => ({
+      pdgaNumber,
+      favorite: true,
+      import: { at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }), events: [] },
+    });
+    const many = [
+      named(100004, 'Zoe Ash', '2026-10-19T10:00:00.000Z'),
+      ...players,
+      named(100005, 'Adam Berg', '2026-10-01T10:00:00.000Z'),
+    ];
+    const listed = (view: HTMLElement) =>
+      [...view.querySelectorAll('.player-list')[0]!.querySelectorAll('.player-select')].map((button) => button.id);
+
+    it('lists "me" first, then A to Z, and switches to last updated', () => {
+      const onOrder = vi.fn();
+      const view = document.body.appendChild(panel({ players: many, onOrder }));
+      expect(listed(view)).toEqual(['player-100001', 'player-100005', 'player-100004', 'player-100002']);
+      expect(view.querySelector('.segmented legend')!.textContent).toBe('Order');
+      expect(view.querySelector<HTMLInputElement>('#order-name')!.checked).toBe(true);
+      view.querySelector<HTMLInputElement>('#order-updated')!.click();
+      expect(onOrder).toHaveBeenCalledWith('updated');
+      view.remove();
+      expect(listed(panel({ players: many, order: 'updated' }))).toEqual([
+        'player-100001',
+        'player-100004',
+        'player-100005',
+        'player-100002',
+      ]);
+    });
+
+    it('offers no switch with fewer than two players after "me"', () => {
+      expect(panel().querySelector('#order-name')).toBeNull();
+    });
+  });
+
+  it('searches pdga.com by name and requires one', () => {
+    const onSearch = vi.fn();
+    const view = panel({ onSearch });
+    const input = view.querySelector<HTMLInputElement>('#player-search')!;
+    expect(input.type).toBe('search');
+    expect(view.querySelector(`label[for="player-search"]`)!.textContent).toBe('Find a player on pdga.com by name');
+    submit(input.form!);
+    expect(onSearch).not.toHaveBeenCalled();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(view.querySelector('#player-search-status')!.textContent).toBe('Enter a first or last name.');
+    input.value = ' Anna  Svensson ';
+    submit(input.form!);
+    expect(onSearch).toHaveBeenCalledWith('https://www.pdga.com/players?FirstName=Anna&LastName=Svensson');
   });
 
   it('suggests how to add players while there are no favorites', () => {

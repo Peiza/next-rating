@@ -1,7 +1,8 @@
-import { languages, resolveLanguage, t, type MessageKey } from '../../i18n';
+import { languages, resolveLanguage, t } from '../../i18n';
 import { BOOKMARKLET_VERSION } from '../../bookmarklet/version';
 import { el } from '../dom';
 import type { Theme } from '../storage';
+import { segmented, type Segment } from './segmented';
 
 export interface SettingsProps {
   /** The language override; null follows the device. */
@@ -16,7 +17,7 @@ export interface SettingsProps {
   onOpenSetup: () => void;
 }
 
-const THEME_OPTIONS: { value: Theme | null; id: string; label: MessageKey }[] = [
+const THEME_OPTIONS: Segment<Theme | null>[] = [
   { value: null, id: 'theme-device', label: 'settings.themeDevice' },
   { value: 'light', id: 'theme-light', label: 'settings.themeLight' },
   { value: 'dark', id: 'theme-dark', label: 'settings.themeDark' },
@@ -25,30 +26,6 @@ const THEME_OPTIONS: { value: Theme | null; id: string; label: MessageKey }[] = 
 /** The id of the radio for a theme, so focus can return to it. */
 export function themeId(theme: Theme | null): string {
   return THEME_OPTIONS.find((option) => option.value === theme)!.id;
-}
-
-/** A segmented control of native radios: Device, Light, Dark. */
-function themePicker(theme: Theme | null, onTheme: (theme: Theme | null) => void): HTMLElement {
-  return el(
-    'fieldset',
-    { class: 'segmented' },
-    el('legend', { class: 'label' }, t('settings.theme')),
-    el(
-      'div',
-      { class: 'segments' },
-      ...THEME_OPTIONS.flatMap(({ value, id, label }) => [
-        el('input', {
-          id,
-          type: 'radio',
-          name: 'theme',
-          value: value ?? '',
-          checked: value === theme,
-          onchange: () => onTheme(value),
-        }),
-        el('label', { for: id }, t(label)),
-      ]),
-    ),
-  );
 }
 
 function languagePicker(language: string | null, preferred: readonly string[], onLanguage: (language: string | null) => void) {
@@ -80,7 +57,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     el('h1', { id: 'view-title' }, t('settings.title')),
     !persistent && el('p', { class: 'warning' }, t('settings.storageUnavailable')),
     languagePicker(language, preferred, onLanguage),
-    themePicker(theme, onTheme),
+    segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),
     el('h2', {}, t('settings.bookmarklet')),
     el('p', { class: 'hint' }, t('setup.version', { version: BOOKMARKLET_VERSION })),
     el(
