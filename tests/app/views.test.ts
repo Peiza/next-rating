@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
-import { bannerView } from '../../src/app/views/banner';
+import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { ratingView } from '../../src/app/views/rating';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
@@ -426,6 +426,17 @@ describe('import banner', () => {
     expect(banner.textContent).toContain('A newer version of the bookmarklet');
     banner.querySelector<HTMLButtonElement>('#banner-setup')!.click();
     expect(onOpenSetup).toHaveBeenCalled();
+  });
+});
+
+describe('update notice', () => {
+  it('offers a reload to switch to the new version', () => {
+    const onReload = vi.fn();
+    const notice = updateNotice(onReload);
+    expect(notice.getAttribute('role')).toBe('status');
+    expect(notice.textContent).toContain('A new version of the app is available.');
+    notice.querySelector<HTMLButtonElement>('#update-reload')!.click();
+    expect(onReload).toHaveBeenCalled();
   });
 });
 

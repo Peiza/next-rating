@@ -61,6 +61,8 @@
   "settings.storageUnavailable": "This browser does not let the app store data, so your settings are lost when you close the page.",
   "settings.about": "About",
   "settings.version": "Version {version}",
+  "update.ready": "A new version of the app is available.",
+  "update.reload": "Reload",
   "import.close": "Close",
   "import.status.ok": "Import complete.",
   "import.status.partial": "Some pages could not be read. Everything else was imported.",

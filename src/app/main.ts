@@ -21,7 +21,8 @@ import {
   type Routed,
 } from './players';
 import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type PlayerOrder, type Theme } from './storage';
-import { BANNER_ID, bannerView, type Banner } from './views/banner';
+import { applyUpdate, registerServiceWorker } from './pwa';
+import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
   emptyDraft,
   MANUAL_ADD_ID,
@@ -94,6 +95,8 @@ let manualFlash: ManualFlash = null;
 let confirmClear = false;
 /** The player the manual entry state belongs to; another player starts with it closed and empty. */
 let manualPlayer: number | null = selected;
+/** A new version of the app is installed and waits for a reload. */
+let updateReady = false;
 
 function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -472,7 +475,13 @@ function render(focusId = document.activeElement?.id): void {
         onSave: (pdgaNumber) => addToFavorites(pdgaNumber, playerButtonId(pdgaNumber)),
         onAdd: addFromPanel,
       }),
-      el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
+      el(
+        'main',
+        { class: 'main' },
+        updateReady && updateNotice(applyUpdate),
+        setupOpener === null && banner && bannerView(banner, closeBanner, openSetup),
+        currentView(),
+      ),
     ),
     tabBar(),
   );
@@ -514,3 +523,7 @@ applyTheme();
 applyLanguage();
 render();
 if (payload !== null) void receiveHandoff(payload);
+registerServiceWorker(() => {
+  updateReady = true;
+  render();
+});

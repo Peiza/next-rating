@@ -61,6 +61,8 @@
   "settings.storageUnavailable": "Den här webbläsaren låter inte appen spara data, så dina inställningar försvinner när du stänger sidan.",
   "settings.about": "Om",
   "settings.version": "Version {version}",
+  "update.ready": "En ny version av appen finns.",
+  "update.reload": "Ladda om",
   "import.close": "Stäng",
   "import.status.ok": "Importen är klar.",
   "import.status.partial": "Några sidor gick inte att läsa. Allt annat importerades.",
