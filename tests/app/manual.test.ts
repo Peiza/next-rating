@@ -32,12 +32,14 @@ function props(extra: Partial<ManualProps> = {}): ManualProps {
     draft: draft(),
     flash: null,
     confirmClear: false,
+    undo: null,
     player: 'Test Player #100001',
     today: TODAY,
     onToggle: vi.fn(),
     onDraft: vi.fn(),
     onAdd: vi.fn(),
     onDelete: vi.fn(),
+    onUndo: vi.fn(),
     onAskClear: vi.fn(),
     onClear: vi.fn(),
     ...extra,
@@ -118,7 +120,7 @@ describe('manual entry view', () => {
     expect(date.value).toBe(TODAY);
     expect(date.max).toBe('2027-10-20');
     expect(form.querySelector('#manual-event')!.closest('details')).not.toBeNull();
-    expect(form.querySelector('#manual-add')!.nextElementSibling!.id).toBe('manual-status');
+    expect(form.querySelector('#manual-add')!.nextElementSibling!.firstElementChild!.id).toBe('manual-status');
   });
 
   it('adds the typed round', () => {
@@ -172,6 +174,21 @@ describe('manual entry view', () => {
     expect(button.getAttribute('aria-label')).toMatch(/^Delete round 950 from /);
     button.click();
     expect(onDelete).toHaveBeenCalledWith('m1');
+  });
+
+  it('offers Undo after a delete, beside "Removed" in the status line', () => {
+    expect(manualEntry(props({ rounds: ROUNDS })).querySelector('#manual-undo')).toBeNull();
+    const onUndo = vi.fn();
+    const view = manualEntry(props({ rounds: ROUNDS, undo: { rating: 990, date: '2026-10-12' }, onUndo }));
+    expect(view.querySelector('#manual-status')!.textContent).toBe('Removed 990');
+    const undo = view.querySelector<HTMLButtonElement>('#manual-undo')!;
+    expect(undo.textContent).toBe('Undo');
+    expect(undo.getAttribute('aria-label')).toMatch(/^Undo removing round 990 from /);
+    undo.click();
+    expect(onUndo).toHaveBeenCalled();
+    // A newer message wins over "Removed".
+    const restored = manualEntry(props({ flash: { kind: 'restored', rating: 990 } }));
+    expect(restored.querySelector('#manual-status')!.textContent).toBe('Restored 990.');
   });
 
   it('asks before deleting all, with Cancel first', () => {

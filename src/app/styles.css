@@ -617,7 +617,8 @@ a {
 
 /* Manual entry: the rating first, the Add button last, near the thumb. */
 
-.manual {
+.manual,
+.target {
   margin: 1.5rem 0;
 }
 
@@ -625,7 +626,8 @@ a {
   margin-bottom: 0;
 }
 
-.manual-form {
+.manual-form,
+.target-form {
   margin-top: 1rem;
   padding: 1rem;
   border: 2px solid var(--border);
@@ -672,6 +674,32 @@ a {
 
 .confirm-flush {
   margin: 0;
+}
+
+/* Target calculator: the answer is a few sentences in the status line. */
+.target-form > .hint {
+  margin-bottom: 1rem;
+}
+
+.target-answer > p {
+  margin: 0 0 0.5rem;
+}
+
+.target-answer > p:last-child {
+  margin-bottom: 0;
+}
+
+/* "Removed 985" with Undo beside it. */
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+
+.status-row > .button-small {
+  margin-top: 0.5rem;
 }
 
 /*

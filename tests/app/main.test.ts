@@ -228,9 +228,65 @@ describe('app start', () => {
     expect(rating()).not.toBe(before);
     expect(rating().value).toBe('99');
 
+    // A single delete does not ask: it happens at once, and Undo gets focus.
     document.getElementById('manual-delete-m1')!.click();
     expect(stored().players[0].manualRounds).toEqual([]);
-    expect(document.activeElement?.id).toBe('manual-toggle');
+    expect(document.getElementById('manual-status')!.textContent).toBe('Removed 1010');
+    expect(document.activeElement?.id).toBe('manual-undo');
+
+    // Undo lasts through a re-render, and puts the round back as it was.
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    document.getElementById('manual-undo')!.click();
+    expect(stored().players[0].manualRounds).toEqual([round]);
+    expect(document.getElementById('manual-status')!.textContent).toBe('Restored 1010.');
+    expect(document.activeElement?.id).toBe('manual-delete-m1');
+    expect(document.getElementById('manual-undo')).toBeNull();
+
+    // Delete all still asks first.
+    document.getElementById('manual-clear')!.click();
+    expect(stored().players[0].manualRounds).toEqual([round]);
+    expect(document.activeElement?.id).toBe('manual-clear-cancel');
+    document.getElementById('manual-clear-confirm')!.click();
+    expect(stored().players[0].manualRounds).toEqual([]);
+    expect(document.getElementById('manual-undo')).toBeNull();
+  });
+
+  it('calculates a target, keeps the answer through a re-render, and starts closed for another player', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [
+          { pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } },
+          { pdgaNumber: 100002, favorite: true, import: { at, player: other, details: [rawDetailsRow({ rating: '1000' })], events: [] } },
+        ],
+      }),
+    );
+    await start('/next-rating/');
+    const toggle = () => document.getElementById('target-toggle')!;
+    toggle().click();
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement?.id).toBe('target-rating');
+    expect(document.querySelector<HTMLInputElement>('#target-rating')!.value).toBe('960');
+
+    document.querySelector('#target-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    const status = () => document.getElementById('target-status')!;
+    expect(status().textContent).toMatch(/^Average at least \d+ in the next 3 rounds to reach 960 at the .+ update\.$/);
+    expect(document.activeElement).toBe(status());
+
+    const answer = status().textContent;
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(status().textContent).toBe(answer);
+
+    document.getElementById('players-menu')!.click();
+    document.getElementById('player-100002')!.click();
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById('target-panel')).toBeNull();
+    toggle().click();
+    expect(document.querySelector<HTMLInputElement>('#target-rating')!.value).toBe('1010');
+    expect(status().textContent).toBe('');
   });
 
   it('shows what another tab stored', async () => {

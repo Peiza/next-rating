@@ -9,6 +9,7 @@ import {
   playerName,
   removeManualRound,
   removePlayer,
+  restoreManualRound,
   routeImport,
   setMe,
   sortFavorites,
@@ -199,6 +200,30 @@ describe('manual rounds', () => {
     const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 1}` }));
     const busy = data([player(100001, { manualRounds: many })]);
     expect(addManualRound(busy, 100001, round)).toEqual({ data: busy, error: 'rounds-full', savedFavorite: false });
+  });
+
+  it('restores a deleted round in its old place, with its id', () => {
+    const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...round, id, rating: 950 + i }));
+    const before = data([player(100001, { manualRounds: rounds })]);
+    const deleted = removeManualRound(before, 100001, 'm2');
+    expect(restoreManualRound(deleted, 100001, rounds[1]!, 1)).toEqual(before);
+    // Out of range puts it last.
+    expect(roundsOf(restoreManualRound(deleted, 100001, rounds[1]!, 9), 100001).map(({ id }) => id)).toEqual([
+      'm1',
+      'm3',
+      'm2',
+    ]);
+  });
+
+  it('does not restore over a taken id, into full rounds or for a removed player', () => {
+    const rounds = [{ ...round, id: 'm1' }];
+    const taken = data([player(100001, { manualRounds: rounds })]);
+    expect(restoreManualRound(taken, 100001, { ...round, id: 'm1', rating: 900 }, 0)).toBe(taken);
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 2}` }));
+    const full = data([player(100001, { manualRounds: many })]);
+    expect(restoreManualRound(full, 100001, rounds[0]!, 0)).toBe(full);
+    const gone = data([player(100002)]);
+    expect(restoreManualRound(gone, 100001, rounds[0]!, 0)).toBe(gone);
   });
 
   it('clears one player only', () => {

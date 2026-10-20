@@ -1,4 +1,5 @@
 export { RULES, officialState, predictRating, type OfficialState } from './rating';
+export { MAX_TARGET_ROUND, targetAverage, type TargetOptions, type TargetResult } from './target';
 export { explainChange, type ChangeItem, type ChangeKind, type Explanation } from './explain';
 export { compareDates, isPlainDate, nextRatingUpdate, subtractMonths, type PlainDate, type RatingUpdate } from './dates';
 export type {

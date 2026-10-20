@@ -64,7 +64,7 @@ single build-time setting.
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 3 bookmarklet, 4 web app (import, results, theme, manual entry, data age,
 local storage, offline PWA), 5 favorites, 6 change explanation, 7 polish
-after favorites, 8 deadline-aware prediction.
+after favorites, 8 deadline-aware prediction, 9 target calculator.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -90,20 +90,6 @@ Open:
 5. Favorites, optional, later: a transfer link that moves favorites and manual
    rounds to another device through the same URL-fragment hand-off, without a
    server.
-9. Target calculator, on the Rating tab:
-   - Input: a target rating (for example 1000) and a number of upcoming
-     rounds (default 3). Output: the average round rating needed in those
-     rounds to reach the target at the next update.
-   - Computed with the real engine, never a shortcut formula: add that many
-     hypothetical 18-hole rounds dated today to the player's rounds (manual
-     rounds included) and search for the lowest whole round rating whose
-     prediction reaches the target. Window, outlier drops and double
-     weighting are then all applied as in the prediction.
-   - Say so when the target is already reached without new rounds, or out of
-     reach within a plausible rating range.
-   - Between the report deadline and the update (Monday and Tuesday of
-     update week), rounds dated today count only in the following update
-     (Architecture 8); handle that case.
 10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
@@ -185,11 +171,10 @@ that I merge; the workflow builds and tests every pull request and deploys
 every merge, so each version can be tested live on my phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
-explanation, the polish after favorites, the deadline-aware prediction and
-web app commit 3 (manual entry, data age, offline PWA)
-(docs/finished-steps.md). Build the rest in this order, committing after
-each working step:
-- Target calculator
+explanation, the polish after favorites, the deadline-aware prediction,
+web app commit 3 (manual entry, data age, offline PWA) and the target
+calculator (docs/finished-steps.md). Build the rest in this order,
+committing after each working step:
 - Top 8 panel
 - Setup page: complete the minimal one with the full step-by-step
   installation

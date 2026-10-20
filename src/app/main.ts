@@ -1,12 +1,13 @@
 import './styles.css';
 import bookmarklet from 'virtual:bookmarklet';
+import type { PlainDate } from '../engine';
 import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { readPages } from './handoff';
 import { today } from './format';
 import { takeFragment } from './import';
-import { buildModel, manualToRounds } from './model';
+import { buildModel, manualToRounds, type Model } from './model';
 import {
   addFavorite,
   addManualRound,
@@ -15,22 +16,33 @@ import {
   initialSelection,
   removeManualRound,
   removePlayer,
+  restoreManualRound,
   routeImport,
   setMe,
   type ManualRoundInput,
   type Routed,
 } from './players';
-import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type PlayerOrder, type Theme } from './storage';
+import {
+  browserStorage,
+  createStore,
+  MAX_FAVORITES,
+  STORAGE_KEY,
+  type PlayerOrder,
+  type StoredManualRound,
+  type StoredPlayer,
+  type Theme,
+} from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
+import { calculateTarget, emptyTargetDraft, type TargetAnswer, type TargetDraft, type TargetQuery } from './target';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
   emptyDraft,
   MANUAL_ADD_ID,
   MANUAL_CLEAR_CANCEL_ID,
   MANUAL_CLEAR_ID,
-  MANUAL_LIST_ID,
   MANUAL_RATING_ID,
   MANUAL_TOGGLE_ID,
+  MANUAL_UNDO_ID,
   type ManualDraft,
   type ManualFlash,
 } from './views/manual';
@@ -47,6 +59,7 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { ratingView } from './views/rating';
+import { TARGET_RATING_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID } from './views/target';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
@@ -93,7 +106,21 @@ let manualOpen = false;
 let manualDraft: ManualDraft = emptyDraft(today());
 let manualFlash: ManualFlash = null;
 let confirmClear = false;
-/** The player the manual entry state belongs to; another player starts with it closed and empty. */
+/**
+ * The manual round deleted last and where it was, for Undo. Unlike the flash,
+ * it lasts through re-renders until the next change to the manual rounds.
+ */
+let manualUndo: { round: StoredManualRound; index: number } | null = null;
+/** Target calculator: open or not, what has been typed (filled in when first shown) and the last calculation. */
+let targetOpen = false;
+let targetDraft: TargetDraft | null = null;
+let targetQuery: TargetQuery | null = null;
+/** The last answer and what it came from, so a re-render does not run the search again. */
+let targetMemo: { key: string; answer: TargetAnswer } | null = null;
+/**
+ * The player the manual entry and target calculator state belongs to;
+ * another player starts with them closed and empty.
+ */
 let manualPlayer: number | null = selected;
 /** A new version of the app is installed and waits for a reload. */
 let updateReady = false;
@@ -232,6 +259,7 @@ function addFromPanel(pdgaNumber: number): void {
 function toggleManual(): void {
   manualOpen = !manualOpen;
   confirmClear = false;
+  manualUndo = null;
   // A form opened on a later day starts on that day.
   if (manualOpen && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
   render(manualOpen ? MANUAL_RATING_ID : MANUAL_TOGGLE_ID);
@@ -240,6 +268,7 @@ function toggleManual(): void {
 /** Adds a round and keeps the form open for the next one, with the date and event kept. */
 function addManual(round: ManualRoundInput): void {
   if (selected === null) return;
+  manualUndo = null;
   const { data, error, savedFavorite } = addManualRound(store.get(), selected, round);
   if (error) {
     manualFlash = { kind: error };
@@ -252,12 +281,28 @@ function addManual(round: ManualRoundInput): void {
   render(MANUAL_RATING_ID);
 }
 
+/** Deletes at once, without asking: the status line offers Undo instead, which gets focus. */
 function deleteManual(id: string): void {
-  if (selected === null) return;
-  const data = store.update(removeManualRound(store.get(), selected, id));
-  manualFlash = { kind: 'deleted' };
-  const left = findPlayer(data, selected)?.manualRounds.length ?? 0;
-  render(left > 0 ? MANUAL_LIST_ID : MANUAL_TOGGLE_ID);
+  const rounds = findPlayer(store.get(), selected)?.manualRounds ?? [];
+  const index = rounds.findIndex((round) => round.id === id);
+  if (selected === null || index < 0) return;
+  store.update(removeManualRound(store.get(), selected, id));
+  manualUndo = { round: rounds[index]!, index };
+  render(MANUAL_UNDO_ID);
+}
+
+/** Puts the deleted round back in its place, with focus on its Delete button. */
+function undoDelete(): void {
+  if (selected === null || manualUndo === null) return;
+  const { round, index } = manualUndo;
+  manualUndo = null;
+  const data = store.get();
+  const restored = restoreManualRound(data, selected, round, index);
+  if (restored !== data) {
+    store.update(restored);
+    manualFlash = { kind: 'restored', rating: round.rating };
+  }
+  render(restored !== data ? `manual-delete-${round.id}` : MANUAL_TOGGLE_ID);
 }
 
 function askClearManual(ask: boolean): void {
@@ -270,8 +315,28 @@ function clearManual(): void {
   if (selected === null) return;
   store.update(clearManualRounds(store.get(), selected));
   confirmClear = false;
+  manualUndo = null;
   manualFlash = { kind: 'cleared' };
   render(MANUAL_TOGGLE_ID);
+}
+
+function toggleTarget(): void {
+  targetOpen = !targetOpen;
+  render(targetOpen ? TARGET_RATING_ID : TARGET_TOGGLE_ID);
+}
+
+/** Focus goes to the answer, so a phone keyboard closes and a screen reader reads it. */
+function calculate(query: TargetQuery): void {
+  targetQuery = query;
+  render(TARGET_STATUS_ID);
+}
+
+/** The answer for the shown player's current rounds, from the memo when nothing it depends on changed. */
+function targetAnswer(player: StoredPlayer, model: Model, date: PlainDate): TargetAnswer | null {
+  if (targetQuery === null) return null;
+  const key = JSON.stringify([player.pdgaNumber, player.import?.at, player.manualRounds, targetQuery, date]);
+  if (targetMemo?.key !== key) targetMemo = { key, answer: calculateTarget(model, targetQuery, date) };
+  return targetMemo.answer;
 }
 
 function setPlayerOrder(playerOrder: PlayerOrder): void {
@@ -410,17 +475,34 @@ function currentView(): HTMLElement {
     manualOpen = false;
     manualDraft = emptyDraft(today());
     confirmClear = false;
+    manualUndo = null;
+    targetOpen = false;
+    targetDraft = null;
+    targetQuery = null;
   }
   if (player?.import) {
     const now = new Date();
+    const model = buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds));
+    targetDraft ??= emptyTargetDraft(model.prediction.rating);
     return ratingView({
-      model: buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds)),
+      model,
+      target: {
+        open: targetOpen,
+        draft: targetDraft,
+        answer: targetAnswer(player, model, today(now)),
+        onToggle: toggleTarget,
+        onDraft: (field, value) => {
+          targetDraft = { ...targetDraft!, [field]: value };
+        },
+        onCalculate: calculate,
+      },
       manual: {
         rounds: player.manualRounds,
         open: manualOpen,
         draft: manualDraft,
         flash: manualFlash,
         confirmClear,
+        undo: manualUndo && { rating: manualUndo.round.rating, date: manualUndo.round.date },
         player: playerLabel(player),
         today: today(now),
         onToggle: toggleManual,
@@ -429,6 +511,7 @@ function currentView(): HTMLElement {
         },
         onAdd: addManual,
         onDelete: deleteManual,
+        onUndo: undoDelete,
         onAskClear: askClearManual,
         onClear: clearManual,
       },

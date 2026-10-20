@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { explainChange, predictRating } from '../../src/engine';
+import { explainChange, predictRating, subtractMonths, targetAverage } from '../../src/engine';
 import { detailsToRounds, eventToRounds, mergeRounds, parseEvent, parsePlayer, parseRatingsDetails } from '../../src/parsers';
 import { fixturePlayers, fixtures } from '../fixture-loader';
 import { parseHtml } from '../parsers/html';
@@ -99,6 +99,19 @@ describe.skipIf(!fixtures)('rule check against pdga.com', () => {
         const included = prediction.rounds.map((result) => result.status === 'included' || result.status === 'doubled');
         expect(included).toEqual(details.map((round) => round.included));
         expect(prediction.rating).toBe(official);
+      });
+
+      it('finds the target average on real rounds, and prints how long the scan takes', () => {
+        const target = official! + 10;
+        const date = subtractMonths(prediction.stats.windowEnd!, -1);
+        const started = performance.now();
+        const result = targetAverage(rounds, target, { count: 3, date });
+        console.log(`${label}: target scan ${Math.round(performance.now() - started)} ms, ${rounds.length} rounds`);
+        const average = result.average!;
+        const withRounds = (rating: number) =>
+          predictRating([...[1, 2, 3].map((i) => ({ ...rounds[0]!, id: `new${i}`, eventKey: `new${i}`, rating, date, holes: 18, source: 'manual' as const })), ...rounds]).rating!;
+        expect(withRounds(average)).toBeGreaterThanOrEqual(target);
+        expect(withRounds(average - 1)).toBeLessThan(target);
       });
 
       it("gives the official rating from PDGA's flags, with no difference line", () => {

@@ -20,16 +20,24 @@ export const RULES = {
 } as const;
 
 /**
- * The outlier limit for one round, from the other rounds in the window:
- * their plain mean minus 100 or minus 2.5 standard deviations, whichever is
- * higher. Leaving the round itself out reproduces PDGA's Included flags.
+ * The outlier limit for the round at `skip`, from the other ratings in the
+ * window: their plain mean minus 100 or minus 2.5 standard deviations,
+ * whichever is higher. Leaving the round itself out reproduces PDGA's
+ * Included flags.
+ *
+ * It adds up in the same order as mean() and populationStdDev(), so the
+ * result is identical, but without building a list of the others for every
+ * round: the target calculator runs the engine hundreds of times.
  */
-function dropLimit(others: readonly number[]): number {
-  const average = mean(others);
-  return Math.max(
-    average - RULES.outlierPoints,
-    average - RULES.outlierStdDevs * populationStdDev(others),
-  );
+function dropLimit(ratings: readonly number[], skip: number): number {
+  const count = ratings.length - 1;
+  let sum = 0;
+  for (let k = 0; k < ratings.length; k += 1) if (k !== skip) sum += ratings[k]!;
+  const average = count > 0 ? sum / count : NaN;
+  let squares = 0;
+  for (let k = 0; k < ratings.length; k += 1) if (k !== skip) squares += (ratings[k]! - average) ** 2;
+  const stdDev = count > 0 ? Math.sqrt(squares / count) : NaN;
+  return Math.max(average - RULES.outlierPoints, average - RULES.outlierStdDevs * stdDev);
 }
 
 /** holes / 18, capped at 1: a round longer than 18 holes counts as one round. */
@@ -180,11 +188,12 @@ export function predictRating(
   const averageInWindow = mean(windowRatings);
   const stdDev = populationStdDev(windowRatings);
   const dropRule = inWindow.length >= RULES.minRoundsForOutlierDrop;
-  const limitOf = (i: number) => dropLimit(inWindow.filter((j) => j !== i).map(ratingOf));
+  /** The limit for the k-th round in the window. */
+  const limitAt = (k: number) => dropLimit(windowRatings, k);
 
-  const counted = dropRule ? inWindow.filter((i) => ratingOf(i) >= limitOf(i)) : inWindow;
+  const counted = dropRule ? inWindow.filter((i, k) => ratingOf(i) >= limitAt(k)) : inWindow;
   const lowest = inWindow.reduce<number | null>(
-    (low, i) => (low === null || ratingOf(i) < ratingOf(low) ? i : low),
+    (low, i, k) => (low === null || ratingOf(i) < windowRatings[low]! ? k : low),
     null,
   );
   const countedSet = new Set(counted);
@@ -210,8 +219,8 @@ export function predictRating(
     averageInWindow: nullable(averageInWindow),
     averageCounted: nullable(mean(counted.map(ratingOf))),
     stdDev: nullable(stdDev),
-    lowestInWindow: lowest === null ? null : ratingOf(lowest),
-    lowestLimit: dropRule && lowest !== null ? limitOf(lowest) : null,
+    lowestInWindow: lowest === null ? null : windowRatings[lowest]!,
+    lowestLimit: dropRule && lowest !== null ? limitAt(lowest) : null,
   };
 
   return {

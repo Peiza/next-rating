@@ -37,7 +37,21 @@ event. The date can be up to a year ahead, so a round you expect to play at
 an upcoming event gets that event's date: if it falls after the report
 deadline of the next update, it is marked as counting in the following one.
 Manual rounds are kept per player, listed under the form with a delete
-button each, and never sent anywhere.
+button each, and never sent anywhere. A deleted round can be brought back
+with Undo.
+
+## Reaching a target rating
+
+"Reach a target rating" takes a target, such as 1000, and a number of
+upcoming rounds (3 by default). It shows the average round rating those
+rounds need for the next update to reach the target. The app works this out
+with the same rules as the prediction: it adds that many 18-hole rounds dated
+today and finds the lowest whole rating that gets there, with the window,
+dropped outliers and double weighting all applied. It also says when the
+target is already reached (and what keeps it there), or when even rounds
+rated 1150 would not reach it. On the Monday and Tuesday of update week,
+rounds played that day count only in the following update, and the answer
+is for that update.
 
 When a player's data is more than 7 days old, the Rating tab says so, with a
 button to that player's ratings details on pdga.com, where the bookmarklet

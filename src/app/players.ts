@@ -133,6 +133,20 @@ export function removeManualRound(data: AppData, pdgaNumber: number, id: string)
   return replacePlayer(data, { ...player, manualRounds: player.manualRounds.filter((round) => round.id !== id) });
 }
 
+/**
+ * Undo for a delete: puts the same round (same id) back where it was, so the
+ * list order and the prediction are exactly as before. Does nothing when the
+ * player is gone, the id is taken again or the rounds are full.
+ */
+export function restoreManualRound(data: AppData, pdgaNumber: number, round: StoredManualRound, index: number): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  if (!player || player.manualRounds.length >= MAX_MANUAL_ROUNDS) return data;
+  if (player.manualRounds.some(({ id }) => id === round.id)) return data;
+  const manualRounds = [...player.manualRounds];
+  manualRounds.splice(Math.min(Math.max(index, 0), manualRounds.length), 0, round);
+  return replacePlayer(data, { ...player, manualRounds });
+}
+
 export function clearManualRounds(data: AppData, pdgaNumber: number): AppData {
   const player = findPlayer(data, pdgaNumber);
   return player ? replacePlayer(data, { ...player, manualRounds: [] }) : data;

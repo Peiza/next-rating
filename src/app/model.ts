@@ -69,6 +69,8 @@ export interface Model {
   player: PlayerInfo | null;
   /** The player the import is stored under; event rows are picked by this number. */
   pdgaNumber: number;
+  /** The engine input: every round, in the order the prediction used. */
+  rounds: ListedRound[];
   /** Rounds with their status, newest first. */
   rows: ListedResult[];
   prediction: Prediction;
@@ -128,6 +130,7 @@ export function buildModel(
   return {
     player,
     pdgaNumber,
+    rounds,
     rows,
     prediction,
     nextUpdate,
