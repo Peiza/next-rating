@@ -333,13 +333,20 @@ describe('rating view', () => {
     expect(event.textContent).toBe('Example Open, Round 1');
   });
 
-  it('has a stats card', () => {
+  it('has a Details card', () => {
     const stats = ratingPage().querySelector('#stats')!;
-    expect(stats.querySelector('#stats-toggle')!.textContent).toBe('Statistics');
+    expect(stats.querySelector('#stats-toggle')!.textContent).toBe('Details');
     const rows = [...stats.querySelectorAll('dl > div.stat')];
     expect(rows.length).toBeGreaterThan(0);
     expect(stats.querySelectorAll('dt').length).toBe(rows.length);
     for (const row of rows) expect([...row.children].map((child) => child.tagName).slice(0, 2)).toEqual(['DT', 'DD']);
+  });
+
+  it('tells the weighted prediction apart from the plain averages', () => {
+    const labels = [...ratingPage().querySelectorAll('#stats dt')].map((dt) => dt.textContent);
+    expect(labels).toContain('Unrounded prediction (weighted average)');
+    expect(labels).toContain('Average in window (unweighted)');
+    expect(labels).toContain('Average of counted rounds (unweighted)');
   });
 
   it('shows the window length next to its label and the dates below', () => {
@@ -515,7 +522,7 @@ describe('rating tab cards', () => {
     expect(toggle.hasAttribute('aria-controls')).toBe(false);
     expect(toggle.querySelector('.card-arrow')!.getAttribute('aria-hidden')).toBe('true');
     expect(card.getAttribute('aria-labelledby')).toBe('stats-title');
-    expect(card.querySelector('#stats-title')!.textContent).toBe('Statistics');
+    expect(card.querySelector('#stats-title')!.textContent).toBe('Details');
     const open = page({ ...DEFAULT_CARDS, stats: true }).querySelector('#stats-toggle')!;
     expect(open.getAttribute('aria-controls')).toBe('stats-body');
   });
