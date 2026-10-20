@@ -90,7 +90,7 @@ describe('explainChange', () => {
   });
 
   it('lists rounds that start counting twice', () => {
-    const rounds = weekly([960, 940, 955, 945, 950, 950, 950, 950]);
+    const rounds = weekly([980, 920, 970, 930, 960, 940, 950, 950]);
     const explanation = explain([fresh(950, '2026-09-03'), ...rounds]);
     // 9 counted rounds double 3: the new one and the two newest official ones.
     expect(itemOf(explanation, rounds[0]!)).toMatchObject({ kind: 'started-doubling', after: 'doubled' });
@@ -110,9 +110,10 @@ describe('explainChange', () => {
     expect(itemOf(explanation, newest[0]!)).toBeUndefined();
   });
 
-  it('lists a round that a new round pushes below the drop threshold', () => {
+  it('lists a round that a new round pushes below the drop limit', () => {
+    // 6 official rounds are too few to drop any; the new round makes 7.
     const low = official(900, '2026-07-01');
-    const rounds = [...weekly([950, 950, 950, 950, 950, 950]), low];
+    const rounds = [...weekly([950, 950, 950, 950, 950]), low];
     const explanation = explain([fresh(960, '2026-09-03'), ...rounds]);
     expect(itemOf(explanation, low)).toMatchObject({ kind: 'newly-dropped', before: 'included', after: 'dropped' });
     // Dropping a low round raises the rating.

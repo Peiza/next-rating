@@ -50,7 +50,7 @@ function kindOf(before: RoundStatus, after: RoundStatus): ChangeKind {
  * Each round's effect is (weight after - weight before) * (rating - official
  * average) / total weight after. Since the official weights average to the
  * official average, the effects add up exactly to the change, and effects of
- * one round on another (moving the window, the drop threshold or the
+ * one round on another (moving the window, the drop limits or the
  * double-weight boundary) are credited to the rounds whose weight changed.
  *
  * Listed: every new round with a rating, also one that does not count (effect

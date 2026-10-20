@@ -202,9 +202,8 @@ function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
     ['stats.averageInWindow', average(stats.averageInWindow)],
     ['stats.averageCounted', average(stats.averageCounted)],
     ['stats.stdDev', average(stats.stdDev)],
-    ['stats.meanMinusPoints', average(stats.meanMinusPoints)],
-    ['stats.meanMinusStdDevs', average(stats.meanMinusStdDevs)],
-    ['stats.dropThreshold', average(stats.dropThreshold)],
+    ['stats.lowestInWindow', stats.lowestInWindow === null ? DASH : formatRating(stats.lowestInWindow)],
+    ['stats.lowestLimit', average(stats.lowestLimit)],
   ];
   return el(
     'details',

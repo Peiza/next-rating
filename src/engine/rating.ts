@@ -15,8 +15,27 @@ export const RULES = {
   /** Double weighting only applies when at least this many rounds count. */
   minRoundsForDoubleWeight: 9,
   doubleWeightShare: 0.25,
+  /** Hole weighting divides by this, and caps longer rounds at it: they count as one round. */
   standardHoles: 18,
 } as const;
+
+/**
+ * The outlier limit for one round, from the other rounds in the window:
+ * their plain mean minus 100 or minus 2.5 standard deviations, whichever is
+ * higher. Leaving the round itself out reproduces PDGA's Included flags.
+ */
+function dropLimit(others: readonly number[]): number {
+  const average = mean(others);
+  return Math.max(
+    average - RULES.outlierPoints,
+    average - RULES.outlierStdDevs * populationStdDev(others),
+  );
+}
+
+/** holes / 18, capped at 1: a round longer than 18 holes counts as one round. */
+function holeWeight(round: RoundInput): number {
+  return Math.min(round.holes ?? RULES.standardHoles, RULES.standardHoles) / RULES.standardHoles;
+}
 
 function validate(rounds: readonly RoundInput[]): void {
   const ids = new Set<string>();
@@ -40,7 +59,7 @@ function validate(rounds: readonly RoundInput[]): void {
  * newest first). When the boundary falls inside an event, the event's highest
  * rated rounds are double-weighted, not the first or last in table order.
  */
-function selectDoubleWeighted(
+export function selectDoubleWeighted(
   rounds: readonly RoundInput[],
   counted: readonly number[],
   count: number,
@@ -122,19 +141,21 @@ export function predictRating(
     inWindow = window.indices;
   }
 
-  // Outlier statistics use all rounds in the window, before any are dropped,
-  // so dropping a round never feeds back into its own threshold. They are
-  // unweighted: hole weighting only applies to the final average.
+  // Each round is judged against the other rounds in the window (leave one
+  // out), all of them before any are dropped, so the rule is not iterated.
+  // The statistics are unweighted: hole and double weighting only apply to
+  // the final average. Two low rounds are each judged with the other one in.
   const windowRatings = inWindow.map(ratingOf);
   const averageInWindow = mean(windowRatings);
   const stdDev = populationStdDev(windowRatings);
-  const meanMinusPoints = averageInWindow - RULES.outlierPoints;
-  const meanMinusStdDevs = averageInWindow - RULES.outlierStdDevs * stdDev;
-  const dropThreshold =
-    inWindow.length >= RULES.minRoundsForOutlierDrop ? Math.max(meanMinusPoints, meanMinusStdDevs) : null;
+  const dropRule = inWindow.length >= RULES.minRoundsForOutlierDrop;
+  const limitOf = (i: number) => dropLimit(inWindow.filter((j) => j !== i).map(ratingOf));
 
-  const counted =
-    dropThreshold === null ? inWindow : inWindow.filter((i) => ratingOf(i) >= dropThreshold);
+  const counted = dropRule ? inWindow.filter((i) => ratingOf(i) >= limitOf(i)) : inWindow;
+  const lowest = inWindow.reduce<number | null>(
+    (low, i) => (low === null || ratingOf(i) < ratingOf(low) ? i : low),
+    null,
+  );
   const countedSet = new Set(counted);
   for (const i of inWindow) status[i] = countedSet.has(i) ? 'included' : 'dropped';
 
@@ -145,9 +166,8 @@ export function predictRating(
   for (const i of selectDoubleWeighted(rounds, counted, doubleCount)) status[i] = 'doubled';
 
   const weights = rounds.map((round, i) => {
-    const holeWeight = (round.holes ?? RULES.standardHoles) / RULES.standardHoles;
-    if (status[i] === 'doubled') return 2 * holeWeight;
-    if (status[i] === 'included') return holeWeight;
+    if (status[i] === 'doubled') return 2 * holeWeight(round);
+    if (status[i] === 'included') return holeWeight(round);
     return 0;
   });
 
@@ -171,9 +191,8 @@ export function predictRating(
     averageInWindow: nullable(averageInWindow),
     averageCounted: nullable(mean(counted.map(ratingOf))),
     stdDev: nullable(stdDev),
-    meanMinusPoints: nullable(meanMinusPoints),
-    meanMinusStdDevs: nullable(meanMinusStdDevs),
-    dropThreshold,
+    lowestInWindow: lowest === null ? null : ratingOf(lowest),
+    lowestLimit: dropRule && lowest !== null ? limitOf(lowest) : null,
   };
 
   return {

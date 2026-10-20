@@ -12,7 +12,7 @@ export interface RoundInput {
   date: PlainDate;
   /** Groups the rounds of one event, for the double-weight boundary rule. */
   eventKey: string;
-  /** Holes played. Defaults to 18 when unknown. */
+  /** Holes played. Defaults to 18 when unknown. Weighs holes / 18, at most 1. */
   holes?: number;
   /** A DNF round never counts. */
   dnf?: boolean;
@@ -33,7 +33,7 @@ export type RoundStatus =
 export interface RoundResult {
   id: string;
   status: RoundStatus;
-  /** Weight in the final average: holes / 18, doubled when double-weighted, 0 when not counted. */
+  /** Weight in the final average: holes / 18 (at most 1), doubled when double-weighted, 0 when not counted. */
   weight: number;
 }
 
@@ -63,12 +63,14 @@ export interface RatingStats {
   averageCounted: number | null;
   /** Population standard deviation of the rounds in the window. */
   stdDev: number | null;
-  /** averageInWindow - 100 */
-  meanMinusPoints: number | null;
-  /** averageInWindow - 2.5 * stdDev */
-  meanMinusStdDevs: number | null;
-  /** Rounds rated below this are dropped. Null when too few rounds for the outlier rule. */
-  dropThreshold: number | null;
+  /** The lowest rating in the window. */
+  lowestInWindow: number | null;
+  /**
+   * The lowest round's drop limit, from the other rounds in the window: their
+   * mean minus 100 or minus 2.5 standard deviations, whichever is higher.
+   * Each round has its own limit. Null when too few rounds for the outlier rule.
+   */
+  lowestLimit: number | null;
 }
 
 export interface PredictOptions {
