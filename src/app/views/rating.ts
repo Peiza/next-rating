@@ -6,8 +6,9 @@ import type { ListedResult, Model } from '../model';
 
 export interface RatingProps {
   model: Model;
-  defaultPdgaNumber: number | null;
-  onMakeDefault: (pdgaNumber: number) => void;
+  /** False for the unsaved player, which gets an Add to favorites button. */
+  favorite: boolean;
+  onAddFavorite: (pdgaNumber: number) => void;
 }
 
 /** Every status has a symbol and a text label, so it never depends on colour alone. */
@@ -38,20 +39,19 @@ function change(value: number): HTMLElement {
   );
 }
 
-function summary({ model, defaultPdgaNumber, onMakeDefault }: RatingProps): HTMLElement {
-  const { player, prediction } = model;
+function summary({ model, favorite, onAddFavorite }: RatingProps): HTMLElement {
+  const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
   return el(
     'div',
     { class: 'summary' },
-    player &&
-      el(
-        'p',
-        { class: 'player' },
-        player.name
-          ? t('rating.player', { name: player.name, number: player.pdgaNumber })
-          : t('rating.playerNumber', { number: player.pdgaNumber }),
-      ),
+    el(
+      'p',
+      { class: 'player' },
+      player?.name
+        ? t('rating.player', { name: player.name, number: pdgaNumber })
+        : t('rating.playerNumber', { number: pdgaNumber }),
+    ),
     prediction.rating !== null
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
@@ -65,12 +65,11 @@ function summary({ model, defaultPdgaNumber, onMakeDefault }: RatingProps): HTML
           : t('rating.officialNoDate', { rating: formatRating(official) }),
       ),
     el('p', { class: 'hint' }, t('rating.lastImport', { time: formatDateTime(model.importedAt) })),
-    player !== null &&
-      player.pdgaNumber !== defaultPdgaNumber &&
+    !favorite &&
       el(
         'button',
-        { id: 'make-default', class: 'button', type: 'button', onclick: () => onMakeDefault(player.pdgaNumber) },
-        t('rating.makeDefault', { number: player.pdgaNumber }),
+        { id: 'add-favorite', class: 'button', type: 'button', onclick: () => onAddFavorite(pdgaNumber) },
+        t('rating.addFavorite', { number: pdgaNumber }),
       ),
   );
 }
@@ -109,20 +108,20 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
 function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
   const count = (value: number) => formatRating(value);
   const average = (value: number | null) => (value === null ? DASH : formatAverage(value));
-  const window =
-    stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null
-      ? t('stats.windowValue', {
-          months: stats.windowMonths,
-          start: formatDate(stats.windowStart),
-          end: formatDate(stats.windowEnd),
-        })
-      : DASH;
-  const rows: [MessageKey, string][] = [
+  const hasWindow = stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null;
+  // The window length sits next to its label, and the dates on their own line below.
+  const window: [string, string?] = hasWindow
+    ? [
+        t('stats.windowMonths', { count: stats.windowMonths! }),
+        t('stats.windowRange', { start: formatDate(stats.windowStart!), end: formatDate(stats.windowEnd!) }),
+      ]
+    : [DASH];
+  const rows: [MessageKey, string, string?][] = [
     ['stats.exact', average(exact)],
     ['stats.totalRounds', count(stats.totalRounds)],
     ['stats.dnfRounds', count(stats.dnfRounds)],
     ['stats.careerEvents', count(stats.careerEvents)],
-    ['stats.window', window],
+    ['stats.window', ...window],
     ['stats.roundsInWindow', count(stats.roundsInWindow)],
     ['stats.roundsOutsideWindow', count(stats.roundsOutsideWindow)],
     ['stats.roundsDropped', count(stats.roundsDropped)],
@@ -140,7 +139,19 @@ function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
     'details',
     { id: 'stats', class: 'stats' },
     el('summary', {}, t('stats.title')),
-    el('dl', {}, ...rows.map(([key, value]) => el('div', { class: 'stat' }, el('dt', {}, t(key)), el('dd', {}, value)))),
+    el(
+      'dl',
+      {},
+      ...rows.map(([key, value, detail]) =>
+        el(
+          'div',
+          { class: 'stat' },
+          el('dt', {}, t(key)),
+          el('dd', {}, value),
+          detail !== undefined && el('dd', { class: 'stat-detail' }, detail),
+        ),
+      ),
+    ),
   );
 }
 
@@ -152,9 +163,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     { class: 'view', 'aria-labelledby': 'view-title' },
     el('h1', { id: 'view-title' }, t('rating.title')),
     summary(props),
-    model.needsNumber && el('p', { class: 'warning' }, t('rating.needsNumber')),
-    model.pdgaNumber !== null &&
-      model.eventsWithoutRounds.length > 0 &&
+    model.eventsWithoutRounds.length > 0 &&
       el(
         'p',
         { class: 'hint' },

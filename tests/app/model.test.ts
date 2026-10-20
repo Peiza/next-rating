@@ -18,7 +18,7 @@ const details = [
 
 describe('buildModel', () => {
   it('predicts from the ratings details, with the change vs the official rating', () => {
-    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details }), null);
+    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details }), 100001);
     expect(model.player).toMatchObject({ pdgaNumber: 100001, currentRating: 950, ratingDate: '2026-09-08' });
     expect(model.prediction.rating).toBe(960);
     expect(model.prediction.change).toBe(10);
@@ -27,13 +27,13 @@ describe('buildModel', () => {
   });
 
   it('hides the change without an official rating', () => {
-    const model = buildModel(stored({ details }), null);
+    const model = buildModel(stored({ details }), 100001);
     expect(model.player).toBeNull();
     expect(model.prediction.change).toBeNull();
   });
 
   it("adds the imported player's rounds from event pages, newest first", () => {
-    const model = buildModel(stored({ player: rawPlayer(), details, events: [rawEvent()] }), 100009);
+    const model = buildModel(stored({ player: rawPlayer(), details, events: [rawEvent()] }), 100001);
     expect(model.pdgaNumber).toBe(100001);
     expect(model.rows.map(({ round }) => [round.date, round.rating, round.source, round.roundLabel])).toEqual([
       ['2026-09-06', 960, 'unofficial', '1'],
@@ -45,17 +45,11 @@ describe('buildModel', () => {
     expect(model.rows[1]!.round.holes).toBe(9);
   });
 
-  it('picks event rows by the default PDGA number without an imported player', () => {
+  it('picks event rows by the number the import is stored under', () => {
     const model = buildModel(stored({ events: [rawEvent()] }), 100002);
+    expect(model.pdgaNumber).toBe(100002);
+    expect(model.player).toBeNull();
     expect(model.rows.map(({ round }) => round.rating)).toEqual([990, 980]);
-    expect(model.needsNumber).toBe(false);
-  });
-
-  it('asks for a PDGA number when there are events but no number', () => {
-    const model = buildModel(stored({ events: [rawEvent()] }), null);
-    expect(model.needsNumber).toBe(true);
-    expect(model.rows).toEqual([]);
-    expect(model.prediction.rating).toBeNull();
   });
 
   it('lists events without rated rounds for the player', () => {
@@ -70,7 +64,7 @@ describe('buildModel', () => {
     );
     const low = rawDetailsRow({ eventId: '900020', date: '20-Jul-2026', rating: '700' });
     const old = rawDetailsRow({ eventId: '900021', date: '1-Jul-2024', rating: '900' });
-    const model = buildModel(stored({ details: [...many, low, old] }), null);
+    const model = buildModel(stored({ details: [...many, low, old] }), 100001);
     const status = (rating: number | null) => model.rows.find(({ round }) => round.rating === rating)!.result.status;
     expect(status(700)).toBe('dropped');
     expect(status(900)).toBe('outside-window');
@@ -87,7 +81,7 @@ describe('buildModel', () => {
       eventName: '',
       roundLabel: '',
     };
-    const model = buildModel(stored({ details }), null, [manual]);
+    const model = buildModel(stored({ details }), 100001, [manual]);
     expect(model.rows[0]!.round).toBe(manual);
     expect(model.prediction.stats.totalRounds).toBe(4);
   });

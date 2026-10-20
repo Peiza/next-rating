@@ -6,8 +6,9 @@ this document holds the approved plan, updated with the decisions made while
 building commit 2.
 
 Commit 3 now comes after the GitHub Pages workflow, the bookmarklet and the
-Favorites step (see Process in CLAUDE.md). Its plan below must be revised then: manual
-rounds are stored per player, and the data age display joins it.
+Favorites step (see Process in CLAUDE.md). Its plan below is revised for
+that: manual rounds are stored per player (`docs/plan-favorites.md`), and the
+data age display joins it.
 
 ## Already in place (commit 1)
 
@@ -138,11 +139,13 @@ the rating parsed from the player page, derived rather than hard-coded.
 - Manual rounds are listed with a delete button and a "Clear all manual
   rounds" action, confirmed with an inline confirm row (not
   `window.confirm`). The prediction updates immediately.
-- Stored as `manualRounds` in `AppData`, validated on read. (To revise: with
-  favorites, manual rounds belong to a player.)
+- Stored as `manualRounds` on each `StoredPlayer` (see
+  `docs/plan-favorites.md`), validated on read. Stored players without the
+  field load with an empty list, so no migration is needed.
 
 **Data age** (see CLAUDE.md, Web app): "Updated X days ago" next to the
-predicted rating with `Intl.RelativeTimeFormat`, and a refresh notice with a
+predicted rating with `formatAge` (`Intl.RelativeTimeFormat`, added with
+the favorites panel), and a refresh notice with a
 button to the player's pdga.com ratings details page when the data is more
 than 7 days old.
 

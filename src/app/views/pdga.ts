@@ -1,12 +1,19 @@
-import { t } from '../../i18n';
+import { t, type MessageKey } from '../../i18n';
 import { parseInteger, RANGES } from '../../parsers/values';
 import { el } from '../dom';
+import { MAX_FAVORITES } from '../storage';
 
 /** What the PDGA number form says after a save. */
-export type PdgaFlash = 'saved' | 'removed' | null;
+export type PdgaFlash = 'saved' | 'removed' | 'full' | null;
+
+const FLASH: Record<NonNullable<PdgaFlash>, MessageKey> = {
+  saved: 'pdga.saved',
+  removed: 'pdga.removed',
+  full: 'favorites.full',
+};
 
 export const PDGA_INPUT_ID = 'pdga-number';
-export const PDGA_SAVE_ID = 'pdga-number-save';
+export const PDGA_SAVE_ID = `${PDGA_INPUT_ID}-save`;
 
 export function detailsUrl(pdgaNumber: number): string {
   return `https://www.pdga.com/player/${pdgaNumber}/details`;
@@ -18,15 +25,25 @@ export function readPdgaNumber(text: string): { empty: boolean; pdgaNumber: numb
   return { empty: digits === '', pdgaNumber: digits === '' ? null : parseInteger(digits, RANGES.id) };
 }
 
-/** The default player's PDGA number. An empty field removes the number. */
+export interface PdgaFormOptions {
+  /** The input's id; the button and the status take ids derived from it. */
+  id?: string;
+  label?: MessageKey;
+  submit?: MessageKey;
+  /** False when an empty field is an error rather than a way to remove the number. */
+  allowEmpty?: boolean;
+}
+
+/** A PDGA number field with a button. By default your own number, where an empty field removes it. */
 export function pdgaNumberForm(
   value: number | null,
   flash: PdgaFlash,
   onSave: (pdgaNumber: number | null) => void,
+  { id = PDGA_INPUT_ID, label = 'pdga.label', submit: submitKey = 'pdga.save', allowEmpty = true }: PdgaFormOptions = {},
 ): HTMLFormElement {
-  const statusId = `${PDGA_INPUT_ID}-status`;
+  const statusId = `${id}-status`;
   const input = el('input', {
-    id: PDGA_INPUT_ID,
+    id,
     class: 'input',
     type: 'text',
     inputmode: 'numeric',
@@ -38,13 +55,13 @@ export function pdgaNumberForm(
   });
   const status = el(
     'p',
-    { id: statusId, class: 'status', role: 'status' },
-    flash === 'saved' ? t('pdga.saved') : flash === 'removed' ? t('pdga.removed') : '',
+    { id: statusId, class: flash === 'full' ? 'status error' : 'status', role: 'status' },
+    flash ? t(FLASH[flash], { max: MAX_FAVORITES }) : '',
   );
   const submit = (event: Event) => {
     event.preventDefault();
     const { empty, pdgaNumber } = readPdgaNumber(input.value);
-    if (!empty && pdgaNumber === null) {
+    if (pdgaNumber === null && (!empty || !allowEmpty)) {
       input.setAttribute('aria-invalid', 'true');
       status.classList.add('error');
       status.textContent = t('pdga.invalid');
@@ -56,12 +73,12 @@ export function pdgaNumberForm(
   return el(
     'form',
     { class: 'field', novalidate: true, onsubmit: submit },
-    el('label', { for: PDGA_INPUT_ID, class: 'label' }, t('pdga.label')),
+    el('label', { for: id, class: 'label' }, t(label)),
     el(
       'div',
       { class: 'row' },
       input,
-      el('button', { id: PDGA_SAVE_ID, class: 'button', type: 'submit' }, t('pdga.save')),
+      el('button', { id: `${id}-save`, class: 'button', type: 'submit' }, t(submitKey)),
     ),
     status,
   );

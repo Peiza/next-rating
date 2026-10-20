@@ -7,13 +7,24 @@ import type { RawDetailsRow, RawEvent } from '../parsers/types';
 import { ParseError, toPdgaDate } from '../parsers/values';
 import { el } from './dom';
 import { readPages } from './handoff';
-import { applyImport, takeFragment } from './import';
+import { takeFragment } from './import';
 import { buildModel } from './model';
 import { readPaste } from './paste';
-import { browserStorage, createStore, type Theme } from './storage';
+import { addFavorite, findPlayer, initialSelection, removePlayer, routeImport, setMe, type Routed } from './players';
+import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type Theme } from './storage';
 import { BANNER_ID, bannerView, type Banner } from './views/banner';
 import { EVENT_DATE_ID, importView, OWNER_ID, PASTE_ID, type PasteMessage } from './views/import';
 import { PDGA_SAVE_ID, type PdgaFlash } from './views/pdga';
+import {
+  ADD_INPUT_ID,
+  MENU_BUTTON_ID,
+  PANEL_TITLE_ID,
+  playerButtonId,
+  playerLabel,
+  playersPanel,
+  topBar,
+  WIDE_QUERY,
+} from './views/players';
 import { ratingView } from './views/rating';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
@@ -45,6 +56,8 @@ const ERROR_MESSAGES: Record<HandoffErrorCode, MessageKey> = {
 const store = createStore(browserStorage());
 const root = document.getElementById('app')!;
 let tab: Tab = 'rating';
+/** The player the Rating tab shows. Every page load starts on "me". */
+let selected: number | null = initialSelection(store.get());
 let flash: PdgaFlash = null;
 let banner: Banner | null = null;
 let pendingEvent: RawEvent | null = null;
@@ -52,6 +65,11 @@ let pendingDetails: { details: RawDetailsRow[]; rounds: number } | null = null;
 let pasteMessage: PasteMessage | null = null;
 /** The bookmarklet setup shows over the current tab, and the id of what opened it gets focus back. */
 let setupOpener: string | null = null;
+/** On phones, the players panel shows in place of the current view. */
+let menuOpen = false;
+let editingPlayers = false;
+let confirmRemove: number | null = null;
+let addFlash: PdgaFlash = null;
 
 function preferredLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
@@ -89,17 +107,104 @@ function setTheme(theme: Theme | null): void {
   render(themeId(theme));
 }
 
+/** Your own PDGA number: saved as a favorite and made "me". An empty field clears "me". */
 function savePdgaNumber(pdgaNumber: number | null): void {
-  const before = store.get().pdgaNumber;
-  store.update({ pdgaNumber });
-  flash = pdgaNumber !== null ? 'saved' : before !== null ? 'removed' : null;
+  const before = store.get().me;
+  const { me } = store.update(setMe(store.get(), pdgaNumber));
+  if (pdgaNumber !== null && me !== pdgaNumber) {
+    flash = 'full';
+  } else {
+    if (me !== null) selected = me;
+    flash = pdgaNumber !== null ? 'saved' : before !== null ? 'removed' : null;
+  }
   // Focus the button rather than the field, so a phone keyboard closes.
   render(PDGA_SAVE_ID);
 }
 
-function makeDefault(pdgaNumber: number): void {
-  store.update({ pdgaNumber });
-  render(`tab-${tab}`);
+/** Saves the unsaved player as a favorite, then puts focus on `focusId`. */
+function addToFavorites(pdgaNumber: number, focusId = `tab-${tab}`): void {
+  const data = store.get();
+  const next = addFavorite(data, pdgaNumber);
+  if (next === data) {
+    showBanner({ message: 'favorites.full', params: { max: MAX_FAVORITES }, tone: 'warning' });
+    return;
+  }
+  store.update(next);
+  render(focusId);
+}
+
+function labelOf(pdgaNumber: number): string {
+  const player = findPlayer(store.get(), pdgaNumber);
+  return player ? playerLabel(player) : t('rating.playerNumber', { number: pdgaNumber });
+}
+
+function isWide(): boolean {
+  return window.matchMedia?.(WIDE_QUERY).matches ?? false;
+}
+
+function toggleMenu(): void {
+  menuOpen = !menuOpen;
+  editingPlayers = false;
+  confirmRemove = null;
+  render(menuOpen ? PANEL_TITLE_ID : MENU_BUTTON_ID);
+  window.scrollTo(0, 0);
+}
+
+function closeMenu(): void {
+  if (!menuOpen) return;
+  toggleMenu();
+}
+
+/** Shows a player on the Rating tab. On phones the menu closes, and focus returns to its button. */
+function selectPlayer(pdgaNumber: number): void {
+  selected = pdgaNumber;
+  tab = 'rating';
+  setupOpener = null;
+  banner = null;
+  menuOpen = false;
+  confirmRemove = null;
+  render(isWide() ? playerButtonId(pdgaNumber) : MENU_BUTTON_ID);
+  window.scrollTo(0, 0);
+}
+
+function toggleEditPlayers(): void {
+  editingPlayers = !editingPlayers;
+  confirmRemove = null;
+  render('players-edit');
+}
+
+function setMeFromPanel(pdgaNumber: number): void {
+  store.update(setMe(store.get(), pdgaNumber));
+  render(playerButtonId(pdgaNumber));
+}
+
+function askRemove(pdgaNumber: number | null): void {
+  const before = confirmRemove;
+  confirmRemove = pdgaNumber;
+  // Focus goes to Cancel, the safe choice, and back to Remove when cancelled.
+  render(pdgaNumber !== null ? `remove-cancel-${pdgaNumber}` : `remove-${before}`);
+}
+
+function removeFromPanel(pdgaNumber: number): void {
+  const data = store.update(removePlayer(store.get(), pdgaNumber));
+  confirmRemove = null;
+  if (selected === pdgaNumber) selected = initialSelection(data);
+  const anyFavorite = data.players.some((player) => player.favorite);
+  if (!anyFavorite) editingPlayers = false;
+  render(anyFavorite ? 'players-edit' : PANEL_TITLE_ID);
+}
+
+/** Adds a player from the panel's form and shows it, so its pdga.com page is one tap away. */
+function addFromPanel(pdgaNumber: number): void {
+  const data = store.get();
+  const next = addFavorite(data, pdgaNumber);
+  if (next === data && !findPlayer(data, pdgaNumber)?.favorite) {
+    addFlash = 'full';
+    render(`${ADD_INPUT_ID}-save`);
+    return;
+  }
+  store.update(next);
+  selectPlayer(pdgaNumber);
 }
 
 function setLanguageOverride(language: string | null): void {
@@ -112,17 +217,37 @@ function selectTab(next: Tab): void {
   tab = next;
   setupOpener = null;
   pasteMessage = null;
+  menuOpen = false;
   render(`tab-${next}`);
   window.scrollTo(0, 0);
 }
 
-function saveImport(parts: ImportParts, owner: number | null = null): void {
-  const { lastImport } = store.get();
-  store.update({ lastImport: applyImport(lastImport, parts, new Date().toISOString(), owner) });
+/** Stores an import with its players. An import for one player selects that player. */
+function saveImport(parts: ImportParts, owner: number | null = null): Routed {
+  const data = store.get();
+  const routed = routeImport(data, parts, new Date().toISOString(), owner, selected);
+  if (routed.data !== data) store.update({ players: routed.data.players });
+  if (routed.owner !== null && routed.players.length > 0) selected = routed.owner;
+  return routed;
+}
+
+/** What a banner adds about where an import went. */
+function importNotes(routed: Routed): Pick<Banner, 'storageFull'> {
+  return { storageFull: routed.players.length > 0 && !store.persistent };
+}
+
+function eventAddedBanner(routed: Routed): Banner {
+  return {
+    message: 'import.eventFor',
+    params: { players: routed.players.map(labelOf).join(', ') },
+    tone: 'info',
+    ...importNotes(routed),
+  };
 }
 
 function openSetup(): void {
   setupOpener = document.activeElement?.id || `tab-${tab}`;
+  menuOpen = false;
   render(SETUP_ID);
   window.scrollTo(0, 0);
 }
@@ -138,6 +263,7 @@ function showBanner(next: Banner): void {
   banner = next;
   tab = 'rating';
   setupOpener = null;
+  menuOpen = false;
   render(BANNER_ID);
   window.scrollTo(0, 0);
 }
@@ -151,12 +277,21 @@ async function receiveHandoff(payload: string): Promise<void> {
   try {
     const envelope = await decodeHandoff(payload);
     const { parts, owner, unreadable } = readPages(envelope.pages ?? []);
-    saveImport(parts, owner);
+    const routed = saveImport(parts, owner);
     const status = envelope.status === 'ok' && unreadable.length > 0 ? 'partial' : envelope.status;
+    const failed = [...(envelope.failed ?? []), ...unreadable];
+    const outdated = isOlderVersion(envelope.bookmarklet);
+    if (routed.noPlayer) {
+      // Event results without anyone to give them to: link back to run the bookmarklet there again.
+      const events = (envelope.pages ?? []).map(({ url }) => url).filter((url) => url.includes('/tour/event/'));
+      showBanner({ message: 'import.noPlayer', tone: 'warning', failed: [...events, ...failed], outdated });
+      return;
+    }
+    const eventsOnly = routed.owner === null && routed.players.length > 0 && status === 'ok';
     showBanner({
-      ...STATUS_BANNERS[status],
-      failed: [...(envelope.failed ?? []), ...unreadable],
-      outdated: isOlderVersion(envelope.bookmarklet),
+      ...(eventsOnly ? eventAddedBanner(routed) : { ...STATUS_BANNERS[status], ...importNotes(routed) }),
+      failed,
+      outdated,
     });
   } catch (error) {
     if (!(error instanceof HandoffError)) console.error(error);
@@ -179,6 +314,12 @@ function pasted(html: string, text: string): void {
     pasteMessage = { key: 'paste.none', error: true };
     render(PASTE_ID);
   } else if (result.kind === 'event') {
+    if (store.get().players.length === 0) {
+      // Event results do not say whose rounds to read, and there is nobody to give them to.
+      pasteMessage = { key: 'paste.noPlayer', error: true };
+      render(PASTE_ID);
+      return;
+    }
     pendingEvent = result.event;
     render(EVENT_DATE_ID);
   } else if (!result.player) {
@@ -186,8 +327,8 @@ function pasted(html: string, text: string): void {
     pendingDetails = { details: result.details, rounds: result.rounds };
     render(OWNER_ID);
   } else {
-    saveImport({ details: result.details, player: result.player });
-    showBanner({ message: 'paste.details', params: { count: result.rounds }, tone: 'info' });
+    const routed = saveImport({ details: result.details, player: result.player });
+    showBanner({ message: 'paste.details', params: { count: result.rounds }, tone: 'info', ...importNotes(routed) });
   }
 }
 
@@ -195,16 +336,21 @@ function importPastedDetails(owner: number): void {
   if (!pendingDetails) return;
   const { details, rounds } = pendingDetails;
   pendingDetails = null;
-  saveImport({ details }, owner);
-  showBanner({ message: 'paste.details', params: { count: rounds }, tone: 'info' });
+  const routed = saveImport({ details }, owner);
+  showBanner({ message: 'paste.details', params: { count: rounds }, tone: 'info', ...importNotes(routed) });
 }
 
 function addPastedEvent(date: PlainDate, name: string): void {
   if (!pendingEvent) return;
   const event: RawEvent = { ...pendingEvent, date: toPdgaDate(date), name };
   pendingEvent = null;
-  saveImport({ events: [event] });
-  showBanner({ message: 'paste.eventAdded', tone: 'info' });
+  const routed = saveImport({ events: [event] });
+  if (routed.noPlayer) {
+    pasteMessage = { key: 'paste.noPlayer', error: true };
+    render(PASTE_ID);
+    return;
+  }
+  showBanner(eventAddedBanner(routed));
 }
 
 function cancelPaste(): void {
@@ -238,13 +384,10 @@ function currentView(): HTMLElement {
   const data = store.get();
   if (tab === 'settings') {
     return settingsView({
-      pdgaNumber: data.pdgaNumber,
-      flash,
       language: data.language,
       preferred: preferredLanguages(),
       theme: data.theme,
       persistent: store.persistent,
-      onSavePdgaNumber: savePdgaNumber,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
       onOpenSetup: openSetup,
@@ -254,7 +397,7 @@ function currentView(): HTMLElement {
     return importView({
       pendingEvent,
       pendingDetails: pendingDetails?.rounds ?? null,
-      pdgaNumber: data.pdgaNumber,
+      pdgaNumber: selected,
       message: pasteMessage,
       touch: isTouchDevice(),
       onPaste: pasted,
@@ -264,15 +407,17 @@ function currentView(): HTMLElement {
       onCancel: cancelPaste,
     });
   }
-  if (data.lastImport) {
+  const player = findPlayer(data, selected);
+  if (player?.import) {
     return ratingView({
-      model: buildModel(data.lastImport, data.pdgaNumber),
-      defaultPdgaNumber: data.pdgaNumber,
-      onMakeDefault: makeDefault,
+      model: buildModel(player.import, player.pdgaNumber),
+      favorite: player.favorite,
+      onAddFavorite: (pdgaNumber) => addToFavorites(pdgaNumber),
     });
   }
   return startView({
-    pdgaNumber: data.pdgaNumber,
+    pdgaNumber: data.me,
+    player: player ? { pdgaNumber: player.pdgaNumber, label: playerLabel(player) } : null,
     flash,
     onSavePdgaNumber: savePdgaNumber,
     onOpenImport: () => selectTab('import'),
@@ -282,15 +427,51 @@ function currentView(): HTMLElement {
 
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
+  const data = store.get();
+  const shown = findPlayer(data, selected);
   root.replaceChildren(
-    el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
+    el(
+      'div',
+      { class: menuOpen ? 'shell menu-open' : 'shell' },
+      topBar(shown ? playerLabel(shown) : null, menuOpen, toggleMenu),
+      playersPanel({
+        players: data.players,
+        me: data.me,
+        selected,
+        editing: editingPlayers,
+        confirmRemove,
+        flash: addFlash,
+        now: new Date(),
+        onSelect: selectPlayer,
+        onClose: closeMenu,
+        onToggleEdit: toggleEditPlayers,
+        onSetMe: setMeFromPanel,
+        onAskRemove: askRemove,
+        onRemove: removeFromPanel,
+        onSave: (pdgaNumber) => addToFavorites(pdgaNumber, playerButtonId(pdgaNumber)),
+        onAdd: addFromPanel,
+      }),
+      el('main', { class: 'main' }, setupOpener === null && banner && bannerView(banner, closeBanner, openSetup), currentView()),
+    ),
     tabBar(),
   );
   flash = null;
+  addFlash = null;
   if (focusId) document.getElementById(focusId)?.focus();
 }
 
 window.addEventListener('languagechange', () => {
+  applyLanguage();
+  render();
+});
+
+// Another tab changed the stored data, such as a hand-off that opened there: show it here too,
+// so this tab never writes its older copy back over it.
+window.addEventListener('storage', (event) => {
+  if (event.key !== null && event.key !== STORAGE_KEY) return;
+  const data = store.reload();
+  if (!findPlayer(data, selected)) selected = initialSelection(data);
+  applyTheme();
   applyLanguage();
   render();
 });

@@ -160,7 +160,18 @@ single build-time setting.
    - Optional, later: a transfer link that moves favorites and manual rounds
      to another device through the same URL-fragment hand-off, without a
      server.
-6. Target calculator, on the Rating tab:
+6. Change explanation, on the Rating tab:
+   - Under the change line, a short "Why it changed" list compares the last
+     official update with the prediction, using the real engine.
+   - The official state is the official rounds only, which reproduces the
+     official rating; the new state is all rounds.
+   - List what differs: new rounds with their ratings, rounds that left the
+     window, rounds that started or stopped counting twice, and rounds newly
+     dropped or no longer dropped.
+   - Estimate each effect with the engine, mark it with an arrow for up or
+     down, and show the largest effects first. Example: a 985 round that no
+     longer counts twice can outweigh a new 938 round.
+7. Target calculator, on the Rating tab:
    - Input: a target rating (for example 1000) and a number of upcoming
      rounds (default 3). Output: the average round rating needed in those
      rounds to reach the target at the next update.
@@ -171,7 +182,7 @@ single build-time setting.
      weighting are then all applied as in the prediction.
    - Say so when the target is already reached without new rounds, or out of
      reach within a plausible rating range.
-7. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+8. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
    - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
@@ -186,7 +197,7 @@ single build-time setting.
      the same 24-month fallback.
    - With fewer than 8 rounds, show how many were found and the average of
      those.
-8. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
+9. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
    on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
@@ -260,8 +271,9 @@ order, committing after each working step:
   desktop), so it can be installed and tested on my phone (done)
 - Fixes after testing on a phone: rating change arrow and colour, theme
   setting, stats layout, paste hint (done)
-- Favorites (before manual entry, so manual rounds are stored per player from
-  the start)
+- Favorites (docs/plan-favorites.md; before manual entry, so manual rounds
+  are stored per player from the start) (done)
+- Change explanation: why the prediction differs from the official rating
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA
 - Target calculator

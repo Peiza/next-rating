@@ -2,11 +2,8 @@ import { languages, resolveLanguage, t, type MessageKey } from '../../i18n';
 import { BOOKMARKLET_VERSION } from '../../bookmarklet/version';
 import { el } from '../dom';
 import type { Theme } from '../storage';
-import { detailsLink, pdgaNumberForm, type PdgaFlash } from './pdga';
 
 export interface SettingsProps {
-  pdgaNumber: number | null;
-  flash: PdgaFlash;
   /** The language override; null follows the device. */
   language: string | null;
   /** The device's preferred languages. */
@@ -14,7 +11,6 @@ export interface SettingsProps {
   /** The theme override; null follows the device. */
   theme: Theme | null;
   persistent: boolean;
-  onSavePdgaNumber: (pdgaNumber: number | null) => void;
   onLanguage: (language: string | null) => void;
   onTheme: (theme: Theme | null) => void;
   onOpenSetup: () => void;
@@ -77,16 +73,12 @@ function languagePicker(language: string | null, preferred: readonly string[], o
 }
 
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { pdgaNumber, flash, language, preferred, theme, persistent } = props;
-  const { onSavePdgaNumber, onLanguage, onTheme, onOpenSetup } = props;
+  const { language, preferred, theme, persistent, onLanguage, onTheme, onOpenSetup } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
     el('h1', { id: 'view-title' }, t('settings.title')),
     !persistent && el('p', { class: 'warning' }, t('settings.storageUnavailable')),
-    pdgaNumberForm(pdgaNumber, flash, onSavePdgaNumber),
-    detailsLink(pdgaNumber),
-    pdgaNumber !== null && el('p', { class: 'hint' }, t('settings.detailsHint')),
     languagePicker(language, preferred, onLanguage),
     themePicker(theme, onTheme),
     el('h2', {}, t('settings.bookmarklet')),

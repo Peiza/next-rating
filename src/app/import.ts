@@ -29,7 +29,8 @@ export function validateStoredImport(value: unknown): StoredImport | null {
   }
 }
 
-function playerNumber(player: RawPlayer | undefined): number | null {
+/** The PDGA number in a player record, or null without one. */
+export function playerNumber(player: RawPlayer | undefined): number | null {
   return player ? normalizePlayer(player).pdgaNumber : null;
 }
 
@@ -45,41 +46,52 @@ function detailsEventKeys(details: readonly RawDetailsRow[]): Set<string> {
   );
 }
 
+/** True when the player has a results row in the event, rated or not. */
+export function hasPlayerRow(event: RawEvent, pdgaNumber: number): boolean {
+  return normalizeEvent(event).divisions.some((division) => division.rows.some((row) => row.pdgaNumber === pdgaNumber));
+}
+
 /**
- * Adds an import to the stored one. An import never erases data it does not
- * contain: for the same player, it replaces only the fields it brings, so a
- * partial import keeps the stored ratings details or profile events. An
- * event page replaces an earlier copy of the same event. An import for a
- * different player replaces everything. Events that the ratings details now
- * include are dropped, since the details already hold their rounds.
- * `owner` is the player of an import without a player record, such as a
- * pasted ratings details table, as the user gave it.
+ * Keeps only the player's rows of an event, and only the divisions they are
+ * in, so a whole event page is not stored again for every player. Without a
+ * row for the player, no divisions are left.
+ */
+export function eventForPlayer(event: RawEvent, pdgaNumber: number): RawEvent {
+  const { divisions } = normalizeEvent(event);
+  return {
+    ...event,
+    divisions: event.divisions.flatMap((division, i) => {
+      const rows = division.rows.filter((_, j) => divisions[i]!.rows[j]!.pdgaNumber === pdgaNumber);
+      return rows.length > 0 ? [{ ...division, rows }] : [];
+    }),
+  };
+}
+
+/**
+ * Adds an import to one player's stored import. An import never erases data
+ * it does not contain: it replaces only the fields it brings, so a partial
+ * import keeps the stored ratings details or profile events. Event pages are
+ * cut down to the player's rows, and replace an earlier copy of the same
+ * event. Events that the ratings details now include are dropped, since the
+ * details already hold their rounds.
  * Returns the stored import unchanged when the import holds no data.
  */
 export function applyImport(
   stored: StoredImport | null,
   parts: ImportParts,
   at: string,
-  owner: number | null = null,
+  pdgaNumber: number,
 ): StoredImport | null {
   if (!hasParts(parts)) return stored;
-  const before = playerNumber(stored?.player);
-  const after = playerNumber(parts.player) ?? owner;
-  const otherPlayer = before !== null && after !== null && before !== after;
-  const base: StoredImport = stored && !otherPlayer ? stored : { at, events: [] };
+  const base: StoredImport = stored ?? { at, events: [] };
 
   const next: StoredImport = { ...base, at };
-  if (parts.player) {
-    next.player = parts.player;
-  } else if (after !== null && !next.player) {
-    // Only the number is known; the name and official rating come with a later import.
-    next.player = { pdgaNumber: String(after), name: '', currentRating: '', ratingDate: '' };
-  }
+  if (parts.player) next.player = parts.player;
   if (parts.details) next.details = parts.details;
   if (parts.profileEvents) next.profileEvents = parts.profileEvents;
 
   let events = base.events;
-  for (const event of parts.events ?? []) {
+  for (const event of (parts.events ?? []).map((event) => eventForPlayer(event, pdgaNumber))) {
     const key = eventKey(event);
     events = [...events.filter((other) => eventKey(other) !== key), event];
   }

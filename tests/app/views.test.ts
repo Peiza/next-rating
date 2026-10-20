@@ -10,13 +10,15 @@ import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView } from '../../src/app/views/start';
+import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
+import type { StoredPlayer } from '../../src/app/storage';
 import { setLanguage } from '../../src/i18n';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
 
 afterEach(() => setLanguage('en'));
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
-  return startView({ pdgaNumber, flash: null, onSavePdgaNumber, onOpenImport: vi.fn(), onOpenSetup: vi.fn() });
+  return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenImport: vi.fn(), onOpenSetup: vi.fn() });
 }
 
 function submit(form: HTMLFormElement) {
@@ -78,13 +80,10 @@ describe('getting-started view', () => {
 
 describe('settings view', () => {
   const props: SettingsProps = {
-    pdgaNumber: null,
-    flash: null,
     language: null,
     preferred: ['sv-SE'],
     theme: null,
     persistent: true,
-    onSavePdgaNumber: () => {},
     onLanguage: () => {},
     onTheme: () => {},
     onOpenSetup: () => {},
@@ -147,7 +146,7 @@ describe('getting-started bookmarklet and paste steps', () => {
   it('installs the bookmarklet before opening pdga.com, and opens the Import tab', () => {
     const onOpenImport = vi.fn();
     const onOpenSetup = vi.fn();
-    const view = startView({ pdgaNumber: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport, onOpenSetup });
+    const view = startView({ pdgaNumber: null, player: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport, onOpenSetup });
     const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
     expect(steps[1]).toMatch(/Install the bookmarklet/);
     expect(steps[2]).toMatch(/run the bookmarklet there/);
@@ -170,8 +169,8 @@ describe('rating view', () => {
     events: [rawEvent()],
   };
 
-  function ratingPage(defaultPdgaNumber: number | null = 100001, onMakeDefault = vi.fn()) {
-    return ratingView({ model: buildModel(stored, defaultPdgaNumber), defaultPdgaNumber, onMakeDefault });
+  function ratingPage(favorite = true, onAddFavorite = vi.fn()) {
+    return ratingView({ model: buildModel(stored, 100001), favorite, onAddFavorite });
   }
 
   it('shows the prediction, the change and the official rating', () => {
@@ -188,7 +187,7 @@ describe('rating view', () => {
     ['962', 'none', '→', '0'],
   ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
     const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
-    const line = ratingView({ model, defaultPdgaNumber: 100001, onMakeDefault: vi.fn() }).querySelector('.change')!;
+    const line = ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.change')!;
     expect(line.classList.contains(`change-${direction}`)).toBe(true);
     const icon = line.querySelector('.change-arrow')!;
     expect(icon.textContent).toBe(arrow);
@@ -220,14 +219,33 @@ describe('rating view', () => {
     const rows = [...stats.querySelectorAll('dl > div.stat')];
     expect(rows.length).toBeGreaterThan(0);
     expect(stats.querySelectorAll('dt').length).toBe(rows.length);
-    for (const row of rows) expect([...row.children].map((child) => child.tagName)).toEqual(['DT', 'DD']);
+    for (const row of rows) expect([...row.children].map((child) => child.tagName).slice(0, 2)).toEqual(['DT', 'DD']);
   });
 
-  it('offers to make the imported player the default player', () => {
-    const onMakeDefault = vi.fn();
-    expect(ratingPage(100001).querySelector('#make-default')).toBeNull();
-    ratingPage(100009, onMakeDefault).querySelector<HTMLButtonElement>('#make-default')!.click();
-    expect(onMakeDefault).toHaveBeenCalledWith(100001);
+  it('shows the window length next to its label and the dates below', () => {
+    const row = [...ratingPage().querySelectorAll('#stats div.stat')].find((stat) =>
+      stat.querySelector('dt')!.textContent!.startsWith('Window'),
+    )!;
+    const [label, months, range] = [...row.children];
+    expect(label!.textContent).toBe('Window');
+    // Fewer than 8 rounds, so the 24-month fallback applies.
+    expect(months!.textContent).toBe('24 months');
+    expect(range!.className).toBe('stat-detail');
+    expect(range!.textContent).toMatch(/^\S+ to \S+$/);
+  });
+
+  it('offers to save the unsaved player as a favorite', () => {
+    const onAddFavorite = vi.fn();
+    expect(ratingPage(true).querySelector('#add-favorite')).toBeNull();
+    const button = ratingPage(false, onAddFavorite).querySelector<HTMLButtonElement>('#add-favorite')!;
+    expect(button.textContent).toBe('Add #100001 to favorites');
+    button.click();
+    expect(onAddFavorite).toHaveBeenCalledWith(100001);
+  });
+
+  it('names the player by number before a player header is imported', () => {
+    const model = buildModel({ ...stored, player: undefined }, 100001);
+    expect(ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.player')!.textContent).toBe('#100001');
   });
 
   it('ends with the unofficial notice', () => {
@@ -429,5 +447,151 @@ describe('el', () => {
 
   it('refuses inline styles', () => {
     expect(() => el('p', { style: 'color: red' })).toThrow();
+  });
+});
+
+describe('players panel', () => {
+  const imported: StoredImport = { at: '2026-10-17T10:00:00.000Z', player: rawPlayer(), events: [] };
+  const players: StoredPlayer[] = [
+    { pdgaNumber: 100001, favorite: true, import: imported },
+    { pdgaNumber: 100002, favorite: true, import: null },
+    { pdgaNumber: 100003, favorite: false, import: null },
+  ];
+
+  function panel(extra: Partial<PlayersProps> = {}): HTMLElement {
+    return playersPanel({
+      players,
+      me: 100001,
+      selected: 100002,
+      editing: false,
+      confirmRemove: null,
+      flash: null,
+      now: new Date('2026-10-20T10:00:00.000Z'),
+      onSelect: vi.fn(),
+      onClose: vi.fn(),
+      onToggleEdit: vi.fn(),
+      onSetMe: vi.fn(),
+      onAskRemove: vi.fn(),
+      onRemove: vi.fn(),
+      onSave: vi.fn(),
+      onAdd: vi.fn(),
+      ...extra,
+    });
+  }
+
+  it('lists favorites with "You", the selected player and when each was imported', () => {
+    const view = panel();
+    const [me, other] = [...view.querySelectorAll('.player-list')[0]!.querySelectorAll('.player-select')];
+    expect(me!.querySelector('.player-name')!.textContent).toBe('Test Player #100001You');
+    expect(me!.querySelector('.player-meta')!.textContent).toBe('Imported 3 days ago');
+    expect(me!.hasAttribute('aria-current')).toBe(false);
+    expect(other!.getAttribute('aria-current')).toBe('true');
+    expect(other!.querySelector('[aria-hidden="true"]')!.textContent).toBe('✓ ');
+    expect(other!.querySelector('.player-meta')!.textContent).toBe('Not imported yet');
+  });
+
+  it("links each player to its ratings details on pdga.com", () => {
+    const links = [...panel().querySelectorAll<HTMLAnchorElement>('a.player-link')];
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      'https://www.pdga.com/player/100001/details',
+      'https://www.pdga.com/player/100002/details',
+      'https://www.pdga.com/player/100003/details',
+    ]);
+    expect(links[0]!.getAttribute('aria-label')).toBe('Ratings details for Test Player #100001 on pdga.com');
+  });
+
+  it('selects a player', () => {
+    const onSelect = vi.fn();
+    panel({ onSelect }).querySelector<HTMLButtonElement>('#player-100001')!.click();
+    expect(onSelect).toHaveBeenCalledWith(100001);
+  });
+
+  it('shows the unsaved player apart, with a button to save it', () => {
+    const onSave = vi.fn();
+    const view = panel({ onSave });
+    expect(view.querySelector('h3')!.textContent).toBe('Not saved');
+    view.querySelector<HTMLButtonElement>('#save-100003')!.click();
+    expect(onSave).toHaveBeenCalledWith(100003);
+  });
+
+  it('shows "This is me" and Remove only while editing', () => {
+    expect(panel().querySelector('#remove-100002')).toBeNull();
+    expect(panel().querySelector('#players-edit')!.getAttribute('aria-pressed')).toBe('false');
+    const view = panel({ editing: true });
+    expect(view.querySelector('#players-edit')!.getAttribute('aria-pressed')).toBe('true');
+    expect(view.querySelector('#set-me-100001')).toBeNull();
+    expect(view.querySelector('#set-me-100002')).not.toBeNull();
+    expect(view.querySelector('#remove-100002')!.getAttribute('aria-label')).toBe('Remove #100002');
+  });
+
+  it('asks before removing a player', () => {
+    const onRemove = vi.fn();
+    const onAskRemove = vi.fn();
+    const view = panel({ editing: true, confirmRemove: 100001, onRemove, onAskRemove });
+    const group = view.querySelector('.confirm')!;
+    expect(group.getAttribute('role')).toBe('group');
+    expect(group.textContent).toContain('Remove Test Player #100001 and the data stored for this player?');
+    view.querySelector<HTMLButtonElement>('#remove-cancel-100001')!.click();
+    expect(onAskRemove).toHaveBeenCalledWith(null);
+    view.querySelector<HTMLButtonElement>('#remove-confirm-100001')!.click();
+    expect(onRemove).toHaveBeenCalledWith(100001);
+  });
+
+  it('adds a player by number and requires one', () => {
+    const onAdd = vi.fn();
+    const view = panel({ onAdd });
+    const input = view.querySelector<HTMLInputElement>('#player-add')!;
+    submit(input.form!);
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    input.value = '100004';
+    submit(input.form!);
+    expect(onAdd).toHaveBeenCalledWith(100004);
+  });
+
+  it('suggests how to add players while there are no favorites', () => {
+    const view = panel({ players: [], me: null, selected: null });
+    expect(view.querySelector('.hint')!.textContent).toMatch(/No favorites yet/);
+    expect(view.querySelector('#players-edit')).toBeNull();
+  });
+
+  it('closes with Escape', () => {
+    const onClose = vi.fn();
+    panel({ onClose }).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('top bar', () => {
+  it('has a menu button that controls the players panel', () => {
+    const onToggle = vi.fn();
+    const bar = topBar('Test Player #100001', false, onToggle);
+    const button = bar.querySelector<HTMLButtonElement>('#players-menu')!;
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.getAttribute('aria-controls')).toBe('favorites');
+    expect(bar.textContent).toContain('Test Player #100001');
+    button.click();
+    expect(onToggle).toHaveBeenCalled();
+    expect(topBar(null, true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
+  });
+});
+
+describe('getting-started view for a player without data', () => {
+  it("leaves out your own number and opens that player's ratings details", () => {
+    const view = startView({
+      pdgaNumber: 100001,
+      player: { pdgaNumber: 100002, label: '#100002' },
+      flash: null,
+      onSavePdgaNumber: vi.fn(),
+      onOpenImport: vi.fn(),
+      onOpenSetup: vi.fn(),
+    });
+    expect(view.querySelector('h1')!.textContent).toBe('#100002');
+    expect(view.querySelector('#pdga-number')).toBeNull();
+    expect(view.querySelectorAll('.step')).toHaveLength(3);
+    expect(view.textContent).toContain('Open the ratings details of #100002 on pdga.com');
+    expect(view.querySelector<HTMLAnchorElement>('#details-link')!.getAttribute('href')).toBe(
+      'https://www.pdga.com/player/100002/details',
+    );
   });
 });
