@@ -270,6 +270,15 @@ describe('rating view', () => {
     expect(view.textContent).toContain('Last import:');
   });
 
+  it('shows the calculated official rating only when the engine reproduces it', () => {
+    // The official rounds give 965.
+    const model = buildModel({ ...stored, player: rawPlayer({ currentRating: '965' }) }, 100001, NOW);
+    const official = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#official')!;
+    expect(official.textContent).toMatch(/^Official rating 965 \(calculated 96[45]\.\d\d\), as of \S+$/);
+    // 950 is not what the official rounds give, so the decimals would not explain it.
+    expect(ratingPage().querySelector('#official')!.textContent).not.toContain('calculated');
+  });
+
   it.each([
     ['950', 'up', '↑', '+12'],
     ['970', 'down', '↓', '−8'],
@@ -380,6 +389,19 @@ describe('rating view', () => {
         'New round 955',
       ]);
       expect(items[1]!.querySelector('.reason-meta')!.textContent).toMatch(/^Example Cup · Round 2 · \S+$/);
+    });
+
+    it('starts the list with the net total and what it rounds to', () => {
+      const net = why()!.querySelector('#why-net')!;
+      expect(net.previousElementSibling!.className).toBe('card-intro');
+      expect(net.nextElementSibling!.className).toBe('reasons');
+      expect(net.textContent).toMatch(/^Net −\d\.\d, rounds to −3$/);
+    });
+
+    it('says when the net total rounds to no change', () => {
+      // Official 962 and predicted 962: the lines add up to no change.
+      const net = why({ player: rawPlayer({ currentRating: '962' }) })!.querySelector('#why-net')!;
+      expect(net.textContent).toBe('Net 0.0, rounds to no change');
     });
 
     it('marks each effect with an arrow and a sign, not colour alone', () => {

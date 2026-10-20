@@ -1,4 +1,4 @@
-import { type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
+import { type ChangeKind, type PlainDate, type RatingStats, type RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
 import { disclosure, el, textWithNodes, type Child, type Disclosure } from '../dom';
@@ -133,6 +133,19 @@ function refreshBox(model: Model, now: Date, state: Disclosure | undefined): HTM
   );
 }
 
+/** "Official rating 978 (calculated 977.65), as of …", the calculated value when the engine reproduces the rating. */
+function officialLine(official: number, exact: number | null, date: PlainDate | null): HTMLElement {
+  const rating =
+    exact === null
+      ? formatRating(official)
+      : t('rating.officialCalculated', { rating: formatRating(official), exact: formatAverage(exact) });
+  return el(
+    'p',
+    { id: 'official', class: 'official' },
+    date ? t('rating.official', { rating, date: formatDate(date) }) : t('rating.officialNoDate', { rating }),
+  );
+}
+
 function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps): HTMLElement {
   const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
@@ -144,14 +157,7 @@ function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps):
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
     prediction.change !== null && change(prediction.change),
-    official !== null &&
-      el(
-        'p',
-        { class: 'official' },
-        player?.ratingDate
-          ? t('rating.official', { rating: formatRating(official), date: formatDate(player.ratingDate) })
-          : t('rating.officialNoDate', { rating: formatRating(official) }),
-      ),
+    official !== null && officialLine(official, model.officialExact, player?.ratingDate ?? null),
     nextUpdate(model.nextUpdate),
     refreshBox(model, now, refresh),
     !favorite &&
@@ -281,11 +287,24 @@ function whyTeaser({ changes, difference }: Model): string | false {
 }
 
 /** What changed since the last official update, largest effect first. */
+/**
+ * What the lines add up to, and what that rounds to, so a long list of
+ * effects that offset each other does not look like a big change.
+ */
+function netLine(net: number, change: number): HTMLElement {
+  const text =
+    change === 0
+      ? t('why.netNoChange', { net: formatEffect(net) })
+      : t('why.net', { net: formatEffect(net), change: formatChange(change) });
+  return el('p', { id: 'why-net', class: 'why-net' }, text);
+}
+
 function whyBody(model: Model, changes: ListedChange[]): Child[] {
-  const { difference, staleDetails, player } = model;
+  const { difference, staleDetails, player, netChange, prediction } = model;
   const shown = changes.slice(0, REASONS_SHOWN);
   const more = changes.slice(REASONS_SHOWN);
   return [
+    netChange !== null && prediction.change !== null && netLine(netChange, prediction.change),
     el('ul', { class: 'reasons' }, ...shown.map(reasonItem), difference !== null && differenceItem(difference)),
     more.length > 0 &&
       el(

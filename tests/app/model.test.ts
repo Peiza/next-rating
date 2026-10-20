@@ -121,6 +121,29 @@ describe('buildModel', () => {
     expect(buildModel(stored({ details }), 100001, NOW).difference).toBeNull();
   });
 
+  it('adds the lines up to a net change, the difference line included', () => {
+    const net = (currentRating: string) => {
+      const model = buildModel(stored({ player: rawPlayer({ currentRating }), details, events: [rawEvent()] }), 100001, NOW);
+      const lines = model.changes!.reduce((sum, { item }) => sum + item.effect, 0) + (model.difference ?? 0);
+      expect(model.netChange).toBeCloseTo(lines, 9);
+      return model;
+    };
+    // Reproduced: the unrounded change from the official state.
+    const reproduced = net('960');
+    expect(reproduced.netChange).toBeCloseTo(reproduced.prediction.exact! - reproduced.officialExact!, 9);
+    net('950');
+    expect(buildModel(stored({ events: [rawEvent()] }), 100001, NOW).netChange).toBeNull();
+  });
+
+  it('calculates the official rating unrounded only when the official state gives it', () => {
+    const model = (currentRating: string) =>
+      buildModel(stored({ player: rawPlayer({ currentRating }), details }), 100001, NOW);
+    const reproduced = model('960').officialExact!;
+    expect(Math.round(reproduced)).toBe(960);
+    expect(model('950').officialExact).toBeNull();
+    expect(buildModel(stored({ player: rawPlayer({ currentRating: '' }), details }), 100001, NOW).officialExact).toBeNull();
+  });
+
   describe('stale ratings details', () => {
     // The official rating is from 2026-09-08.
     const staleAt = (extra: Partial<StoredImport>) =>
