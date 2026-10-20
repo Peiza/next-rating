@@ -16,6 +16,8 @@ export interface TargetOptions {
   date: PlainDate;
   /** The report deadline of the update they count in, as in predictRating. */
   deadline?: PlainDate;
+  /** Events the user left out, as in predictRating. */
+  leaveOut?: ReadonlySet<string>;
 }
 
 export interface TargetResult {
@@ -59,26 +61,30 @@ function upcoming(count: number, date: PlainDate, rating: number): RoundInput[] 
  * rating that falls short gives an answer where every higher rating works too.
  */
 export function targetAverage(rounds: readonly RoundInput[], target: number, options: TargetOptions): TargetResult {
-  const { count, date, deadline } = options;
+  const { count, date, deadline, leaveOut } = options;
   if (!Number.isInteger(count) || count < 1) throw new RangeError(`Invalid round count: ${count}`);
   if (!Number.isInteger(target) || target < 1) throw new RangeError(`Invalid target: ${target}`);
   if (deadline !== undefined && compareDates(date, deadline) > 0) {
     throw new RangeError(`Rounds on ${date} count only after the deadline ${deadline}`);
   }
 
-  const predict: PredictOptions = deadline === undefined ? {} : { deadline };
+  const predict: PredictOptions = {
+    ...(deadline !== undefined && { deadline }),
+    ...(leaveOut !== undefined && { leaveOut }),
+  };
   const reaches = (rating: number | null) => rating !== null && rating >= target;
   const without = predictRating(rounds, predict).rating;
   const reached = reaches(without);
 
   // The window follows from the dates alone, and the new rounds' date is
   // fixed, so it is the same for every candidate rating. Rounds outside it,
-  // DNF rounds, rounds PDGA left out and rounds after the deadline never
-  // change the result, so the scan leaves them out and each engine run is
-  // cheaper. PDGA's flags go too: the rounds they leave out are already
-  // gone, and the flags of a subset would read PDGA's window differently.
+  // DNF rounds, rounds PDGA or the user left out and rounds after the
+  // deadline never change the result, so the scan leaves them out and each
+  // engine run is cheaper. PDGA's flags go too: the rounds they leave out
+  // are already gone, and the flags of a subset would read PDGA's window
+  // differently.
   const probe = predictRating([...upcoming(count, date, MAX_TARGET_ROUND), ...rounds], predict);
-  const ignored = new Set(['outside-window', 'dnf', 'excluded', 'after-deadline']);
+  const ignored = new Set(['outside-window', 'dnf', 'excluded', 'left-out', 'after-deadline']);
   const relevant = rounds
     .filter((_, i) => !ignored.has(probe.rounds[count + i]!.status))
     .map(({ pdga: _flags, ...round }) => round);

@@ -16,6 +16,7 @@ import {
   mergeRounds,
   normalizeEvent,
   normalizePlayer,
+  normalizeProfileEvents,
   normalizeRatingsDetails,
   type ListedRound,
   type PlayerInfo,
@@ -49,6 +50,32 @@ export function manualToRounds(rounds: readonly StoredManualRound[]): ListedRoun
   }));
 }
 
+/**
+ * X-tier events with non-standard rules, such as mulligans, may produce round
+ * ratings that do not count (Competition Manual 5.10); other X-tier events
+ * count normally. So their unofficial rounds count, marked as maybe not.
+ */
+export function isXTier(tier: string | undefined): boolean {
+  return /^x/i.test(tier ?? '');
+}
+
+/** An unofficial event with rated rounds, which the user can leave out of the prediction. */
+export interface UnofficialEvent {
+  /** The engine's event key, which the stored choice refers to. */
+  key: string;
+  name: string;
+  date: PlainDate;
+  /** The tier from the profile page, such as "XA"; '' when unknown. */
+  tier: string;
+  xTier: boolean;
+  leftOut: boolean;
+  /**
+   * For a left-out event: the prediction if it counted, and how far that is
+   * from the prediction shown (unrounded). Null for a counted event.
+   */
+  ifCounted: { rating: number; effect: number } | null;
+}
+
 /** Data older than this many days gets a notice to refresh it on pdga.com. */
 export const STALE_DAYS = 7;
 const DAY_MS = 86_400_000;
@@ -71,6 +98,8 @@ export interface Model {
   pdgaNumber: number;
   /** The engine input: every round, in the order the prediction used. */
   rounds: ListedRound[];
+  /** The unofficial events left out of the prediction, by event key: what the target calculator leaves out too. */
+  leaveOut: ReadonlySet<string>;
   /** Rounds with their status, newest first. */
   rows: ListedResult[];
   prediction: Prediction;
@@ -105,21 +134,67 @@ export interface Model {
   stale: boolean;
   /** Imported events with no rated rounds for the player. */
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
+  /** The unofficial events, newest first. */
+  unofficialEvents: UnofficialEvent[];
 }
 
+/**
+ * One entry per unofficial event among the rounds, newest first. A left-out
+ * event also gets the prediction it would give if it counted, from the
+ * engine, so Why it changed can show what leaving it out does.
+ */
+function unofficialEvents(
+  rounds: readonly ListedRound[],
+  prediction: Prediction,
+  predict: (leaveOut: ReadonlySet<string>) => Prediction,
+  leaveOut: ReadonlySet<string>,
+): UnofficialEvent[] {
+  const events = new Map<string, UnofficialEvent>();
+  for (const round of rounds) {
+    if (round.source !== 'unofficial' || events.has(round.eventKey)) continue;
+    const tier = round.tier ?? '';
+    const leftOut = leaveOut.has(round.eventKey);
+    let ifCounted: UnofficialEvent['ifCounted'] = null;
+    if (leftOut) {
+      const counted = predict(new Set([...leaveOut].filter((key) => key !== round.eventKey)));
+      if (counted.rating !== null && counted.exact !== null && prediction.exact !== null) {
+        ifCounted = { rating: counted.rating, effect: counted.exact - prediction.exact };
+      }
+    }
+    events.set(round.eventKey, {
+      key: round.eventKey,
+      name: round.eventName,
+      date: round.date,
+      tier,
+      xTier: isXTier(tier),
+      leftOut,
+      ifCounted,
+    });
+  }
+  return [...events.values()].sort((a, b) => compareDates(b.date, a.date));
+}
+
+/**
+ * `leftOut` holds the event keys of the unofficial events the user left out
+ * of the prediction; keys of other events are ignored.
+ */
 export function buildModel(
   stored: StoredImport,
   pdgaNumber: number,
   now: Date,
   manualRounds: readonly ListedRound[] = [],
+  leftOut: readonly string[] = [],
 ): Model {
   const player = stored.player ? normalizePlayer(stored.player) : null;
   const official = detailsToRounds(normalizeRatingsDetails(stored.details ?? []).rounds);
+  // Event pages do not show the tier; the profile page lists it for the season's events.
+  const tiers = new Map(normalizeProfileEvents(stored.profileEvents ?? []).map((event) => [event.eventId, event.tier]));
 
   const eventsWithoutRounds: Model['eventsWithoutRounds'] = [];
   const eventRounds = stored.events.map((raw) => {
     const event = normalizeEvent(raw);
-    const rounds = eventToRounds(event, pdgaNumber);
+    const tier = event.eventId !== null ? tiers.get(event.eventId) : undefined;
+    const rounds = eventToRounds(event, pdgaNumber).map((round) => (tier ? { ...round, tier } : round));
     if (rounds.length === 0) eventsWithoutRounds.push({ name: event.name, date: event.date });
     return rounds;
   });
@@ -128,7 +203,11 @@ export function buildModel(
   const rounds = mergeRounds(official, ...eventRounds.reverse(), [...manualRounds].reverse());
   const currentRating = player?.currentRating ?? null;
   const nextUpdate = nextRatingUpdate(today(now), player?.ratingDate ?? null);
-  const prediction = predictRating(rounds, { currentRating, deadline: nextUpdate.deadline });
+  const unofficialKeys = new Set(rounds.filter((round) => round.source === 'unofficial').map((round) => round.eventKey));
+  const leaveOut = new Set(leftOut.filter((key) => unofficialKeys.has(key)));
+  const predict = (keys: ReadonlySet<string>) =>
+    predictRating(rounds, { currentRating, deadline: nextUpdate.deadline, leaveOut: keys });
+  const prediction = predict(leaveOut);
   const rows = rounds
     .map((round, i) => ({ round, result: prediction.rounds[i]! }))
     .sort((a, b) => (a.round.date < b.round.date ? 1 : a.round.date > b.round.date ? -1 : 0));
@@ -143,6 +222,7 @@ export function buildModel(
     player,
     pdgaNumber,
     rounds,
+    leaveOut,
     rows,
     prediction,
     nextUpdate,
@@ -155,5 +235,6 @@ export function buildModel(
     importedAt: stored.at,
     stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,
     eventsWithoutRounds,
+    unofficialEvents: unofficialEvents(rounds, prediction, predict, leaveOut),
   };
 }

@@ -170,8 +170,9 @@ function weigh(
  * manual. PDGA's Included flags are never used: inclusion is recomputed from
  * scratch, since adding rounds can bring back previously dropped ones.
  * Official rounds PDGA left out of the window it evaluated never count
- * (excludedByPdga). With a deadline, new rounds dated after it wait for the
- * following update. Both are left out of everything, like DNF rounds.
+ * (excludedByPdga), and neither do rounds of events the user left out. With
+ * a deadline, new rounds dated after it wait for the following update. All
+ * of these are left out of everything, like DNF rounds.
  */
 export function predictRating(
   rounds: readonly RoundInput[],
@@ -179,17 +180,22 @@ export function predictRating(
 ): Prediction {
   validate(rounds);
 
-  const { deadline } = options;
+  const { deadline, leaveOut } = options;
   const later = (round: RoundInput) =>
     !round.dnf && round.source !== 'official' && deadline !== undefined && compareDates(round.date, deadline) > 0;
+  const left = (round: RoundInput) => round.source !== 'official' && leaveOut?.has(round.eventKey) === true;
   const excluded = excludedByPdga(rounds);
-  const status: RoundStatus[] = rounds.map((round, i) =>
-    round.dnf ? 'dnf' : excluded.has(i) ? 'excluded' : later(round) ? 'after-deadline' : 'outside-window',
-  );
-  const rated = rounds.flatMap((round, i) => (round.dnf || excluded.has(i) || later(round) ? [] : [i]));
+  const status: RoundStatus[] = rounds.map((round, i) => {
+    if (round.dnf) return 'dnf';
+    if (excluded.has(i)) return 'excluded';
+    if (left(round)) return 'left-out';
+    return later(round) ? 'after-deadline' : 'outside-window';
+  });
+  // Every round that can count starts outside the window; the others are left out of everything.
+  const rated = rounds.flatMap((round, i) => (status[i] === 'outside-window' ? [i] : []));
   const ratingOf = (i: number) => rounds[i]!.rating!;
   const careerEvents = new Set(
-    rounds.filter((round) => round.source !== 'manual' && !later(round)).map((round) => round.eventKey),
+    rounds.filter((round) => round.source !== 'manual' && !later(round) && !left(round)).map((round) => round.eventKey),
   ).size;
 
   let windowMonths: 12 | 24 | null = null;

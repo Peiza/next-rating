@@ -3,7 +3,7 @@ import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds, STALE_DAYS } from '../../src/app/model';
 import type { StoredManualRound } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
-import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
 const AT = '2026-10-01T10:00:00.000Z';
 const NOW = new Date(AT);
@@ -180,6 +180,52 @@ describe('buildModel', () => {
     const model = buildModel(stored({ details }), 100001, NOW, [manual]);
     expect(model.rows[0]!.round).toBe(manual);
     expect(model.prediction.stats.totalRounds).toBe(4);
+  });
+});
+
+describe('unofficial events', () => {
+  const xTier = rawEvent({ eventId: '900003', name: 'Example XA', date: '13-Sep-2026' }, [rawEventRow('100001', ['1040', '1030'])]);
+  const profileEvents = [rawProfileEvent({ eventId: '900003', name: 'Example XA', tier: 'XA', date: '13-Sep-2026' }), rawProfileEvent()];
+  const base = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent(), xTier], profileEvents });
+
+  it('lists each one newest first, with the tier from the profile page, and counts X-tier rounds by default', () => {
+    const model = buildModel(base, 100001, NOW);
+    expect(model.unofficialEvents.map((event) => [event.key, event.name, event.tier, event.xTier, event.leftOut, event.ifCounted])).toEqual([
+      ['e:900003', 'Example XA', 'XA', true, false, null],
+      ['e:900002', 'Example Cup', 'C', false, false, null],
+    ]);
+    const xTierRows = model.rows.filter(({ round }) => round.tier === 'XA');
+    expect(xTierRows.map(({ result }) => result.status)).toEqual(['included', 'included']);
+  });
+
+  it('knows no tier without the profile page', () => {
+    const model = buildModel({ ...base, profileEvents: undefined }, 100001, NOW);
+    expect(model.unofficialEvents.map((event) => [event.tier, event.xTier])).toEqual([
+      ['', false],
+      ['', false],
+    ]);
+  });
+
+  it('leaves out the events the user chose, and says what counting each would give', () => {
+    const counted = buildModel(base, 100001, NOW);
+    const model = buildModel(base, 100001, NOW, [], ['e:900003']);
+    const statuses = model.rows.filter(({ round }) => round.eventKey === 'e:900003').map(({ result }) => result.status);
+    expect(statuses).toEqual(['left-out', 'left-out']);
+    expect(model.leaveOut).toEqual(new Set(['e:900003']));
+    const [left, other] = model.unofficialEvents;
+    expect(left!.leftOut).toBe(true);
+    expect(left!.ifCounted!.rating).toBe(counted.prediction.rating);
+    expect(left!.ifCounted!.effect).toBeCloseTo(counted.prediction.exact! - model.prediction.exact!, 9);
+    expect(left!.ifCounted!.effect).toBeGreaterThan(0);
+    expect(other!.ifCounted).toBeNull();
+    // The left-out rounds are still listed in Why it changed, with no effect.
+    expect(model.changes!.filter(({ item }) => item.after === 'left-out').map(({ item }) => item.effect)).toEqual([0, 0]);
+  });
+
+  it('ignores left-out keys of events that are not unofficial', () => {
+    const model = buildModel(base, 100001, NOW, [], ['e:900001', 'e:999999']);
+    expect(model.leaveOut.size).toBe(0);
+    expect(model.prediction.exact).toBe(buildModel(base, 100001, NOW).prediction.exact);
   });
 });
 

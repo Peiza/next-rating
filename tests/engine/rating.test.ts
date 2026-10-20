@@ -445,6 +445,28 @@ describe('predictRating', () => {
     });
   });
 
+  describe('events the user left out', () => {
+    it('leaves their rounds out of everything, also as the anchor', () => {
+      const official = weekly([950, 960, 940]);
+      const xTier = [round(1050, '2026-09-05', { eventKey: 'x' }), round(1040, '2026-09-05', { eventKey: 'x' })].map(
+        (input) => ({ ...input, source: 'unofficial' as const }),
+      );
+      const prediction = predictRating([...xTier, ...official], { leaveOut: new Set(['x']) });
+      expect(statuses(prediction).slice(0, 2)).toEqual(['left-out', 'left-out']);
+      expect(prediction.rounds[0]!.weight).toBe(0);
+      expect(prediction.exact).toBe(predictRating(official).exact);
+      expect(prediction.stats).toMatchObject({ totalRounds: 3, careerEvents: 3, windowEnd: '2026-08-27' });
+    });
+
+    it('never leaves out official rounds, and keeps DNF rounds as DNF', () => {
+      const official = round(1000, '2026-08-20', { eventKey: 'x' });
+      const dnf = { ...round(0, '2026-09-05', { eventKey: 'y', source: 'unofficial', dnf: true }), rating: null };
+      const prediction = predictRating([dnf, official, ...weekly([950, 960])], { leaveOut: new Set(['x', 'y']) });
+      expect(statusOf(prediction, official)).toBe('included');
+      expect(statusOf(prediction, dnf)).toBe('dnf');
+    });
+  });
+
   describe('validation', () => {
     it('rejects duplicate ids', () => {
       expect(() => predictRating([round(950, '2026-08-27', { id: 'x' }), round(950, '2026-08-20', { id: 'x' })])).toThrow(RangeError);

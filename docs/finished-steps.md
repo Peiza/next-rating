@@ -98,8 +98,8 @@ manual per-page fallback.
    - Store locally only: the language override, the theme choice, the
      players list order, which Rating tab cards are open, the Top 8 period,
      the bookmarklet version from the last hand-off and the players' data. Each player (each favorite)
-     keeps its own PDGA number, last import (show its timestamp) and manual
-     rounds. When the storage format changes, existing data is migrated,
+     keeps its own PDGA number, last import (show its timestamp), manual
+     rounds and the unofficial events left out of its prediction. When the storage format changes, existing data is migrated,
      never silently dropped. On iOS, home screen web apps do not share
      storage with Safari tabs, so the full flow must work in a normal browser
      tab; installing is optional.

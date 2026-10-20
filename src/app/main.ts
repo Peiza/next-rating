@@ -19,6 +19,7 @@ import {
   removePlayer,
   restoreManualRound,
   routeImport,
+  setLeftOut,
   setMe,
   type ManualRoundInput,
   type Routed,
@@ -339,6 +340,13 @@ function clearManual(): void {
   render(MANUAL_TOGGLE_ID);
 }
 
+/** Leaves an unofficial event out of the shown player's prediction, or counts it again; focus stays on its checkbox. */
+function leaveOut(key: string, leftOut: boolean): void {
+  if (selected === null) return;
+  store.update(setLeftOut(store.get(), selected, key, leftOut));
+  render();
+}
+
 /** Stores the Top 8 period with the settings; focus stays on the control that changed it. */
 function setTop8Period(top8Period: TopPeriod): void {
   store.update({ top8Period });
@@ -354,7 +362,7 @@ function calculate(query: TargetQuery): void {
 /** The answer for the shown player's current rounds, from the memo when nothing it depends on changed. */
 function targetAnswer(player: StoredPlayer, model: Model, date: PlainDate): TargetAnswer | null {
   if (targetQuery === null) return null;
-  const key = JSON.stringify([player.pdgaNumber, player.import?.at, player.manualRounds, targetQuery, date]);
+  const key = JSON.stringify([player.pdgaNumber, player.import?.at, player.manualRounds, player.leftOut, targetQuery, date]);
   if (targetMemo?.key !== key) targetMemo = { key, answer: calculateTarget(model, targetQuery, date) };
   return targetMemo.answer;
 }
@@ -532,13 +540,14 @@ function currentView(): HTMLElement {
   }
   if (player?.import) {
     const now = new Date();
-    const model = buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds));
+    const model = buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds), player.leftOut);
     targetDraft ??= emptyTargetDraft(model.prediction.rating);
     return ratingView({
       model,
       cards: data.cards,
       onToggleCard: toggleCard,
       onGuide: openGuide,
+      onLeaveOut: leaveOut,
       refresh: {
         open: refreshOpen ?? model.stale,
         onToggle: (open) => {

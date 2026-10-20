@@ -39,6 +39,17 @@ function itemOf(explanation: Explanation, round: RoundInput) {
   return explanation.items.find((item) => item.id === round.id);
 }
 
+describe('rounds the user left out', () => {
+  it('lists them as new rounds with no effect, so the effects still add up', () => {
+    const rounds = [fresh(1050, '2026-07-02', { eventKey: 'x' }), fresh(955, '2026-07-02'), ...weekly([950, 960, 940])];
+    const after = predictRating(rounds, { leaveOut: new Set(['x']) });
+    const explanation = explainChange(rounds, after)!;
+    expect(itemOf(explanation, rounds[0]!)).toMatchObject({ kind: 'new', after: 'left-out', effect: 0 });
+    const sum = explanation.items.reduce((total, item) => total + item.effect, 0);
+    expect(Math.abs(sum - explanation.total)).toBeLessThan(1e-9);
+  });
+});
+
 describe('explainChange', () => {
   it('returns null without official rounds', () => {
     const rounds = [fresh(950, '2026-08-01')];

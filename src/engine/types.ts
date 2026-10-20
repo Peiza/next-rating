@@ -41,6 +41,8 @@ export type RoundStatus =
    * (Competition Manual 5.10). It never counts.
    */
   | 'excluded'
+  /** A round of an event the user left out of the prediction, such as an X-tier event that may not count. */
+  | 'left-out'
   /**
    * A new round dated after the report deadline of the next update: that
    * update leaves it out, and it counts in the following one.
@@ -100,6 +102,13 @@ export interface PredictOptions {
    * including the window and the stats. Official rounds always count.
    */
   deadline?: PlainDate;
+  /**
+   * Event keys of events the user left out, such as X-tier events that may
+   * not count. Their rounds are 'left-out' and left out of everything, like
+   * rounds after the deadline. Only rounds that are not official: PDGA's own
+   * flags decide for official rounds.
+   */
+  leaveOut?: ReadonlySet<string>;
 }
 
 export interface Prediction {

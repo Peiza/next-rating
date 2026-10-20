@@ -15,7 +15,7 @@ import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
 import { CARDS, DEFAULT_CARDS, type CardState, type StoredPlayer } from '../../src/app/storage';
 import { setLanguage } from '../../src/i18n';
-import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
 afterEach(() => setLanguage('en'));
 
@@ -335,6 +335,62 @@ describe('rating view', () => {
     expect(status.textContent).toContain('Not counted by PDGA');
     expect(status.querySelector('[aria-hidden="true"]')!.textContent).toBe('⊘');
     expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
+  });
+
+  describe('unofficial events', () => {
+    const xTier = { ...stored, profileEvents: [rawProfileEvent({ tier: 'XA' })] };
+
+    function toggle(box: HTMLInputElement) {
+      box.checked = !box.checked;
+      box.dispatchEvent(new Event('change'));
+    }
+
+    function page(data: StoredImport, leftOut: string[] = [], onLeaveOut = vi.fn()) {
+      const model = buildModel(data, 100001, NOW, [], leftOut);
+      return ratingView({ model, cards: ALL_OPEN, onLeaveOut, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    }
+
+    it('come first in the Rounds card, each with a checked Count box, X-tier marked', () => {
+      const onLeaveOut = vi.fn();
+      const choices = page(xTier, [], onLeaveOut).querySelector('#rounds #event-choices')!;
+      expect(choices.nextElementSibling!.className).toBe('rounds');
+      expect(choices.querySelector('legend')!.textContent).toBe('Unofficial events that count');
+      const box = choices.querySelector<HTMLInputElement>('#count-event-0')!;
+      expect(box.type).toBe('checkbox');
+      expect(box.checked).toBe(true);
+      expect(choices.querySelector('label[for="count-event-0"]')!.textContent).toBe('Example Cup');
+      expect(box.getAttribute('aria-describedby')).toBe('count-event-0-meta');
+      expect(choices.querySelector('#count-event-0-meta')!.textContent).toMatch(/^\S+ · X-tier: may not count$/);
+      toggle(box);
+      expect(onLeaveOut).toHaveBeenCalledWith('e:900002', true);
+    });
+
+    it('mark X-tier rounds in the round list, and only them', () => {
+      const marked = (view: HTMLElement) => [...view.querySelectorAll('.round-meta')].filter((meta) => meta.textContent!.includes('X-tier'));
+      expect(marked(page(xTier))).toHaveLength(2);
+      expect(marked(page(stored))).toHaveLength(0);
+      expect(page(stored).querySelector('#count-event-0-meta')!.textContent).toMatch(/^\S+$/);
+    });
+
+    it('offer no choice without a handler', () => {
+      const model = buildModel(stored, 100001, NOW);
+      expect(ratingView({ model, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#event-choices')).toBeNull();
+    });
+
+    it('show a left-out event unchecked, its rounds as left out, and what counting it would give', () => {
+      const onLeaveOut = vi.fn();
+      const view = page(xTier, ['e:900002'], onLeaveOut);
+      const box = view.querySelector<HTMLInputElement>('#count-event-0')!;
+      expect(box.checked).toBe(false);
+      toggle(box);
+      expect(onLeaveOut).toHaveBeenCalledWith('e:900002', false);
+      const left = [...view.querySelectorAll('.round-left-out .round-status')];
+      expect(left).toHaveLength(2);
+      expect(left[0]!.textContent).toContain('Left out by you');
+      const reasons = [...view.querySelectorAll('#why .reason-text')].map((text) => text.textContent);
+      expect(reasons).toContain('New round 960, left out by you');
+      expect(view.querySelector('#why-left-out')!.textContent).toMatch(/^Counting Example Cup would give \d+ \(−\d+\.\d\)$/);
+    });
   });
 
   it("links each round's event name to its pdga.com page, in the same tab", () => {
@@ -988,9 +1044,9 @@ describe('el', () => {
 describe('players panel', () => {
   const imported: StoredImport = { at: '2026-10-17T10:00:00.000Z', player: rawPlayer(), events: [] };
   const players: StoredPlayer[] = [
-    { pdgaNumber: 100001, favorite: true, import: imported, manualRounds: [] },
-    { pdgaNumber: 100002, favorite: true, import: null, manualRounds: [] },
-    { pdgaNumber: 100003, favorite: false, import: null, manualRounds: [] },
+    { pdgaNumber: 100001, favorite: true, import: imported, manualRounds: [], leftOut: [] },
+    { pdgaNumber: 100002, favorite: true, import: null, manualRounds: [], leftOut: [] },
+    { pdgaNumber: 100003, favorite: false, import: null, manualRounds: [], leftOut: [] },
   ];
 
   function panel(extra: Partial<PlayersProps> = {}): HTMLElement {
@@ -1108,6 +1164,7 @@ describe('players panel', () => {
       favorite: true,
       import: { at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }), events: [] },
       manualRounds: [],
+      leftOut: [],
     });
     const many = [
       named(100004, 'Zoe Ash', '2026-10-19T10:00:00.000Z'),

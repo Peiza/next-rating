@@ -64,6 +64,17 @@ describe('targetAverage', () => {
     );
   });
 
+  it('leaves out the events the user left out', () => {
+    const rounds = monthly(SPREAD);
+    const xTier = round(1100, '2026-03-15', { source: 'unofficial', eventKey: 'x' });
+    expect(targetAverage([xTier, ...rounds], 1010, { count: 3, date: TODAY, leaveOut: new Set(['x']) })).toEqual(
+      targetAverage(rounds, 1010, { count: 3, date: TODAY }),
+    );
+    expect(targetAverage([xTier, ...rounds], 1010, { count: 3, date: TODAY }).average).toBeLessThan(
+      targetAverage(rounds, 1010, { count: 3, date: TODAY }).average!,
+    );
+  });
+
   it('leaves out new rounds after the deadline', () => {
     const rounds = monthly([950, 950, 950, 950, 950, 950]);
     const later = round(800, '2026-11-15', { source: 'unofficial' });

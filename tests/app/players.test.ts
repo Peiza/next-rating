@@ -11,6 +11,7 @@ import {
   removePlayer,
   restoreManualRound,
   routeImport,
+  setLeftOut,
   setMe,
   sortFavorites,
 } from '../../src/app/players';
@@ -23,7 +24,7 @@ const LATER = '2026-10-02T18:30:00.000Z';
 const IMPORT: StoredImport = { at: AT, player: rawPlayer(), details: [rawDetailsRow()], events: [] };
 
 function player(pdgaNumber: number, extra: Partial<StoredPlayer> = {}): StoredPlayer {
-  return { pdgaNumber, favorite: true, import: null, manualRounds: [], ...extra };
+  return { pdgaNumber, favorite: true, import: null, manualRounds: [], leftOut: [], ...extra };
 }
 
 function data(players: StoredPlayer[], me: number | null = null): AppData {
@@ -166,6 +167,35 @@ describe('routeImport', () => {
         noPlayer: true,
       });
     });
+  });
+});
+
+describe('left-out events', () => {
+  const withEvent: StoredImport = { ...IMPORT, events: [rawEvent()] };
+
+  it('are stored per player, and counted again', () => {
+    const before = data([player(100001, { import: withEvent }), player(100002)]);
+    const left = setLeftOut(before, 100001, 'e:900002', true);
+    expect(findPlayer(left, 100001)!.leftOut).toEqual(['e:900002']);
+    expect(findPlayer(left, 100002)!.leftOut).toEqual([]);
+    expect(setLeftOut(left, 100001, 'e:900002', true)).toBe(left);
+    expect(findPlayer(setLeftOut(left, 100001, 'e:900002', false), 100001)!.leftOut).toEqual([]);
+    expect(setLeftOut(before, 100009, 'e:900002', true)).toBe(before);
+  });
+
+  it('are kept by an import that still has the event, and forgotten once the details include it', () => {
+    const before = data([player(100001, { import: withEvent, leftOut: ['e:900002'] })]);
+    const profile = routeImport(before, { player: rawPlayer({ currentRating: '960' }) }, LATER, null, 100001);
+    expect(findPlayer(profile.data, 100001)!.leftOut).toEqual(['e:900002']);
+    const official = { details: [rawDetailsRow({ eventId: '900002', date: '6-Sep-2026' })] };
+    const routed = routeImport(profile.data, official, LATER, 100001, 100001);
+    expect(findPlayer(routed.data, 100001)!.import!.events).toEqual([]);
+    expect(findPlayer(routed.data, 100001)!.leftOut).toEqual([]);
+  });
+
+  it('stay with a player saved as a favorite', () => {
+    const before = data([player(100001), player(100003, { favorite: false, leftOut: ['e:900002'] })]);
+    expect(findPlayer(addFavorite(before, 100003), 100003)!.leftOut).toEqual(['e:900002']);
   });
 });
 

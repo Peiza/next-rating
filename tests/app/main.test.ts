@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEY } from '../../src/app/storage';
 import { encodeHandoff } from '../../src/handoff';
-import { envelope, handoffPage, rawDetailsRow, rawPlayer } from '../handoff/raw';
+import { envelope, handoffPage, rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
 import { LIVE_V1 } from './live-v1';
 import { detailsRow, detailsTable, eventDivision, eventPage, eventRow, playerHeader } from '../parsers/html';
 
@@ -240,6 +240,32 @@ describe('app start', () => {
     expect(stored().players.map((player: { pdgaNumber: number }) => player.pdgaNumber)).toEqual([100001]);
     menu().click();
     expect(predicted()).toBe('950');
+  });
+
+  it('leaves an unofficial event out with one tap, stored per player, and counts it again', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const event = rawEvent({ date: '20-Sep-2026' }, [rawEventRow('100001', ['1040', '1030'])]);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { rounds: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [event] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const counted = predicted();
+    const box = () => document.querySelector<HTMLInputElement>('#count-event-0')!;
+    box().focus();
+    box().click();
+    expect(stored().players[0].leftOut).toEqual(['e:900002']);
+    expect(predicted()).toBe('950');
+    expect(predicted()).not.toBe(counted);
+    expect(box().checked).toBe(false);
+    expect(document.activeElement).toBe(box());
+    box().click();
+    expect(stored().players[0].leftOut).toEqual([]);
+    expect(predicted()).toBe(counted);
   });
 
   it('adds a manual round, keeps the form open for the next one, and deletes it again', async () => {
