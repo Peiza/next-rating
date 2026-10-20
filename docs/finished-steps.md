@@ -70,7 +70,7 @@ manual per-page fallback.
    - Keep the minified bookmarklet small (target under 5 kB), since on phones it
      is pasted into the bookmark URL field.
 4. Web app (PWA, works offline after first load), the built parts. The open
-   parts (manual entry, data age, setup page, local storage) are in CLAUDE.md.
+   part (the full setup page) is in CLAUDE.md.
    - Enter a PDGA number once (default player; the app works for any player).
      A button opens that player's ratings details page on pdga.com with a short
      hint to run the bookmarklet there.
@@ -90,6 +90,36 @@ manual per-page fallback.
      panel from the legacy sheet.
    - Theme: a segmented control on the Settings tab with Device (the
      default), Light and Dark. Both themes pass the contrast test.
+   - Quick manual entry of rounds (rating, date defaulting to today, optional
+     event name and hole count), usable one-handed on a phone.
+   - Data age is obvious: "Updated X days ago" shows under the player's name
+     (Polish 2). When the data is more than 7 days old, a clear notice with a
+     button opens the player's pdga.com ratings details page to refresh.
+   - Store locally only: the language override, the theme choice, the
+     players list order and the players' data. Each player (each favorite)
+     keeps its own PDGA number, last import (show its timestamp) and manual
+     rounds. When the storage format changes, existing data is migrated,
+     never silently dropped. On iOS, home screen web apps do not share
+     storage with Safari tabs, so the full flow must work in a normal browser
+     tab; installing is optional.
+   Built as (web app commit 3, docs/plan-step-3.md):
+   - Manual entry sits under the prediction behind an "Add a round" button,
+     only once the player has an import. The date may be up to a year
+     ahead, so a hypothetical round carries its event's date and the window
+     and report deadline apply to it. Rounds with the same event name (any
+     case) and date share an event key, prefixed "m:" to stay apart from
+     imported events. Adding a round to the unsaved player saves it as a
+     favorite. Manual rounds are stored as `manualRounds` on each stored
+     player (at most 200), validated one at a time; data without the field
+     loads with none, so the storage key stays `next-rating:v2`.
+   - The stale notice replaces the plain Refresh button, so it shows once.
+   - The manifest uses `display: browser`: the home screen icon opens a
+     normal browser tab, where the bookmarklet round trip works and storage
+     is shared. Icons come from `npm run icons` (scripts/make-icons.ts) and
+     are committed. The service worker template `src/sw.js` is filled in by
+     scripts/service-worker.ts after each build: every built file is
+     precached, served cache-first, navigations get the cached index.html,
+     and a new version waits until the user taps Reload.
 5. Favorites (the optional transfer link is still open, in CLAUDE.md):
    - Save several players as favorites. Each favorite keeps its own last
      import and its own manual rounds, so switching shows the prediction
@@ -202,3 +232,5 @@ Built in this order:
   (docs/plan-change-explanation.md) (done)
 - Polish after favorites (Architecture 7) (done)
 - Deadline-aware prediction (Architecture 8) (done)
+- Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
+  the offline PWA (done)

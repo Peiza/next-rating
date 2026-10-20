@@ -62,8 +62,9 @@ single build-time setting.
 
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
-3 bookmarklet, 4 web app import, results and theme, 5 favorites, 6 change
-explanation, 7 polish after favorites, 8 deadline-aware prediction.
+3 bookmarklet, 4 web app (import, results, theme, manual entry, data age,
+local storage, offline PWA), 5 favorites, 6 change explanation, 7 polish
+after favorites, 8 deadline-aware prediction.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -83,22 +84,9 @@ Bookmarklet rules every change keeps:
 
 Open:
 
-4. Web app (PWA, works offline after first load), the open parts:
-   - Quick manual entry of rounds (rating, date defaulting to today, optional
-     event name and hole count), usable one-handed on a phone.
-   - Data age is obvious: "Updated X days ago" already shows under the
-     player's name (Polish 2). When the data is more than 7 days old, show a
-     clear notice with a button that opens the player's pdga.com ratings
-     details page to refresh.
-   - Setup page with step-by-step bookmarklet installation for Safari on iPhone,
-     Chrome on Android (run it by typing its name in the address bar) and
-     desktop browsers, with a copy button.
-   - Store locally only: the language override, the theme choice, the
-     players list order and the players' data. Each player (each favorite) keeps its own PDGA number,
-     last import (show its timestamp) and manual rounds. When the storage
-     format changes, existing data is migrated, never silently dropped. On
-     iOS, home screen web apps do not share storage with Safari tabs, so the
-     full flow must work in a normal browser tab; installing is optional.
+4. Web app, the open part: a setup page with step-by-step bookmarklet
+   installation for Safari on iPhone, Chrome on Android (run it by typing its
+   name in the address bar) and desktop browsers, with a copy button.
 5. Favorites, optional, later: a transfer link that moves favorites and manual
    rounds to another device through the same URL-fragment hand-off, without a
    server.
@@ -197,11 +185,10 @@ that I merge; the workflow builds and tests every pull request and deploys
 every merge, so each version can be tested live on my phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
-explanation, the polish after favorites and the deadline-aware prediction
+explanation, the polish after favorites, the deadline-aware prediction and
+web app commit 3 (manual entry, data age, offline PWA)
 (docs/finished-steps.md). Build the rest in this order, committing after
 each working step:
-- Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
-  the offline PWA
 - Target calculator
 - Top 8 panel
 - Setup page: complete the minimal one with the full step-by-step

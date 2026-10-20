@@ -28,6 +28,33 @@ App: https://peiza.github.io/next-rating/
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 
+## Adding rounds yourself
+
+"Add a round" under the prediction takes a round rating, a date (today by
+default) and, optionally, an event name and hole count. The prediction
+updates straight away. Rounds with the same event name and date count as one
+event. The date can be up to a year ahead, so a round you expect to play at
+an upcoming event gets that event's date: if it falls after the report
+deadline of the next update, it is marked as counting in the following one.
+Manual rounds are kept per player, listed under the form with a delete
+button each, and never sent anywhere.
+
+When a player's data is more than 7 days old, the Rating tab says so, with a
+button to that player's ratings details on pdga.com, where the bookmarklet
+refreshes it.
+
+## Offline and the home screen
+
+After the first visit, the app works without a connection: a service worker
+keeps a copy of the app in the browser. Only refreshing data needs pdga.com.
+When a new version has been deployed, the app offers "Reload" to switch to
+it.
+
+Adding the app to the home screen is optional. The icon opens the app in a
+normal browser tab, so the bookmarklet round trip (app, pdga.com, back to the
+app in the same tab) works the same way and the data is shared with the
+browser.
+
 ## Players and favorites
 
 The app keeps the data of several players, each separately, so you can
@@ -76,7 +103,8 @@ npm ci                # install the pinned dependencies
 npm test              # unit tests
 npm run typecheck     # TypeScript checks for src, tests and scripts
 npm run check:i18n    # lists keys missing from the translation catalogs
-npm run build         # production build in dist/
+npm run build         # production build in dist/, with the service worker
+npm run icons         # redraws the app icons in public/icons/ (committed)
 ```
 
 Translations live in `src/i18n/locales/`, one JSON file per language. To add a
@@ -89,7 +117,10 @@ the same keys as `en.json`. Missing keys show in English.
   change. It runs without the Content Security Policy, since the dev server
   injects inline styles.
 - `npm run build` then `npm run preview` serves the production build at
-  http://localhost:4173/, with the real Content Security Policy.
+  http://localhost:4173/, with the real Content Security Policy and the
+  service worker. After a new build, the preview keeps showing the cached
+  version until you tap Reload in the app's notice, or tick "Update on
+  reload" under DevTools > Application > Service workers.
 
 **Phone-sized view:** in Chrome or Edge, press F12 and then Ctrl+Shift+M
 (Cmd+Shift+M on a Mac) to open the device toolbar, and pick a phone such as
@@ -141,8 +172,10 @@ deployment > Source: GitHub Actions.** The `github-pages` environment that
 this creates only accepts deployments from `main`.
 
 Settings > About in the app shows the short commit id of the build that is
-live ("dev" in a local build). GitHub Pages lets browsers cache pages for up
-to 10 minutes, so a new version can take a few minutes to show up on a phone.
+live ("dev" in a local build). The app finds a new version the next time it
+loads (browsers check `sw.js` past their HTTP cache), installs it in the
+background and shows "A new version of the app is available" with a Reload
+button.
 
 The workflow's actions are pinned to full commit SHAs. When updating one,
 pick a release that is at least 14 days old and pin its commit SHA, with the
