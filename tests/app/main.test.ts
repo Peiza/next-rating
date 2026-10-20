@@ -220,7 +220,7 @@ describe('app start', () => {
 
     document.getElementById('players-menu')!.click();
     document.getElementById('player-100002')!.click();
-    expect(document.querySelector('.player')!.textContent).toBe('Other Player #100002');
+    expect(document.querySelector('h1')!.textContent).toBe('Other Player #100002');
     expect(predicted()).toBe('1010');
     expect(document.getElementById('add-favorite')!.textContent).toBe('Add #100002 to favorites');
   });

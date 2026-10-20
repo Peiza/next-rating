@@ -324,6 +324,7 @@ function currentView(): HTMLElement {
     return ratingView({
       model: buildModel(player.import, player.pdgaNumber),
       favorite: player.favorite,
+      now: new Date(),
       onAddFavorite: (pdgaNumber) => addToFavorites(pdgaNumber),
     });
   }
@@ -339,12 +340,11 @@ function currentView(): HTMLElement {
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
-  const shown = findPlayer(data, selected);
   root.replaceChildren(
     el(
       'div',
       { class: menuOpen ? 'shell menu-open' : 'shell' },
-      topBar(shown ? playerLabel(shown) : null, menuOpen, toggleMenu),
+      topBar(menuOpen, toggleMenu),
       playersPanel({
         players: data.players,
         me: data.me,
@@ -385,6 +385,11 @@ window.addEventListener('storage', (event) => {
   applyTheme();
   applyLanguage();
   render();
+});
+
+// Back from another app or tab: show the data age as of now. Nothing is fetched.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') render();
 });
 
 // A hand-off into a page that is already open only changes the fragment.

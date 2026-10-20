@@ -213,8 +213,8 @@ export function playersPanel(props: PlayersProps): HTMLElement {
   );
 }
 
-/** The phone top bar: the menu button and who is selected. Hidden on wide screens. */
-export function topBar(label: string | null, open: boolean, onToggle: () => void): HTMLElement {
+/** The phone top bar with the menu button. The view's heading names the player. Hidden on wide screens. */
+export function topBar(open: boolean, onToggle: () => void): HTMLElement {
   return el(
     'header',
     { class: 'topbar' },
@@ -231,6 +231,5 @@ export function topBar(label: string | null, open: boolean, onToggle: () => void
       el('span', { 'aria-hidden': 'true' }, '☰ '),
       t('players.title'),
     ),
-    label && el('span', { class: 'topbar-player' }, label),
   );
 }

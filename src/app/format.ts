@@ -26,6 +26,14 @@ export function formatDate(date: PlainDate, locale = deviceLocale()): string {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+/** A day and month without the year, "10 Nov" in British English and "10 nov." in Swedish. */
+export function formatDayMonth(date: PlainDate, locale = deviceLocale()): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  );
+}
+
 /** A point in time, such as an import timestamp, in the device's time zone. */
 export function formatDateTime(timestamp: string, locale = deviceLocale()): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));

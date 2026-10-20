@@ -16,6 +16,9 @@ import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw'
 
 afterEach(() => setLanguage('en'));
 
+/** Three days after the imports below. */
+const NOW = new Date('2026-10-04T10:00:00.000Z');
+
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
   return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenSetup: vi.fn() });
 }
@@ -170,8 +173,38 @@ describe('rating view', () => {
   };
 
   function ratingPage(favorite = true, onAddFavorite = vi.fn()) {
-    return ratingView({ model: buildModel(stored, 100001), favorite, onAddFavorite });
+    return ratingView({ model: buildModel(stored, 100001), favorite, now: NOW, onAddFavorite });
   }
+
+  it('names the player once, in the heading, with the data age on the line below', () => {
+    const view = ratingPage();
+    expect(view.querySelector('h1')!.textContent).toBe('Test Player #100001');
+    expect(view.querySelector('h1')!.nextElementSibling!.firstElementChild!.textContent).toBe('Updated 3 days ago');
+    expect(view.textContent!.split('Test Player #100001')).toHaveLength(2);
+    // The exact time stays further down.
+    expect(view.querySelector('.summary .hint')!.textContent).toMatch(/^Last import: /);
+  });
+
+  it('gives the predicted number a label for screen readers', () => {
+    const label = ratingPage().querySelector('#predicted')!.previousElementSibling!;
+    expect(label.className).toBe('visually-hidden');
+    expect(label.textContent).toBe('Predicted rating');
+  });
+
+  it('shows the next update and its report deadline, linked to the rule on pdga.com', () => {
+    // On 4 Oct 2026 the next update is Tuesday 13 Oct, for events reported by Sunday 11 Oct.
+    const link = ratingPage().querySelector<HTMLAnchorElement>('#next-update a')!;
+    expect(link.textContent).toMatch(/^Next ratings update: \D*13\D* \(events reported by \D*11\D*\)$/);
+    expect(link.getAttribute('href')).toBe('https://www.pdga.com/faq/ratings/when-updated');
+    expect(link.hasAttribute('target')).toBe(false);
+  });
+
+  it("refreshes from the player's ratings details on pdga.com, in the same tab", () => {
+    const refresh = ratingPage().querySelector<HTMLAnchorElement>('#refresh')!;
+    expect(refresh.textContent).toBe('Refresh on pdga.com');
+    expect(refresh.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
+    expect(refresh.hasAttribute('target')).toBe(false);
+  });
 
   it('shows the prediction, the change and the official rating', () => {
     const view = ratingPage();
@@ -187,7 +220,7 @@ describe('rating view', () => {
     ['962', 'none', '→', '0'],
   ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
     const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
-    const line = ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.change')!;
+    const line = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.change')!;
     expect(line.classList.contains(`change-${direction}`)).toBe(true);
     const icon = line.querySelector('.change-arrow')!;
     expect(icon.textContent).toBe(arrow);
@@ -226,7 +259,7 @@ describe('rating view', () => {
 
   it('shows the event name without a link when its id is unknown', () => {
     const model = buildModel({ ...stored, details: [rawDetailsRow({ eventId: '' })], events: [] }, 100001);
-    const event = ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.round-event')!;
+    const event = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.round-event')!;
     expect(event.querySelector('a')).toBeNull();
     expect(event.textContent).toBe('Example Open, Round 1');
   });
@@ -258,7 +291,7 @@ describe('rating view', () => {
 
     function why(extra: Partial<StoredImport> = {}): HTMLElement | null {
       const model = buildModel({ ...stored, player: reproduced, ...extra }, 100001);
-      return ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('#why');
+      return ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#why');
     }
 
     it('follows the summary with the new rounds, largest effect first', () => {
@@ -333,7 +366,7 @@ describe('rating view', () => {
 
   it('names the player by number before a player header is imported', () => {
     const model = buildModel({ ...stored, player: undefined }, 100001);
-    expect(ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.player')!.textContent).toBe('#100001');
+    expect(ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('h1')!.textContent).toBe('#100001');
   });
 
   it('ends with the unofficial notice', () => {
@@ -553,14 +586,15 @@ describe('players panel', () => {
 describe('top bar', () => {
   it('has a menu button that controls the players panel', () => {
     const onToggle = vi.fn();
-    const bar = topBar('Test Player #100001', false, onToggle);
+    const bar = topBar(false, onToggle);
     const button = bar.querySelector<HTMLButtonElement>('#players-menu')!;
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-controls')).toBe('favorites');
-    expect(bar.textContent).toContain('Test Player #100001');
+    // The heading names the player, so the bar holds only the button.
+    expect(bar.children).toHaveLength(1);
     button.click();
     expect(onToggle).toHaveBeenCalled();
-    expect(topBar(null, true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
+    expect(topBar(true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
   });
 });
 

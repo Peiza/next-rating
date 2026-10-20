@@ -399,9 +399,24 @@ a {
 
 /* Results */
 
-.player {
+.updated {
   margin-bottom: 0.25rem;
+  color: var(--text-muted);
   font-weight: 700;
+}
+
+/* Read out, not shown: the heading names the player, so the number needs its label. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.next-update {
+  margin: 0.25rem 0 0.5rem;
 }
 
 .predicted {
@@ -604,11 +619,6 @@ a {
   padding: 0.75rem var(--gutter) 0;
   padding-left: max(var(--gutter), env(safe-area-inset-left));
   padding-right: max(var(--gutter), env(safe-area-inset-right));
-}
-
-.topbar-player {
-  min-width: 0;
-  font-weight: 700;
 }
 
 .favorites {

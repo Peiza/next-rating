@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { formatAge, formatAverage, formatChange, formatDate, formatEffect, formatRating } from '../../src/app/format';
+import { formatAge, formatAverage, formatChange, formatDate, formatDayMonth, formatEffect, formatRating } from '../../src/app/format';
 
 describe('formatting', () => {
   it('formats dates in the locale', () => {
     expect(formatDate('2026-08-06', 'sv-SE')).toBe('2026-08-06');
     expect(formatDate('2026-08-06', 'en-US')).toBe('08/06/2026');
     expect(formatDate('2026-08-06', 'en-GB')).toBe('06/08/2026');
+  });
+
+  it('formats a day and month without the year', () => {
+    expect(formatDayMonth('2026-11-10', 'en-GB')).toBe('10 Nov');
+    expect(formatDayMonth('2026-11-10', 'en-US')).toBe('Nov 10');
+    expect(formatDayMonth('2026-11-10', 'sv-SE')).toBe('10 nov.');
+    expect(formatDayMonth('2027-01-01', 'sv-SE')).toBe('1 jan.');
   });
 
   it('keeps the calendar day at the edges of the year', () => {

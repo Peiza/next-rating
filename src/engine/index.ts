@@ -1,6 +1,6 @@
 export { RULES, officialState, predictRating, type OfficialState } from './rating';
 export { explainChange, type ChangeItem, type ChangeKind, type Explanation } from './explain';
-export { compareDates, isPlainDate, subtractMonths, type PlainDate } from './dates';
+export { compareDates, isPlainDate, nextRatingUpdate, subtractMonths, type PlainDate, type RatingUpdate } from './dates';
 export type {
   PredictOptions,
   Prediction,
