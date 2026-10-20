@@ -92,6 +92,7 @@
   "rating.updated": "Updated {age}",
   "rating.nextUpdate": "Next ratings update: {update} (events reported by {deadline})",
   "rating.refresh": "Refresh on pdga.com",
+  "rating.stale": "This data is more than {days} days old. Refresh it on pdga.com to include new rounds and the latest official rating.",
   "rating.addFavorite": "Add #{number} to favorites",
   "rating.eventsWithoutRounds": "No rated rounds for #{number} yet in: {events}",
   "rating.rounds": "Rounds",

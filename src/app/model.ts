@@ -49,6 +49,10 @@ export function manualToRounds(rounds: readonly StoredManualRound[]): ListedRoun
   }));
 }
 
+/** Data older than this many days gets a notice to refresh it on pdga.com. */
+export const STALE_DAYS = 7;
+const DAY_MS = 86_400_000;
+
 export interface ListedResult {
   round: ListedRound;
   result: RoundResult;
@@ -83,6 +87,8 @@ export interface Model {
    */
   staleDetails: boolean;
   importedAt: string;
+  /** The last import is more than STALE_DAYS old, so the Rating tab suggests a refresh on pdga.com. */
+  stale: boolean;
   /** Imported events with no rated rounds for the player. */
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
 }
@@ -129,6 +135,7 @@ export function buildModel(
     difference: explanation?.difference ?? null,
     staleDetails,
     importedAt: stored.at,
+    stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,
     eventsWithoutRounds,
   };
 }

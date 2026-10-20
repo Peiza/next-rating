@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
-import { buildModel, manualToRounds } from '../../src/app/model';
+import { buildModel, manualToRounds, STALE_DAYS } from '../../src/app/model';
 import type { StoredManualRound } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
@@ -198,5 +198,14 @@ describe('manualToRounds', () => {
     const status = (id: string) => model.prediction.rounds.find((round) => round.id === id)!.status;
     expect(status('m:m1')).toBe('included');
     expect(status('m:m2')).toBe('after-deadline');
+  });
+});
+
+describe('stale data', () => {
+  const at = (days: number, minutes = 0) => new Date(NOW.getTime() + days * 86_400_000 + minutes * 60_000);
+
+  it(`is stale only when the last import is more than ${STALE_DAYS} days old`, () => {
+    expect(buildModel(stored({ details }), 100001, at(STALE_DAYS)).stale).toBe(false);
+    expect(buildModel(stored({ details }), 100001, at(STALE_DAYS, 1)).stale).toBe(true);
   });
 });

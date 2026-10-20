@@ -12,7 +12,7 @@ import {
   formatEffect,
   formatRating,
 } from '../format';
-import type { ListedChange, ListedResult, Model } from '../model';
+import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 
@@ -79,6 +79,30 @@ function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
   );
 }
 
+/** Opens the player's ratings details on pdga.com, where the bookmarklet refreshes the data. */
+function refreshButton(pdgaNumber: number, primary: boolean): HTMLElement {
+  return el(
+    'a',
+    {
+      id: 'refresh',
+      class: primary ? 'button button-primary button-block' : 'button button-block',
+      href: detailsUrl(pdgaNumber),
+      rel: 'noreferrer',
+    },
+    t('rating.refresh'),
+  );
+}
+
+/** Old data: a notice with the refresh button, which then shows only here. */
+function staleNotice(pdgaNumber: number): HTMLElement {
+  return el(
+    'div',
+    { id: 'stale', class: 'banner banner-warning' },
+    el('p', { class: 'banner-message' }, t('rating.stale', { days: STALE_DAYS })),
+    refreshButton(pdgaNumber, true),
+  );
+}
+
 function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElement {
   const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
@@ -86,6 +110,7 @@ function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElem
     'div',
     { class: 'summary' },
     el('p', { id: 'updated', class: 'updated' }, t('rating.updated', { age: formatAge(model.importedAt, now) })),
+    model.stale && staleNotice(pdgaNumber),
     prediction.rating !== null && el('p', { class: 'visually-hidden' }, t('rating.title')),
     prediction.rating !== null
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
@@ -101,11 +126,7 @@ function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElem
           : t('rating.officialNoDate', { rating: formatRating(official) }),
       ),
     el('p', { class: 'hint' }, t('rating.lastImport', { time: formatDateTime(model.importedAt) })),
-    el(
-      'a',
-      { id: 'refresh', class: 'button button-block', href: detailsUrl(pdgaNumber), rel: 'noreferrer' },
-      t('rating.refresh'),
-    ),
+    !model.stale && refreshButton(pdgaNumber, false),
     !favorite &&
       el(
         'button',

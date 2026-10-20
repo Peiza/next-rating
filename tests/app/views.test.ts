@@ -191,6 +191,20 @@ describe('rating view', () => {
     expect(label.textContent).toBe('Predicted rating');
   });
 
+  it('asks for a refresh on pdga.com once the data is more than 7 days old, with the button only there', () => {
+    expect(ratingPage().querySelector('#stale')).toBeNull();
+    expect(ratingPage().querySelector('#refresh')!.className).toBe('button button-block');
+    const later = new Date('2026-10-08T10:01:00.000Z');
+    const view = ratingView({ model: buildModel(stored, 100001, later), favorite: true, now: later, onAddFavorite: vi.fn() });
+    const notice = view.querySelector('#stale')!;
+    expect(notice.previousElementSibling!.id).toBe('updated');
+    expect(notice.textContent).toMatch(/^This data is more than 7 days old\./);
+    const refresh = notice.querySelector<HTMLAnchorElement>('#refresh')!;
+    expect(refresh.className).toBe('button button-primary button-block');
+    expect(refresh.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
+    expect(view.querySelectorAll('#refresh')).toHaveLength(1);
+  });
+
   it('shows the next update and its report deadline, linked to the rule on pdga.com', () => {
     // On 4 Oct 2026 the next update is Tuesday 13 Oct, for events reported by Sunday 11 Oct.
     const link = ratingPage().querySelector<HTMLAnchorElement>('#next-update a')!;
