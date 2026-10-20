@@ -112,6 +112,10 @@ manual per-page fallback.
      favorite. Manual rounds are stored as `manualRounds` on each stored
      player (at most 200), validated one at a time; data without the field
      loads with none, so the storage key stays `next-rating:v2`.
+   - Deleting a single manual round happens at once: the status line shows
+     "Removed 985" with an Undo button that puts the same round back in its
+     place. Only "Delete all manual rounds" asks first (built with the
+     target calculator).
    - The stale notice replaces the plain Refresh button, so it shows once.
    - The manifest uses `display: browser`: the home screen icon opens a
      normal browser tab, where the bookmarklet round trip works and storage
@@ -204,6 +208,33 @@ manual per-page fallback.
    once the official rating is dated that day, the next update is the
    following month's, so the prediction does not fall back to the new
    official rating.
+9. Target calculator, on the Rating tab:
+   - Input: a target rating (for example 1000) and a number of upcoming
+     rounds (default 3). Output: the average round rating needed in those
+     rounds to reach the target at the next update.
+   - Computed with the real engine, never a shortcut formula: add that many
+     hypothetical 18-hole rounds dated today to the player's rounds (manual
+     rounds included) and search for the lowest whole round rating whose
+     prediction reaches the target. Window, outlier drops and double
+     weighting are then all applied as in the prediction.
+   - Say so when the target is already reached without new rounds, or out of
+     reach within a plausible rating range.
+   - Between the report deadline and the update (Monday and Tuesday of
+     update week), rounds dated today count only in the following update
+     (Architecture 8); handle that case.
+   Built as (docs/plan-target-calculator.md): `targetAverage` in
+   src/engine/target.ts scans whole ratings down from `MAX_TARGET_ROUND`
+   (1150, the plausible range's ceiling) and stops at the first one that
+   falls short. The answer is the lowest rating from which every higher
+   rating reaches the target, so playing better never shows as worse; a very
+   low round can be dropped as an outlier while still moving the window.
+   "Reaches" means the rounded prediction is at least the target. When the
+   target is already reached, the answer also says what average keeps it.
+   On the Monday and Tuesday of update week the answer is for the following
+   update and says why (`targetUpdate` in src/app/target.ts). The scan
+   leaves out rounds that cannot matter (outside the window, DNF, after the
+   deadline), and main.ts memoizes the answer, so a re-render does not run
+   it again.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
@@ -234,3 +265,5 @@ Built in this order:
 - Deadline-aware prediction (Architecture 8) (done)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA (done)
+- Target calculator (Architecture 9, docs/plan-target-calculator.md), with
+  Undo for deleting a manual round (done)
