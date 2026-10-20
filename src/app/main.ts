@@ -5,6 +5,7 @@ import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import type { RawDetailsRow, RawEvent } from '../parsers/types';
 import { ParseError, toPdgaDate } from '../parsers/values';
 import { el } from './dom';
+import { readPages } from './handoff';
 import { applyImport, takeFragment } from './import';
 import { buildModel } from './model';
 import { readPaste } from './paste';
@@ -104,8 +105,10 @@ function closeBanner(): void {
 async function receiveHandoff(payload: string): Promise<void> {
   try {
     const envelope = await decodeHandoff(payload);
-    saveImport(envelope);
-    showBanner({ ...STATUS_BANNERS[envelope.status], failed: envelope.failed ?? [] });
+    const { parts, owner, unreadable } = readPages(envelope.pages ?? []);
+    saveImport(parts, owner);
+    const status = envelope.status === 'ok' && unreadable.length > 0 ? 'partial' : envelope.status;
+    showBanner({ ...STATUS_BANNERS[status], failed: [...(envelope.failed ?? []), ...unreadable] });
   } catch (error) {
     if (!(error instanceof HandoffError)) console.error(error);
     showBanner({ message: ERROR_MESSAGES[error instanceof HandoffError ? error.code : 'malformed'], tone: 'error' });

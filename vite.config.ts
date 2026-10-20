@@ -1,4 +1,12 @@
 import { defineConfig, type Plugin } from 'vitest/config';
+import { buildBookmarklet } from './scripts/bookmarklet.ts';
+
+/*
+ * The app's address. It is hard-coded in every installed bookmarklet, so it
+ * must never change. NEXT_RATING_APP_URL overrides it for local testing
+ * only, such as http://localhost:4173/ with `npm run preview`.
+ */
+const APP_URL = process.env.NEXT_RATING_APP_URL || 'https://peiza.github.io/next-rating/';
 
 /*
  * GitHub Pages cannot send headers, so the policy is a meta tag. It is only
@@ -27,6 +35,22 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
+const BOOKMARKLET_ID = 'virtual:bookmarklet';
+
+/** Serves the built bookmarklet to the app, rebuilt whenever one of its sources changes. */
+function bookmarklet(): Plugin {
+  return {
+    name: 'bookmarklet',
+    resolveId: (source) => (source === BOOKMARKLET_ID ? `\0${BOOKMARKLET_ID}` : undefined),
+    async load(id) {
+      if (id !== `\0${BOOKMARKLET_ID}`) return undefined;
+      const { url, modules } = await buildBookmarklet(APP_URL);
+      for (const module of modules) this.addWatchFile(module);
+      return `export default ${JSON.stringify(url)};`;
+    },
+  };
+}
+
 /**
  * Shown in Settings, so it is clear which version is live. GitHub Actions
  * sets GITHUB_SHA. Vitest runs with mode "test", where it is always "dev",
@@ -43,7 +67,7 @@ export default defineConfig(({ mode }) => ({
   define: {
     __BUILD_ID__: JSON.stringify(buildId(mode)),
   },
-  plugins: [contentSecurityPolicy()],
+  plugins: [contentSecurityPolicy(), bookmarklet()],
   build: {
     // Small assets would become data: URIs, which the policy blocks.
     assetsInlineLimit: 0,

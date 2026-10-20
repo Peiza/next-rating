@@ -41,7 +41,9 @@ rounds are stored per player, and the data age display joins it.
 
 ## Commit 2: Import and results
 
-**Hand-off codec (`src/handoff/`)**, shared with the bookmarklet:
+**Hand-off codec (`src/handoff/`)**, shared with the bookmarklet. (Step 5
+replaced envelope v1 with v2, which carries page HTML that the app parses;
+see `docs/plan-step-5.md`.)
 - Envelope schema v1: `{ v: 1, status, page, bookmarklet, player?, details?,
   profileEvents?, events?, failed? }`, where the payload fields are the
   existing `Raw*` records from `src/parsers/types.ts`. `status` is one of

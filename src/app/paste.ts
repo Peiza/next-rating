@@ -9,12 +9,12 @@ import {
 } from '../parsers';
 import type { RawDetailsRow, RawEvent, RawPlayer } from '../parsers/types';
 import { LIMITS, ParseError } from '../parsers/values';
+import { parseInert } from './inert';
 
 /*
  * Reads a table copied from pdga.com. Browsers put a copied table on the
  * clipboard both as HTML, which keeps links and hole counts, and as
- * tab-separated text. The HTML is parsed with DOMParser into an inert
- * document: its scripts never run and nothing in it is loaded.
+ * tab-separated text. The HTML is parsed into an inert document.
  */
 
 export type PasteResult =
@@ -46,7 +46,7 @@ export function readPaste(html: string, text: string): PasteResult {
     throw new ParseError('too-large', 'pasted content is too large');
   }
   if (html.trim() !== '') {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = parseInert(html);
     const found = details(extractRatingsDetails(doc), extractPlayer(doc)) ?? event(extractEvent(doc));
     if (found) return found;
   }

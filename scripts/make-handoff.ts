@@ -1,6 +1,7 @@
 /*
  * Development helper: builds a hand-off link from pdga.com pages saved in a
- * browser, so the import can be tried before the bookmarklet exists.
+ * browser, with the HTML the bookmarklet would send, so the import can be
+ * tried without running the bookmarklet on pdga.com.
  *
  *   npm run handoff -- <saved pages...> [--base http://localhost:4173/]
  *
@@ -10,15 +11,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
-import { encodeHandoff, type Envelope } from '../src/handoff';
-import {
-  detectPage,
-  extractEvent,
-  extractPlayer,
-  extractProfileEvents,
-  extractRatingsDetails,
-  type PageKind,
-} from '../src/parsers';
+import { pageHtml } from '../src/bookmarklet/collect';
+import { BOOKMARKLET_VERSION } from '../src/bookmarklet/version';
+import { encodeHandoff, PDGA_PAGE, type Envelope, type HandoffPage } from '../src/handoff';
+import { detectPage } from '../src/parsers';
 
 const args = process.argv.slice(2);
 const baseIndex = args.indexOf('--base');
@@ -28,27 +24,20 @@ if (args.length === 0 || !base) {
   process.exit(1);
 }
 
-let page: PageKind | null = null;
-const envelope: Envelope = { v: 1, status: 'ok', page: 'unknown', bookmarklet: '0' };
+const pages: HandoffPage[] = [];
+const envelope: Envelope = { v: 2, status: 'ok', page: 'unknown', bookmarklet: BOOKMARKLET_VERSION, pages };
 for (const file of args) {
   const doc = new JSDOM(readFileSync(file, 'utf8')).window.document;
   const kind = detectPage(doc);
-  page ??= kind;
-  if (kind === 'details') {
-    envelope.details = extractRatingsDetails(doc);
-  } else if (kind === 'profile') {
-    envelope.profileEvents = extractProfileEvents(doc);
-  } else if (kind === 'event') {
-    envelope.events = [...(envelope.events ?? []), extractEvent(doc)];
-    continue;
-  } else {
+  const url = doc.querySelector('link[rel=canonical]')?.getAttribute('href') ?? '';
+  if ((kind !== 'details' && kind !== 'profile' && kind !== 'event') || !PDGA_PAGE.test(url)) {
     console.error(`${file}: not a pdga.com player, ratings details or event page (${kind})`);
     process.exit(1);
   }
-  const player = extractPlayer(doc);
-  if (player) envelope.player = player;
+  if (envelope.page === 'unknown') envelope.page = kind;
+  // Event pages are sent whole, as when the bookmarklet runs on one.
+  pages.push({ url, html: pageHtml(doc, kind) });
 }
-envelope.page = page ?? 'unknown';
 
 const payload = await encodeHandoff(envelope);
 console.log(`${new URL(base).href}#d=${payload}`);

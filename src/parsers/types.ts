@@ -2,7 +2,7 @@ import type { PlainDate } from '../engine/dates';
 
 /*
  * Raw records: what the extract layer reads from a page, as plain strings.
- * They are small enough to hand from the bookmarklet to the app, and are
+ * They are what the app stores, and are
  * untrusted until a normalize function has validated them. An empty string
  * means the page did not show the value.
  */

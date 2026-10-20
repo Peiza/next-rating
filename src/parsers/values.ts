@@ -2,7 +2,7 @@ import { isPlainDate, type PlainDate } from '../engine/dates';
 
 /*
  * Helpers for the normalize layer, which validates untrusted raw records
- * from the bookmarklet hand-off and from pasted content.
+ * from bookmarklet hand-offs, pasted content and stored data.
  */
 
 export type ParseErrorCode = 'malformed' | 'too-large';

@@ -67,21 +67,31 @@ single build-time setting.
 1. Rating engine: pure TypeScript, no I/O, fully unit tested.
 2. Parsers: pure functions turning pdga.com HTML (ratings details page, player
    profile page, event results page) into typed data, including hole count per
-   round where the page shows it. Shared by the bookmarklet and the paste import.
+   round where the page shows it. They run in the app, for bookmarklet
+   hand-offs and the paste import alike.
 3. Bookmarklet, fully self-contained (never loads remote code, so no external
-   code ever runs on pdga.com):
-   - On any player page (/player/<nr> or /player/<nr>/details): read the current
-     page, then fetch the other one with a same-origin GET in the user's session.
-     Collect rated rounds, name and current rating. Find recent events from the
-     profile page that are not yet in the ratings details, fetch those event
-     pages and keep only this player's unofficial round ratings. Max 10 event
+   code ever runs on pdga.com). It parses nothing: it fetches pages and sends
+   the HTML of the parts the app's parsers read, so a pdga.com markup change
+   is fixed by deploying the app, without reinstalling the bookmarklet. It
+   holds only the logic it needs to pick pages (page kind, event ids and
+   dates) and to cut fetched event pages down to the player's rows.
+   - On any player page (/player/<nr> or /player/<nr>/details): send the
+     current page, then fetch the other one with a same-origin GET in the
+     user's session and send it. Find recent events from the profile page that
+     are not yet in the ratings details, fetch those event pages and send them
+     with only this player's rows (a match on the PDGA number). Max 10 event
      pages, sequential, about 1 second apart, one attempt per page.
-   - On an event results page: extract the results table; the app picks the
+   - On an event results page: send its results tables; the app picks the
      user's rows by PDGA number.
+   - Send only the page parts the parsers need. When a page's main content
+     cannot be found (as after a markup change), send its whole body without
+     scripts and styles instead, so an updated app can still read it. If the
+     hand-off would exceed the fragment limit, drop event pages from the end
+     and list them as failed.
    - On Unofficial Results pages, round ratings sit behind a "Show round
-     ratings" toggle. Read them even while hidden: the rating cells are in the
-     page either way, so read them with textContent (never innerText or a
-     visibility check) and never click the toggle.
+     ratings" toggle. The rating cells are in the page HTML either way, so the
+     app reads them with textContent (never innerText or a visibility check);
+     never click the toggle.
    - If a request returns a Cloudflare challenge or fails, stop fetching and
      hand off what was collected, including the URLs of the pages that could
      not be fetched, so the app can link to them and ask the user to run the
@@ -104,6 +114,8 @@ single build-time setting.
      A button opens that player's ratings details page on pdga.com with a short
      hint to run the bookmarklet there.
    - Import from the URL fragment, then remove it with history.replaceState.
+     The received HTML is parsed exactly like pasted HTML: an inert DOMParser
+     document, size limits, textContent only, never inserted into the page.
      An import never erases data it does not contain: for the same player it
      replaces only what it brings, and an import for another player replaces
      everything.
