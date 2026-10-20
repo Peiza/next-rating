@@ -18,6 +18,12 @@ App: https://peiza.github.io/next-rating/
   compared with your other rounds in the window), the most recent 25% of
   rounds counted twice, and rounds shorter than 18 holes weighted by hole
   count.
+- X-tier events with non-standard rules, such as mulligans, can produce round
+  ratings that PDGA leaves out of player ratings (Competition Manual 5.10);
+  other X-tier events count normally. An official round PDGA did not
+  evaluate although it is inside the window PDGA used never counts. Rounds
+  from an unofficial X-tier event count but are marked "X-tier: may not
+  count", and you can leave out any unofficial event with one tap.
 - "Why it changed" lists what moved the prediction away from the official
   rating: new rounds, rounds that left the window, started or stopped
   counting twice, or were dropped or brought back. Each one shows how many
@@ -34,7 +40,8 @@ App: https://peiza.github.io/next-rating/
 
 ## The Rating tab
 
-Under the player's name come the predicted rating, the change against the
+Under the player's name (on phones in the top bar, with the PDGA number
+under it and the Players button beside it) come the predicted rating, the change against the
 official rating (with the value the app calculates for it, such as "978
 (calculated 977.65)", when it reproduces it), the next ratings update and
 how old the data is. "How to
@@ -44,10 +51,17 @@ itself as a warning.
 
 Below that, each part is a card that opens and closes: Why it changed, Add a
 round, Reach a target rating, Top 8, Details and Rounds. Each starts with a
-one-line explanation that links to its part of "How it works". Rounds is open at first; the app remembers which
-cards you open, also when you start it from the home screen. While closed,
-Why it changed shows its largest effect in its header, such as "907 no
-longer counts twice, +0.7".
+one-line explanation that links to its part of "How it works". Rounds is
+open at first; the app remembers which cards you open, also when you start
+it from the home screen. While closed, Why it changed shows its largest
+effect in its header, such as "907 no longer counts twice, +0.7", or the net
+total when the change rounds to nothing, and Top 8 shows its average and
+period, such as "Average 1014 · 2026".
+
+Rounds starts with the unofficial events, each with a Count checkbox. Clear
+it to leave the event out of the prediction, for example an X-tier event
+that PDGA may not count; Why it changed then says what counting it would
+give. The choice is kept per player.
 
 ## Adding rounds yourself
 
@@ -102,7 +116,8 @@ The app keeps the data of several players, each separately, so you can
 follow friends as well as yourself:
 
 - Save players as favorites from the Players menu (a sidebar on wide
-  screens). Each favorite shows when it was last imported and links to its
+  screens; on phones it opens as "Switch player", with the shown player
+  marked "Now"). Each favorite shows when it was last imported and links to its
   ratings details on pdga.com, where the bookmarklet refreshes it.
 - One favorite is you. The app always opens on you.
 - Running the bookmarklet on another player's page shows that player without

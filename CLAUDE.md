@@ -66,7 +66,9 @@ Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 local storage, offline PWA, setup page, How it works), 5 favorites, 6 change
 explanation, 7 polish after favorites, 8 deadline-aware prediction, 9 target
 calculator, 10 Top 8 panel; then the Rating tab design pass (one card
-pattern, remembered open cards and Top 8 period).
+pattern, remembered open cards and Top 8 period), the setup page with How it
+works, and X-tier events (rounds PDGA leaves out; unofficial X-tier events
+marked, any unofficial event can be left out).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -133,6 +135,12 @@ Open, both optional:
   rating); shorter rounds are weighted down (not yet verified against a
   fixture).
 - DNF rounds never count.
+- An official round PDGA marks Evaluated No although it is dated inside the
+  window PDGA evaluated never counts, also after the window moves (X-tier
+  events with non-standard rules, Competition Manual 5.10). Read that window
+  from the Evaluated flags. Other X-tier events count normally, so never
+  decide by tier alone; unofficial X-tier rounds count, marked, unless the
+  user leaves the event out.
 - Multi-day date ranges like "1-Aug to 2-Aug-2026" use the last date.
 
 ## Test fixtures
@@ -160,8 +168,8 @@ engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
-calculator, the Top 8 panel, the Rating tab design pass and the setup page
-with How it works (docs/finished-steps.md). Nothing else is planned: the
+calculator, the Top 8 panel, the Rating tab design pass, the setup page
+with How it works and X-tier events (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 
