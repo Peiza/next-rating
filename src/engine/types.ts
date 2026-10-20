@@ -18,8 +18,10 @@ export interface RoundInput {
   dnf?: boolean;
   source: RoundSource;
   /**
-   * PDGA's flags from the ratings details page, on official rounds. Only
-   * officialState uses them; predictRating ignores them and recomputes.
+   * PDGA's flags from the ratings details page, on official rounds.
+   * predictRating never trusts the Included flag and recomputes; it reads
+   * the Evaluated flags only to find the rounds PDGA left out of the window
+   * it evaluated (excludedByPdga). officialState uses both.
    */
   pdga?: { evaluated: boolean; included: boolean };
 }
@@ -33,6 +35,12 @@ export type RoundStatus =
   | 'dropped'
   /** Older than the 12- or 24-month window. */
   | 'outside-window'
+  /**
+   * An official round PDGA did not evaluate although it is dated inside the
+   * window PDGA evaluated, as for X-tier events with non-standard rules
+   * (Competition Manual 5.10). It never counts.
+   */
+  | 'excluded'
   /**
    * A new round dated after the report deadline of the next update: that
    * update leaves it out, and it counts in the following one.

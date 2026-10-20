@@ -164,6 +164,7 @@
   "round.status.doubled": "Counts twice",
   "round.status.dropped": "Dropped",
   "round.status.outside-window": "Outside window",
+  "round.status.excluded": "Not counted by PDGA",
   "round.status.after-deadline": "Counts in the following update",
   "round.status.dnf": "DNF",
   "stats.title": "Details",

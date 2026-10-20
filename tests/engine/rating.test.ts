@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { predictRating } from '../../src/engine/rating';
+import { excludedByPdga, predictRating } from '../../src/engine/rating';
 import type { Prediction, RoundInput, RoundStatus } from '../../src/engine/types';
 
 let nextId = 0;
@@ -381,6 +381,67 @@ describe('predictRating', () => {
       const prediction = predictRating([dnf, ...weekly([950, 960])], { deadline });
       expect(statusOf(prediction, dnf)).toBe('dnf');
       expect(prediction.stats.dnfRounds).toBe(1);
+    });
+  });
+
+  describe('official rounds PDGA left out', () => {
+    /** PDGA's flags on an official round. */
+    const flags = (input: RoundInput, evaluated: boolean, included = evaluated): RoundInput => ({
+      ...input,
+      pdga: { evaluated, included },
+    });
+    /** Eight evaluated rounds, so PDGA used the 12-month window. */
+    const evaluated = () => weekly([950, 955, 945, 950, 955, 945, 950, 955]).map((input) => flags(input, true));
+
+    it('never counts an official round PDGA did not evaluate inside its window', () => {
+      const xTier = flags(round(1050, '2026-05-01'), false);
+      const rounds = [...evaluated(), xTier];
+      const prediction = predictRating(rounds);
+      expect(statusOf(prediction, xTier)).toBe('excluded');
+      expect(prediction.rounds.at(-1)!.weight).toBe(0);
+      expect(prediction.exact).toBe(predictRating(evaluated()).exact);
+      expect(prediction.stats).toMatchObject({ totalRounds: 8, roundsInWindow: 8, roundsCounted: 8 });
+      // Without PDGA's flags it would count.
+      expect(statusOf(predictRating([...evaluated(), { ...xTier, pdga: undefined }]), xTier)).toBe('included');
+    });
+
+    it('keeps it out after new rounds move the window', () => {
+      const xTier = flags(round(1050, '2026-05-01'), false);
+      const later = ['2027-02-01', '2027-02-08', '2027-02-15'].map((date) => round(990, date, { source: 'unofficial' }));
+      const prediction = predictRating([...later, ...evaluated(), xTier]);
+      expect(prediction.stats.windowStart).toBe('2026-02-15');
+      expect(statusOf(prediction, xTier)).toBe('excluded');
+    });
+
+    it('leaves out the newest official event when PDGA did not evaluate it, also as the anchor', () => {
+      const xTier = flags(round(1050, '2026-09-03'), false);
+      const prediction = predictRating([xTier, ...evaluated()]);
+      expect(statusOf(prediction, xTier)).toBe('excluded');
+      expect(prediction.stats.windowEnd).toBe('2026-08-27');
+    });
+
+    it("reads PDGA's 24-month window from the flags", () => {
+      // An evaluated round older than 12 months shows the fallback.
+      const old = flags(round(950, '2025-03-01'), true);
+      const xTier = flags(round(1050, '2025-01-01'), false);
+      const withOld = [...evaluated().slice(0, 3), old, xTier];
+      expect(statusOf(predictRating(withOld), xTier)).toBe('excluded');
+      // So do fewer than 8 evaluated rounds in 12 months.
+      const few = [...evaluated().slice(0, 3), xTier];
+      expect(statusOf(predictRating(few), xTier)).toBe('excluded');
+    });
+
+    it('leaves a round PDGA did not evaluate before its window outside the window', () => {
+      const old = flags(round(1050, '2025-06-01'), false);
+      expect(statusOf(predictRating([...evaluated(), old]), old)).toBe('outside-window');
+    });
+
+    it('finds nothing without flags, and only ever in official rounds', () => {
+      expect(excludedByPdga(weekly([950, 960, 940])).size).toBe(0);
+      const unofficial = { ...flags(round(1050, '2026-05-01'), false), source: 'unofficial' as const };
+      expect(excludedByPdga([...evaluated(), unofficial]).size).toBe(0);
+      const dnf = { ...flags(round(0, '2026-05-01', { dnf: true }), false), rating: null };
+      expect(statusOf(predictRating([...evaluated(), dnf]), dnf)).toBe('dnf');
     });
   });
 

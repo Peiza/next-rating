@@ -327,6 +327,16 @@ describe('rating view', () => {
     expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
   });
 
+  it('marks an official round PDGA did not evaluate inside its window as not counted by PDGA', () => {
+    const xTier = rawDetailsRow({ eventId: '900005', tier: 'XA', date: '1-Jul-2026', rating: '1050', evaluated: 'No', included: 'No' });
+    const model = buildModel({ ...stored, details: [...stored.details!, xTier] }, 100001, NOW);
+    const view = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const status = view.querySelector('.round-excluded .round-status')!;
+    expect(status.textContent).toContain('Not counted by PDGA');
+    expect(status.querySelector('[aria-hidden="true"]')!.textContent).toBe('⊘');
+    expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
+  });
+
   it("links each round's event name to its pdga.com page, in the same tab", () => {
     const rounds = [...ratingPage().querySelectorAll('.round')];
     const official = rounds[3]!.querySelector<HTMLAnchorElement>('.round-event a')!;

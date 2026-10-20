@@ -73,11 +73,15 @@ export function targetAverage(rounds: readonly RoundInput[], target: number, opt
 
   // The window follows from the dates alone, and the new rounds' date is
   // fixed, so it is the same for every candidate rating. Rounds outside it,
-  // DNF rounds and rounds after the deadline never change the result, so
-  // the scan leaves them out and each engine run is cheaper.
+  // DNF rounds, rounds PDGA left out and rounds after the deadline never
+  // change the result, so the scan leaves them out and each engine run is
+  // cheaper. PDGA's flags go too: the rounds they leave out are already
+  // gone, and the flags of a subset would read PDGA's window differently.
   const probe = predictRating([...upcoming(count, date, MAX_TARGET_ROUND), ...rounds], predict);
-  const ignored = new Set(['outside-window', 'dnf', 'after-deadline']);
-  const relevant = rounds.filter((_, i) => !ignored.has(probe.rounds[count + i]!.status));
+  const ignored = new Set(['outside-window', 'dnf', 'excluded', 'after-deadline']);
+  const relevant = rounds
+    .filter((_, i) => !ignored.has(probe.rounds[count + i]!.status))
+    .map(({ pdga: _flags, ...round }) => round);
   const ratingAt = (average: number) => predictRating([...upcoming(count, date, average), ...relevant], predict).rating;
 
   let rating = probe.rating;

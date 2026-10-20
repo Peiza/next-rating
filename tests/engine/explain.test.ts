@@ -194,6 +194,14 @@ describe('officialState', () => {
     expect(state.exact).toBe(950);
   });
 
+  it('marks a round PDGA did not evaluate inside its window as excluded, and explains nothing about it', () => {
+    const counted = flagged(weekly([950, 960, 940]));
+    const xTier = flagged([official(1050, '2026-05-01')], false, false);
+    const rounds = [...counted, ...xTier];
+    expect(officialState(rounds).rounds.at(-1)).toMatchObject({ status: 'excluded', weight: 0 });
+    expect(itemOf(explain([fresh(955, '2026-07-02'), ...rounds]), xTier[0]!)).toBeUndefined();
+  });
+
   it('applies the double-weight rule and hole weights on top', () => {
     const rounds = flagged(weekly([1000, 990, 980, 970, 960, 950, 940, 930, 920]));
     rounds[1] = { ...rounds[1]!, holes: 9 };

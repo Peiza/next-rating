@@ -111,6 +111,36 @@ export function selectDoubleWeighted(
 const nullable = (value: number): number | null => (Number.isNaN(value) ? null : value);
 
 /**
+ * The official rounds PDGA left out although they are dated inside the
+ * window it evaluated: Evaluated No inside that window, as for X-tier events
+ * with non-standard rules such as mulligans (Competition Manual 5.10). Other
+ * X-tier events are rated and count normally, so the tier alone says nothing.
+ *
+ * PDGA's window is read from its own flags: 12 months back from the newest
+ * evaluated round, or 24 when the evaluated rounds show the fallback (one is
+ * older than 12 months, or fewer than 8 are inside them). Since the set comes
+ * from PDGA's window, not the prediction's, those rounds stay out when new
+ * rounds move the window. Returns indices into `rounds`.
+ */
+export function excludedByPdga(rounds: readonly RoundInput[]): Set<number> {
+  const official = (round: RoundInput) => round.source === 'official' && !round.dnf && round.pdga !== undefined;
+  const evaluated = rounds.filter((round) => official(round) && round.pdga!.evaluated).map((round) => round.date);
+  if (evaluated.length === 0) return new Set();
+  const anchor = evaluated.reduce((a, b) => (compareDates(a, b) >= 0 ? a : b));
+  const start12 = subtractMonths(anchor, RULES.windowMonths);
+  const in12 = evaluated.filter((date) => compareDates(date, start12) >= 0).length;
+  const start =
+    in12 < evaluated.length || in12 < RULES.minRoundsBeforeFallback
+      ? subtractMonths(anchor, RULES.fallbackWindowMonths)
+      : start12;
+  return new Set(
+    rounds.flatMap((round, i) =>
+      official(round) && !round.pdga!.evaluated && compareDates(round.date, start) >= 0 ? [i] : [],
+    ),
+  );
+}
+
+/**
  * Double-weights the most recent counted rounds and weighs every round.
  * `status` must mark the counted rounds 'included'; the doubled ones are
  * changed to 'doubled' in place.
@@ -138,8 +168,10 @@ function weigh(
 /**
  * Predicts the next rating from all known rounds: official, unofficial and
  * manual. PDGA's Included flags are never used: inclusion is recomputed from
- * scratch, since adding rounds can bring back previously dropped ones. With
- * a deadline, new rounds dated after it wait for the following update.
+ * scratch, since adding rounds can bring back previously dropped ones.
+ * Official rounds PDGA left out of the window it evaluated never count
+ * (excludedByPdga). With a deadline, new rounds dated after it wait for the
+ * following update. Both are left out of everything, like DNF rounds.
  */
 export function predictRating(
   rounds: readonly RoundInput[],
@@ -150,10 +182,11 @@ export function predictRating(
   const { deadline } = options;
   const later = (round: RoundInput) =>
     !round.dnf && round.source !== 'official' && deadline !== undefined && compareDates(round.date, deadline) > 0;
-  const status: RoundStatus[] = rounds.map((round) =>
-    round.dnf ? 'dnf' : later(round) ? 'after-deadline' : 'outside-window',
+  const excluded = excludedByPdga(rounds);
+  const status: RoundStatus[] = rounds.map((round, i) =>
+    round.dnf ? 'dnf' : excluded.has(i) ? 'excluded' : later(round) ? 'after-deadline' : 'outside-window',
   );
-  const rated = rounds.flatMap((round, i) => (round.dnf || later(round) ? [] : [i]));
+  const rated = rounds.flatMap((round, i) => (round.dnf || excluded.has(i) || later(round) ? [] : [i]));
   const ratingOf = (i: number) => rounds[i]!.rating!;
   const careerEvents = new Set(
     rounds.filter((round) => round.source !== 'manual' && !later(round)).map((round) => round.eventKey),
@@ -259,10 +292,12 @@ export function officialState(rounds: readonly RoundInput[]): OfficialState {
   }
   validate(official);
 
+  const excluded = excludedByPdga(official);
   const status: RoundStatus[] = official.map((round, i) => {
     if (round.dnf) return 'dnf';
     if (flags[i]!.included) return 'included';
-    return flags[i]!.evaluated ? 'dropped' : 'outside-window';
+    if (flags[i]!.evaluated) return 'dropped';
+    return excluded.has(i) ? 'excluded' : 'outside-window';
   });
   const counted = status.flatMap((value, i) => (value === 'included' ? [i] : []));
   const { weights, exact } = weigh(official, status, counted);

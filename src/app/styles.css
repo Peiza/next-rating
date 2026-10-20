@@ -884,12 +884,14 @@ a {
 
 .round-dropped .round-rating,
 .round-outside-window .round-rating,
+.round-excluded .round-rating,
 .round-dnf .round-rating {
   text-decoration: line-through;
   text-decoration-thickness: 2px;
 }
 
 .round-outside-window .round-status,
+.round-excluded .round-status,
 .round-after-deadline .round-status,
 .round-meta {
   color: var(--text-muted);

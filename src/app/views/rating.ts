@@ -52,6 +52,7 @@ const STATUS: Record<RoundStatus, { symbol: string; label: MessageKey }> = {
   doubled: { symbol: '×2', label: 'round.status.doubled' },
   dropped: { symbol: '↓', label: 'round.status.dropped' },
   'outside-window': { symbol: '○', label: 'round.status.outside-window' },
+  excluded: { symbol: '⊘', label: 'round.status.excluded' },
   'after-deadline': { symbol: '»', label: 'round.status.after-deadline' },
   dnf: { symbol: '–', label: 'round.status.dnf' },
 };
