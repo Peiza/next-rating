@@ -69,8 +69,8 @@ manual per-page fallback.
      above). Never read cookies, storage or form fields.
    - Keep the minified bookmarklet small (target under 5 kB), since on phones it
      is pasted into the bookmark URL field.
-4. Web app (PWA, works offline after first load), the built parts. The open
-   part (the full setup page) is in CLAUDE.md.
+4. Web app (PWA, works offline after first load). The full setup page was
+   the last open part; it is built (see "Setup page" below).
    - Enter a PDGA number once (default player; the app works for any player).
      A button opens that player's ratings details page on pdga.com with a short
      hint to run the bookmarklet there.
@@ -96,8 +96,8 @@ manual per-page fallback.
      (Polish 2). When the data is more than 7 days old, a clear notice with a
      button opens the player's pdga.com ratings details page to refresh.
    - Store locally only: the language override, the theme choice, the
-     players list order, which Rating tab cards are open, the Top 8 period
-     and the players' data. Each player (each favorite)
+     players list order, which Rating tab cards are open, the Top 8 period,
+     the bookmarklet version from the last hand-off and the players' data. Each player (each favorite)
      keeps its own PDGA number, last import (show its timestamp) and manual
      rounds. When the storage format changes, existing data is migrated,
      never silently dropped. On iOS, home screen web apps do not share
@@ -289,6 +289,41 @@ Built after the Top 8 panel (docs/plan-design-pass.md):
   period is stored with the settings (`top8Period`); the current year is
   stored without a year, so it follows New Year. The band line that
   repeated the period is gone.
+- After testing on the phone (built with the setup page): Why it changed
+  starts with the net total of its lines, such as "Net +0.3, rounds to no
+  change", so offsetting effects do not look like a big change. Statistics
+  is renamed Details; "Unrounded prediction" is labelled the weighted
+  average, and the window and counted-rounds averages unweighted. The
+  official rating line shows the value the engine calculates from the
+  official state, such as "978 (calculated 977.65)", only when that state
+  rounds to the official rating.
+
+## Setup page
+Spec (from CLAUDE.md, Architecture 4): a setup page with step-by-step
+bookmarklet installation for Safari on iPhone, Chrome on Android (run it by
+typing its name in the address bar) and desktop browsers, with a copy button.
+Added to it: a bookmarklet status from the last import, and a "How it works"
+page.
+
+Built as (docs/plan-setup-page.md):
+- A segmented picker (iPhone / Android / Computer), guessed from the user
+  agent (an iPad reports itself as a Mac with a touch screen), shows only
+  that browser's numbered steps: copy (with the code and the copy button,
+  which falls back to selecting the text), bookmark, paste the code as the
+  address, and "Try it", which opens your ratings details on pdga.com. "If it
+  doesn't work" is a closed `<details>`.
+- The version of the last valid hand-off is stored (`bookmarklet`), whatever
+  the import brought. Settings and the setup page say "Your bookmarklet:
+  1.0.0, up to date", "…, a newer one (1.1.0) is available", or that this
+  browser has had no import yet.
+- How it works has sections on what the app does (and that it is
+  unofficial), the data, the rating rules (with what is not yet checked
+  against a real player, and where the calculated decimals come from), the
+  kinds of rounds and the report deadline, Why it changed, the target
+  calculator, and the Top 8 with the Global Masters Series. It opens from
+  Settings, and from a "How it works" link at the end of each card's
+  explanation, with focus on the matching section. It shows over the
+  current tab like the setup page, and Back returns focus to what opened it.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
@@ -324,3 +359,5 @@ Built in this order:
 - Top 8 panel (Architecture 10, docs/plan-top8.md), with Statistics kept
   open through a re-render (done)
 - Rating tab design pass (docs/plan-design-pass.md) (done)
+- Setup page, with the bookmarklet status and How it works
+  (docs/plan-setup-page.md), after the design pass feedback (done)

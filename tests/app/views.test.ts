@@ -4,11 +4,12 @@ import { el, textWithNodes } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
+import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
 import { ratingView } from '../../src/app/views/rating';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
-import { isOlderVersion, setupView } from '../../src/app/views/setup';
+import { bookmarkletStatus, guessPlatform, isOlderVersion, setupView, type SetupProps } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
@@ -95,9 +96,11 @@ describe('settings view', () => {
     preferred: ['sv-SE'],
     theme: null,
     persistent: true,
+    bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
     onOpenSetup: () => {},
+    onOpenGuide: () => {},
   };
 
   it('offers Device, Light and Dark themes, with Device by default', () => {
@@ -140,10 +143,10 @@ describe('settings view', () => {
     expect(settingsView({ ...props, persistent: false }).querySelector('.warning')).not.toBeNull();
   });
 
-  it('shows the bookmarklet version and opens the setup', () => {
+  it('shows the bookmarklet status and opens the setup', () => {
     const onOpenSetup = vi.fn();
     const view = settingsView({ ...props, onOpenSetup });
-    expect(view.textContent).toContain(`Bookmarklet version ${BOOKMARKLET_VERSION}`);
+    expect(view.querySelector('#bookmarklet-status')!.textContent).toBe(`Your bookmarklet: ${BOOKMARKLET_VERSION}, up to date`);
     view.querySelector<HTMLButtonElement>('#open-setup')!.click();
     expect(onOpenSetup).toHaveBeenCalled();
   });
@@ -270,6 +273,15 @@ describe('rating view', () => {
     expect(view.textContent).toContain('Last import:');
   });
 
+  it('shows the calculated official rating only when the engine reproduces it', () => {
+    // The official rounds give 965.
+    const model = buildModel({ ...stored, player: rawPlayer({ currentRating: '965' }) }, 100001, NOW);
+    const official = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#official')!;
+    expect(official.textContent).toMatch(/^Official rating 965 \(calculated 96[45]\.\d\d\), as of \S+$/);
+    // 950 is not what the official rounds give, so the decimals would not explain it.
+    expect(ratingPage().querySelector('#official')!.textContent).not.toContain('calculated');
+  });
+
   it.each([
     ['950', 'up', '↑', '+12'],
     ['970', 'down', '↓', '−8'],
@@ -333,13 +345,20 @@ describe('rating view', () => {
     expect(event.textContent).toBe('Example Open, Round 1');
   });
 
-  it('has a stats card', () => {
+  it('has a Details card', () => {
     const stats = ratingPage().querySelector('#stats')!;
-    expect(stats.querySelector('#stats-toggle')!.textContent).toBe('Statistics');
+    expect(stats.querySelector('#stats-toggle')!.textContent).toBe('Details');
     const rows = [...stats.querySelectorAll('dl > div.stat')];
     expect(rows.length).toBeGreaterThan(0);
     expect(stats.querySelectorAll('dt').length).toBe(rows.length);
     for (const row of rows) expect([...row.children].map((child) => child.tagName).slice(0, 2)).toEqual(['DT', 'DD']);
+  });
+
+  it('tells the weighted prediction apart from the plain averages', () => {
+    const labels = [...ratingPage().querySelectorAll('#stats dt')].map((dt) => dt.textContent);
+    expect(labels).toContain('Unrounded prediction (weighted average)');
+    expect(labels).toContain('Average in window (unweighted)');
+    expect(labels).toContain('Average of counted rounds (unweighted)');
   });
 
   it('shows the window length next to its label and the dates below', () => {
@@ -373,6 +392,19 @@ describe('rating view', () => {
         'New round 955',
       ]);
       expect(items[1]!.querySelector('.reason-meta')!.textContent).toMatch(/^Example Cup · Round 2 · \S+$/);
+    });
+
+    it('starts the list with the net total and what it rounds to', () => {
+      const net = why()!.querySelector('#why-net')!;
+      expect(net.previousElementSibling!.className).toBe('card-intro');
+      expect(net.nextElementSibling!.className).toBe('reasons');
+      expect(net.textContent).toMatch(/^Net −\d\.\d, rounds to −3$/);
+    });
+
+    it('says when the net total rounds to no change', () => {
+      // Official 962 and predicted 962: the lines add up to no change.
+      const net = why({ player: rawPlayer({ currentRating: '962' }) })!.querySelector('#why-net')!;
+      expect(net.textContent).toBe('Net 0.0, rounds to no change');
     });
 
     it('marks each effect with an arrow and a sign, not colour alone', () => {
@@ -515,7 +547,7 @@ describe('rating tab cards', () => {
     expect(toggle.hasAttribute('aria-controls')).toBe(false);
     expect(toggle.querySelector('.card-arrow')!.getAttribute('aria-hidden')).toBe('true');
     expect(card.getAttribute('aria-labelledby')).toBe('stats-title');
-    expect(card.querySelector('#stats-title')!.textContent).toBe('Statistics');
+    expect(card.querySelector('#stats-title')!.textContent).toBe('Details');
     const open = page({ ...DEFAULT_CARDS, stats: true }).querySelector('#stats-toggle')!;
     expect(open.getAttribute('aria-controls')).toBe('stats-body');
   });
@@ -766,6 +798,31 @@ describe('update notice', () => {
   });
 });
 
+function setupProps(bookmarklet: string): SetupProps {
+  return { bookmarklet, stored: null, pdgaNumber: 100001, platform: 'iphone', onPlatform: vi.fn(), onBack: vi.fn() };
+}
+
+describe('bookmarklet status', () => {
+  it('says whether the bookmarklet of the last hand-off is up to date', () => {
+    expect(bookmarkletStatus('1.0.0', '1.0.0')).toMatchObject({ className: 'hint', textContent: 'Your bookmarklet: 1.0.0, up to date' });
+    // A newer one than the app knows, as from a cached app: nothing to update.
+    expect(bookmarkletStatus('1.2.0', '1.1.0').textContent).toBe('Your bookmarklet: 1.2.0, up to date');
+    expect(bookmarkletStatus('1.0.0', '1.1.0')).toMatchObject({
+      className: 'warning',
+      textContent: 'Your bookmarklet: 1.0.0, a newer one (1.1.0) is available',
+    });
+    expect(bookmarkletStatus(null, '1.1.0').textContent).toBe(
+      'Your bookmarklet: no import in this browser yet (current version 1.1.0)',
+    );
+  });
+
+  it('shows at the top of the setup page', () => {
+    const view = setupView({ ...setupProps('javascript:void 0'), stored: '0.9' });
+    expect(view.querySelector('h1')!.nextElementSibling!.id).toBe('bookmarklet-status');
+    expect(view.querySelector('#bookmarklet-status')!.textContent).toContain('0.9, a newer one');
+  });
+});
+
 describe('bookmarklet setup', () => {
   const CODE = 'javascript:(function(){location.assign("https://example.github.io/next-rating/#d=")})();void 0';
 
@@ -776,21 +833,76 @@ describe('bookmarklet setup', () => {
     expect(isOlderVersion('1.10.0', '1.9.0')).toBe(false);
   });
 
-  it('shows the code as plain text, with the version and steps for each browser', () => {
-    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
-    const code = view.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
+  it('guesses the kind of browser from the device', () => {
+    const iPhone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile Safari/604.1';
+    const mac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15';
+    const android = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36';
+    const windows = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36';
+    expect(guessPlatform(iPhone, 5)).toBe('iphone');
+    // An iPad reports itself as a Mac with a touch screen.
+    expect(guessPlatform(mac, 5)).toBe('iphone');
+    expect(guessPlatform(mac, 0)).toBe('computer');
+    expect(guessPlatform(android, 5)).toBe('android');
+    expect(guessPlatform(windows, 0)).toBe('computer');
+  });
+
+  it('shows the code as plain text in the first step, with the version', () => {
+    const view = setupView(setupProps(CODE));
+    const first = view.querySelector('#setup-steps > .step')!;
+    expect(first.querySelector('.step-title')!.textContent).toBe('Copy the bookmarklet.');
+    const code = first.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
     expect(code.value).toBe(CODE);
     expect(code.readOnly).toBe(true);
     expect(code.children).toHaveLength(0);
+    expect(first.querySelector('#copy-bookmarklet')).not.toBeNull();
     expect(view.querySelector('#bookmarklet-version')!.textContent).toBe(`Bookmarklet version ${BOOKMARKLET_VERSION}`);
-    expect([...view.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual(['Safari on iPhone', 'Chrome on Android', 'Desktop browsers']);
-    expect(view.querySelector('a')).toBeNull();
+    // The code is never a link: the CSP would block it, and dom.ts allows https only.
+    expect(view.querySelector('a[href^="javascript"]')).toBeNull();
+  });
+
+  it.each([
+    ['iphone', 'Safari on iPhone', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its address.', 'Try it on pdga.com.']],
+    ['android', 'Chrome on Android', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
+    ['computer', 'Desktop browsers', ['Copy the bookmarklet.', 'Add a bookmark with the code as its URL.', 'Try it on pdga.com.']],
+  ] as const)('shows numbered steps for %s only', (platform, title, steps) => {
+    const view = setupView({ ...setupProps(CODE), platform });
+    expect([...view.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual([title]);
+    expect([...view.querySelectorAll('#setup-steps .step-title')].map((step) => step.textContent)).toEqual(steps);
+    expect(view.querySelector<HTMLInputElement>(`#platform-${platform}`)!.checked).toBe(true);
+  });
+
+  it('runs the bookmarklet on Android from the address bar', () => {
+    const view = setupView({ ...setupProps(CODE), platform: 'android' });
+    expect(view.querySelector('#setup-steps')!.lastElementChild!.textContent).toContain('type Next Rating');
+  });
+
+  it('switches to another browser', () => {
+    const onPlatform = vi.fn();
+    const view = document.body.appendChild(setupView({ ...setupProps(CODE), onPlatform }));
+    view.querySelector<HTMLInputElement>('#platform-android')!.click();
+    expect(onPlatform).toHaveBeenCalledWith('android');
+    view.remove();
+  });
+
+  it('ends with trying it on your ratings details, which waits for a PDGA number', () => {
+    const last = setupView(setupProps(CODE)).querySelector('#setup-steps')!.lastElementChild!;
+    expect(last.querySelector<HTMLAnchorElement>('a#details-link')!.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
+    expect(last.textContent).toContain('Import complete');
+    const none = setupView({ ...setupProps(CODE), pdgaNumber: null }).querySelector<HTMLButtonElement>('#details-link')!;
+    expect(none.disabled).toBe(true);
+  });
+
+  it('offers help when it does not work, closed', () => {
+    const trouble = setupView(setupProps(CODE)).querySelector<HTMLDetailsElement>('details#setup-trouble')!;
+    expect(trouble.open).toBe(false);
+    expect(trouble.querySelector('summary')!.textContent).toBe("If it doesn't work");
+    expect(trouble.textContent).toContain('javascript:');
   });
 
   it('copies the code to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
-    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    const view = setupView(setupProps(CODE));
     view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
     await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toMatch(/^Copied/));
     expect(writeText).toHaveBeenCalledWith(CODE);
@@ -799,7 +911,7 @@ describe('bookmarklet setup', () => {
 
   it('selects the code for the user to copy when the clipboard is not available', async () => {
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
-    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    const view = setupView(setupProps(CODE));
     document.body.append(view);
     view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
     await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toBe('Copy the selected text.'));
@@ -812,7 +924,7 @@ describe('bookmarklet setup', () => {
 
   it('goes back', () => {
     const onBack = vi.fn();
-    setupView({ bookmarklet: CODE, onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
+    setupView({ ...setupProps(CODE), onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
     expect(onBack).toHaveBeenCalled();
   });
 });
@@ -1033,5 +1145,79 @@ describe('getting-started view for a player without data', () => {
     expect(view.querySelector<HTMLAnchorElement>('#details-link')!.getAttribute('href')).toBe(
       'https://www.pdga.com/player/100002/details',
     );
+  });
+});
+
+describe('how it works', () => {
+  it('has a section for each topic, in order, each heading ready for focus', () => {
+    const view = guideView({ onBack: vi.fn() });
+    expect(view.querySelector('h1')!.textContent).toBe('How it works');
+    const headings = [...view.querySelectorAll('h2')];
+    expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
+    expect(headings.map((h2) => h2.getAttribute('tabindex'))).toEqual(Array(GUIDE_SECTIONS.length).fill('-1'));
+    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'why', 'target', 'top8']);
+  });
+
+  it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
+    const view = guideView({ onBack: vi.fn() });
+    expect(view.querySelector('#guide-about')!.parentElement!.textContent).toMatch(/not affiliated with/);
+    const links = [...view.querySelectorAll<HTMLAnchorElement>('a')].map((a) => a.getAttribute('href'));
+    expect(links).toEqual([
+      'https://www.pdga.com/ratings/guide',
+      'https://www.pdga.com/faq/ratings/when-updated',
+      'https://www.pdga.com/global-masters-series',
+    ]);
+    expect(view.querySelector('a[target]')).toBeNull();
+  });
+
+  it('explains the rules, and is honest about what is not yet checked and where the decimals come from', () => {
+    const rules = guideView({ onBack: vi.fn() }).querySelector('#guide-rules')!.parentElement!.textContent!;
+    for (const part of ['12 months', '24 months', '2.5 standard deviations', 'at least 7 rounds', 'at least 9 counted rounds', 'highest rated rounds of that event', '9-hole round counts half', 'DNF']) {
+      expect(rules).toContain(part);
+    }
+    expect(rules).toContain('Two things are not yet checked against a real player');
+    expect(rules).toContain('two low rounds in the same window');
+    expect(rules).toContain('whole round ratings shown on pdga.com');
+  });
+
+  it('goes back', () => {
+    const onBack = vi.fn();
+    guideView({ onBack }).querySelector<HTMLButtonElement>('#guide-back')!.click();
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it('opens from Settings', () => {
+    const onOpenGuide = vi.fn();
+    settingsView({
+      language: null,
+      preferred: ['en'],
+      theme: null,
+      persistent: true,
+      bookmarklet: null,
+      onLanguage: vi.fn(),
+      onTheme: vi.fn(),
+      onOpenSetup: vi.fn(),
+      onOpenGuide,
+    }).querySelector<HTMLButtonElement>('#open-guide')!.click();
+    expect(onOpenGuide).toHaveBeenCalled();
+  });
+
+  it('opens from each card explanation at the matching section', () => {
+    const stored: StoredImport = {
+      at: '2026-10-01T10:00:00.000Z',
+      player: rawPlayer({ currentRating: '950' }),
+      details: [rawDetailsRow()],
+      events: [rawEvent()],
+    };
+    const model = buildModel(stored, 100001, NOW);
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    const onGuide = vi.fn();
+    const view = ratingView({ model, top8, cards: ALL_OPEN, onGuide, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const links = [...view.querySelectorAll<HTMLButtonElement>('.card-intro .link-button')];
+    expect(links.map((link) => link.id)).toEqual(['why-guide', 'top8-guide', 'stats-guide', 'rounds-guide']);
+    expect(links.every((link) => link.textContent === 'How it works' && link.parentElement!.lastChild === link)).toBe(true);
+    expect(links[1]!.getAttribute('aria-label')).toBe('How it works: Top 8');
+    for (const link of links) link.click();
+    expect(onGuide.mock.calls.map(([section]) => section)).toEqual(['why', 'top8', 'rules', 'rules']);
   });
 });

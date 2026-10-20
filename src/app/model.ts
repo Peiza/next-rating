@@ -84,6 +84,18 @@ export interface Model {
    */
   difference: number | null;
   /**
+   * What the "Why it changed" lines add up to, the difference line included.
+   * Many lines can offset each other, so this shows how big the change really
+   * is before rounding. Null without an explanation.
+   */
+  netChange: number | null;
+  /**
+   * The official rating as the engine calculates it from the official state,
+   * unrounded, such as 977.65 for 978. Only when that state rounds to the
+   * official rating; null otherwise.
+   */
+  officialExact: number | null;
+  /**
    * The ratings details were imported before the official rating date, so
    * they may be older than the last update.
    */
@@ -136,6 +148,9 @@ export function buildModel(
     nextUpdate,
     changes,
     difference: explanation?.difference ?? null,
+    netChange: explanation ? explanation.total + (explanation.difference ?? 0) : null,
+    officialExact:
+      explanation && currentRating !== null && explanation.before.rating === currentRating ? explanation.before.exact : null,
     staleDetails,
     importedAt: stored.at,
     stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,

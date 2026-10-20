@@ -620,7 +620,28 @@ a {
   color: var(--text-muted);
 }
 
-/* "Why it changed": the effect in a column of its own, the text and where beside it. */
+/* A button that reads as a link, for in-app pages: the fragment is reserved, so there are no routes. */
+.link-button {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-align: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.15em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* "Why it changed": the net total first, so offsetting lines do not look like a big change. */
+.why-net {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+
+/* Then each effect in a column of its own, the text and where beside it. */
 .reasons {
   list-style: none;
   margin: 0;
@@ -1188,11 +1209,44 @@ a {
   resize: vertical;
 }
 
-.instructions {
-  margin: 0 0 1rem;
-  padding-left: 1.5rem;
+.step .field {
+  margin-top: 1rem;
 }
 
-.instructions li {
+.step .hint {
+  margin-bottom: 0.75rem;
+}
+
+.trouble {
+  margin: 1rem 0 1.5rem;
+}
+
+/* How it works */
+
+.guide-section h2 {
+  scroll-margin-top: 1rem;
+}
+
+.guide-list {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.guide-list li {
   margin-bottom: 0.5rem;
+}
+
+.notice-inline {
+  color: var(--text-muted);
+}
+
+.guide > .button {
+  margin-top: 1.5rem;
+}
+
+.trouble summary {
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 700;
+  cursor: pointer;
 }

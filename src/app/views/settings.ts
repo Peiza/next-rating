@@ -1,8 +1,8 @@
 import { languages, resolveLanguage, t } from '../../i18n';
-import { BOOKMARKLET_VERSION } from '../../bookmarklet/version';
 import { el } from '../dom';
 import type { Theme } from '../storage';
 import { segmented, type Segment } from './segmented';
+import { bookmarkletStatus } from './setup';
 
 export interface SettingsProps {
   /** The language override; null follows the device. */
@@ -12,9 +12,12 @@ export interface SettingsProps {
   /** The theme override; null follows the device. */
   theme: Theme | null;
   persistent: boolean;
+  /** The bookmarklet version of the last hand-off, or null before one. */
+  bookmarklet: string | null;
   onLanguage: (language: string | null) => void;
   onTheme: (theme: Theme | null) => void;
   onOpenSetup: () => void;
+  onOpenGuide: () => void;
 }
 
 const THEME_OPTIONS: Segment<Theme | null>[] = [
@@ -50,7 +53,7 @@ function languagePicker(language: string | null, preferred: readonly string[], o
 }
 
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { language, preferred, theme, persistent, onLanguage, onTheme, onOpenSetup } = props;
+  const { language, preferred, theme, persistent, bookmarklet, onLanguage, onTheme, onOpenSetup, onOpenGuide } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -59,7 +62,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     languagePicker(language, preferred, onLanguage),
     segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),
     el('h2', {}, t('settings.bookmarklet')),
-    el('p', { class: 'hint' }, t('setup.version', { version: BOOKMARKLET_VERSION })),
+    bookmarkletStatus(bookmarklet),
     el(
       'button',
       { id: 'open-setup', class: 'button button-block', type: 'button', onclick: onOpenSetup },
@@ -67,6 +70,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     ),
     el('h2', {}, t('settings.about')),
     el('p', {}, t('app.privacy')),
+    el('button', { id: 'open-guide', class: 'button button-block', type: 'button', onclick: onOpenGuide }, t('guide.title')),
     el('p', { id: 'version', class: 'hint' }, t('settings.version', { version: __BUILD_ID__ })),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );

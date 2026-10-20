@@ -28,6 +28,11 @@ export const MAX_PAGES = 12;
 export const MAX_FAILED = 20;
 
 const VERSION = /^\d+(?:\.\d+){0,2}$/;
+
+/** A bookmarklet version as a hand-off carries it, such as "1.0.0". */
+export function isBookmarkletVersion(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 20 && VERSION.test(value);
+}
 export const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/details)?|tour\/event\/\d{1,8})$/;
 
 /** A pdga.com page as the bookmarklet sent it: the parts the app reads, as HTML. */
@@ -87,7 +92,7 @@ export function validateEnvelope(value: unknown): Envelope {
   const record = asRecord(value, 'hand-off');
   if (record.v !== HANDOFF_VERSION) throw new VersionError(record.v);
   const bookmarklet = record.bookmarklet;
-  if (typeof bookmarklet !== 'string' || bookmarklet.length > 20 || !VERSION.test(bookmarklet)) {
+  if (!isBookmarkletVersion(bookmarklet)) {
     throw new ParseError('malformed', 'bookmarklet version is not valid');
   }
   return {

@@ -21,24 +21,30 @@ App: https://peiza.github.io/next-rating/
 - "Why it changed" lists what moved the prediction away from the official
   rating: new rounds, rounds that left the window, started or stopped
   counting twice, or were dropped or brought back. Each one shows how many
-  points it adds or takes away, and together they add up to the change.
-  The starting point is the set of rounds PDGA itself counted; if that still
-  does not give the official rating, the gap shows as its own line,
-  "Difference from PDGA's last calculation".
+  points it adds or takes away, and a net total at the top says what they
+  add up to and what that rounds to, so lines that cancel out do not look
+  like a big change. The starting point is the set of rounds PDGA itself
+  counted; if that still does not give the official rating, the gap shows as
+  its own line, "Difference from PDGA's last calculation".
+- "How it works", opened from Settings or from the link in each card's
+  explanation, explains all this in the app, including which rules are not
+  yet checked against a real player.
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 
 ## The Rating tab
 
 Under the player's name come the predicted rating, the change against the
-official rating, the next ratings update and how old the data is. "How to
+official rating (with the value the app calculates for it, such as "978
+(calculated 977.65)", when it reproduces it), the next ratings update and
+how old the data is. "How to
 refresh" next to the data age explains the round trip to pdga.com, with the
 Refresh button under it. When the data is more than 7 days old, it opens by
 itself as a warning.
 
 Below that, each part is a card that opens and closes: Why it changed, Add a
-round, Reach a target rating, Top 8, Statistics and Rounds. Each starts with
-a one-line explanation. Rounds is open at first; the app remembers which
+round, Reach a target rating, Top 8, Details and Rounds. Each starts with a
+one-line explanation that links to its part of "How it works". Rounds is open at first; the app remembers which
 cards you open, also when you start it from the home screen. While closed,
 Why it changed shows its largest effect in its header, such as "907 no
 longer counts twice, +0.7".
@@ -110,8 +116,11 @@ follow friends as well as yourself:
 
 The bookmarklet is a bookmark that brings your rounds from pdga.com into the
 app in one tap. Install it from the app: on the getting-started page, or in
-Settings, choose "Install bookmarklet" and follow the steps for your browser
-(Safari on iPhone, Chrome on Android, or a desktop browser).
+Settings, choose "Install bookmarklet". The setup page picks your kind of
+browser (Safari on iPhone, Chrome on Android, or a desktop browser; you can
+switch) and shows numbered steps, from copying the code to trying it on your
+ratings details. Settings and the setup page also say whether the
+bookmarklet you last ran in this browser is up to date.
 
 Run it on your ratings details page or player page on pdga.com. It:
 
