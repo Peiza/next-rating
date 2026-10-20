@@ -508,13 +508,15 @@ a {
   cursor: pointer;
 }
 
-.stats {
+.stats,
+.top8 {
   margin: 1.5rem 0;
   border: 2px solid var(--border);
   border-radius: 0.5rem;
 }
 
-.stats summary {
+.stats summary,
+.top8 summary {
   min-height: 3rem;
   padding: 0.75rem 1rem;
   font-weight: 700;
@@ -553,6 +555,110 @@ a {
   flex-basis: 100%;
   font-weight: 400;
   color: var(--text-muted);
+}
+
+/*
+ * Top 8, laid out like the GMS player card: a band with the period, Sum,
+ * Average and High side by side, then the rounds with the rating on the
+ * right. The three figures stay in one row at 320 px.
+ */
+.top8-body {
+  padding: 0 1rem 1rem;
+}
+
+.top8-card {
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.top8-band {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-weight: 700;
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+.top8-figures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+}
+
+.top8-figure {
+  padding: 0.75rem 0.25rem;
+  text-align: center;
+}
+
+.top8-figure + .top8-figure {
+  border-left: 2px solid var(--border);
+}
+
+.top8-figure dt {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.top8-figure dd {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.top8-found,
+.top8-empty {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+.top8-found {
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+
+.top8-rounds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.top8-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.top8-row + .top8-row {
+  border-top: 1px solid var(--border);
+}
+
+.top8-label {
+  flex: none;
+  min-width: 3.25em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.top8-event {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.top8-rating {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .rounds {

@@ -15,6 +15,21 @@ function checkHref(href: string): string {
   return href;
 }
 
+/** The open state of a <details> panel, kept by main.ts so a re-render does not close it. */
+export interface Disclosure {
+  open: boolean;
+  onToggle: (open: boolean) => void;
+}
+
+/** The props that give a <details> element its kept open state, if there is one. */
+export function disclosure(state: Disclosure | undefined): Props {
+  if (!state) return {};
+  return {
+    open: state.open,
+    ontoggle: (event) => state.onToggle((event.currentTarget as HTMLDetailsElement).open),
+  };
+}
+
 /**
  * Creates an element. Props starting with "on" add event listeners; true
  * adds an empty attribute; false, null and undefined leave it out.

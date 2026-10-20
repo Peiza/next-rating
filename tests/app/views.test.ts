@@ -5,6 +5,8 @@ import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { ratingView } from '../../src/app/views/rating';
+import { topEight } from '../../src/app/top8';
+import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
@@ -398,6 +400,140 @@ describe('rating view', () => {
 
   it('ends with the unofficial notice', () => {
     expect(ratingPage().lastElementChild!.textContent).toMatch(/not affiliated with/);
+  });
+});
+
+describe('panel open state', () => {
+  const stored: StoredImport = { at: '2026-10-01T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [] };
+
+  it('opens Statistics from its kept state and reports a toggle', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const onToggle = vi.fn();
+    const view = ratingView({ model, stats: { open: true, onToggle }, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const stats = view.querySelector<HTMLDetailsElement>('details#stats')!;
+    expect(stats.open).toBe(true);
+    stats.open = false;
+    stats.dispatchEvent(new Event('toggle'));
+    expect(onToggle).toHaveBeenLastCalledWith(false);
+  });
+
+  it('starts closed without a kept state', () => {
+    const view = ratingView({ model: buildModel(stored, 100001, NOW), favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    expect(view.querySelector<HTMLDetailsElement>('details#stats')!.open).toBe(false);
+  });
+});
+
+describe('top 8 panel', () => {
+  /** Nine rated rounds this year, one of them in a later round of an event without an id. */
+  const stored: StoredImport = {
+    at: '2026-10-01T10:00:00.000Z',
+    player: rawPlayer(),
+    details: [
+      ...[1000, 990, 980, 970, 960, 950, 940, 930].map((rating, i) =>
+        rawDetailsRow({ eventId: String(900100 + i), date: `${i + 1}-Mar-2026`, rating: String(rating) }),
+      ),
+      rawDetailsRow({ eventId: '', eventName: 'Club Round', date: '1-Apr-2026', round: '2', roundLabel: '2', rating: '1010' }),
+      rawDetailsRow({ eventId: '900200', date: '1-Jun-2025', rating: '1050' }),
+    ],
+    events: [],
+  };
+
+  function page(props: Partial<Top8Props> = {}, data = stored) {
+    const model = buildModel(data, 100001, NOW);
+    const top8: Top8Props = {
+      open: false,
+      top: topEight(model, props.top?.period ?? 'year', '2026-10-04'),
+      onToggle: vi.fn(),
+      onPeriod: vi.fn(),
+      ...props,
+    };
+    return ratingView({ model, top8, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+  }
+
+  it('is a closed panel right after Statistics', () => {
+    const view = page();
+    const panel = view.querySelector<HTMLDetailsElement>('details#top8')!;
+    expect(panel.open).toBe(false);
+    expect(panel.querySelector('summary')!.textContent).toBe('Top 8');
+    expect(view.querySelector('#stats')!.nextElementSibling).toBe(panel);
+  });
+
+  it('opens from its kept state and reports a toggle', () => {
+    const onToggle = vi.fn();
+    const panel = page({ open: true, onToggle }).querySelector<HTMLDetailsElement>('details#top8')!;
+    expect(panel.open).toBe(true);
+    panel.open = false;
+    panel.dispatchEvent(new Event('toggle'));
+    expect(onToggle).toHaveBeenLastCalledWith(false);
+  });
+
+  it('shows the calendar year by default and switches to the rating window', () => {
+    const onPeriod = vi.fn();
+    const view = page({ onPeriod });
+    expect(view.querySelector<HTMLInputElement>('#top8-year')!.checked).toBe(true);
+    expect(view.querySelector('.top8-band')!.textContent).toBe('Calendar year 2026');
+    const windowPeriod = view.querySelector<HTMLInputElement>('#top8-window')!;
+    windowPeriod.checked = true;
+    windowPeriod.dispatchEvent(new Event('change'));
+    expect(onPeriod).toHaveBeenCalledWith('window');
+  });
+
+  it('shows Sum, Average and High, then the 8 highest rounds', () => {
+    const view = page();
+    const figures = [...view.querySelectorAll('.top8-figure')].map((figure) => [
+      figure.querySelector('dt')!.textContent,
+      figure.querySelector('dd')!.textContent,
+    ]);
+    expect(figures).toEqual([
+      ['Sum', '7800'],
+      ['Average', '975'],
+      ['High', '1010'],
+    ]);
+    const rows = [...view.querySelectorAll('.top8-row')];
+    expect(rows.map((row) => row.querySelector('.top8-rating')!.textContent)).toEqual([
+      '1010', '1000', '990', '980', '970', '960', '950', '940',
+    ]);
+    expect(view.querySelector('#top8-found')).toBeNull();
+  });
+
+  it('labels each round "RD n", with the event linked to pdga.com when its id is known', () => {
+    const rows = [...page().querySelectorAll('.top8-row')];
+    expect([...rows[0]!.children].map((child) => child.className)).toEqual(['top8-label', 'top8-event', 'top8-rating']);
+    expect(rows[0]!.querySelector('.top8-label')!.textContent).toBe('RD 2');
+    expect(rows[0]!.querySelector('.top8-event')!.textContent).toBe('Club Round');
+    expect(rows[0]!.querySelector('a')).toBeNull();
+    const link = rows[1]!.querySelector<HTMLAnchorElement>('.top8-event a')!;
+    expect(link.textContent).toBe('Example Open');
+    expect(link.getAttribute('href')).toBe('https://www.pdga.com/tour/event/900100');
+    expect(link.hasAttribute('target')).toBe(false);
+  });
+
+  it('says how many rounds were found when there are fewer than 8', () => {
+    const view = page({}, { ...stored, details: stored.details!.slice(0, 3) });
+    expect(view.querySelector('#top8-found')!.textContent).toBe('3 rated rounds found; the Top 8 takes 8.');
+    expect(view.querySelectorAll('.top8-row')).toHaveLength(3);
+    expect(view.querySelectorAll('.top8-figure dd')[1]!.textContent).toBe('990');
+  });
+
+  it('shows the rating window with its dates', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const view = page({ top: topEight(model, 'window', '2026-10-04') });
+    expect(view.querySelector<HTMLInputElement>('#top8-window')!.checked).toBe(true);
+    expect(view.querySelector('.top8-band')!.textContent).toMatch(/^Rating window, 12 months: \S+ to \S+$/);
+    expect(view.querySelectorAll('.top8-row')).toHaveLength(8);
+  });
+
+  it('says so when no round was rated this year', () => {
+    const view = page({}, { ...stored, details: stored.details!.slice(-1) });
+    expect(view.querySelector('.top8-empty')!.textContent).toBe('No rated rounds in 2026 yet.');
+    expect(view.querySelector('.top8-figures')).toBeNull();
+  });
+
+  it('shows in Swedish', () => {
+    setLanguage('sv');
+    const view = page();
+    expect(view.querySelector('#top8 summary')!.textContent).toBe('Topp 8');
+    expect([...view.querySelectorAll('.top8-figure dt')].map((dt) => dt.textContent)).toEqual(['Summa', 'Snitt', 'Högsta']);
   });
 });
 

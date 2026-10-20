@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { explainChange, predictRating, subtractMonths, targetAverage } from '../../src/engine';
+import { explainChange, predictRating, subtractMonths, targetAverage, topRounds } from '../../src/engine';
 import { detailsToRounds, eventToRounds, mergeRounds, parseEvent, parsePlayer, parseRatingsDetails } from '../../src/parsers';
 import { fixturePlayers, fixtures } from '../fixture-loader';
 import { parseHtml } from '../parsers/html';
@@ -27,6 +27,22 @@ describe.skipIf(!fixtures)('engine against pdga.com', () => {
     expect(player.currentRating).not.toBeNull();
     expect(prediction.rating).toBe(player.currentRating);
     expect(prediction.change).toBe(0);
+  });
+
+  it('takes a Top 8 that is sorted and adds up, in the window and in each year', () => {
+    const all = detailsToRounds(rounds);
+    const { windowStart, windowEnd } = prediction.stats;
+    const years = [...new Set(all.map((round) => round.date.slice(0, 4)))];
+    const ranges = [[windowStart!, windowEnd!], ...years.map((year) => [`${year}-01-01`, `${year}-12-31`])];
+    for (const [from, to] of ranges) {
+      const top = topRounds(all, from!, to!);
+      const ratings = top.rounds.map((round) => round.rating!);
+      expect(ratings.length).toBe(Math.min(8, top.found));
+      expect(ratings).toEqual([...ratings].sort((a, b) => b - a));
+      expect(ratings.reduce((sum, rating) => sum + rating, 0)).toBe(top.sum);
+      expect(top.high).toBe(ratings[0]);
+      for (const round of top.rounds) expect(round.date >= from! && round.date <= to!).toBe(true);
+    }
   });
 
   it('explains a change whose effects add up, from the official rating', () => {
