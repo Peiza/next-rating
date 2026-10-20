@@ -63,10 +63,10 @@ single build-time setting.
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 3 bookmarklet, 4 web app (import, results, theme, manual entry, data age,
-local storage, offline PWA), 5 favorites, 6 change explanation, 7 polish
-after favorites, 8 deadline-aware prediction, 9 target calculator, 10 Top 8
-panel; then the Rating tab design pass (one card pattern, remembered open
-cards and Top 8 period).
+local storage, offline PWA, setup page, How it works), 5 favorites, 6 change
+explanation, 7 polish after favorites, 8 deadline-aware prediction, 9 target
+calculator, 10 Top 8 panel; then the Rating tab design pass (one card
+pattern, remembered open cards and Top 8 period).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -84,11 +84,8 @@ Bookmarklet rules every change keeps:
 - No text of its own: a minimal progress indicator and a status code that the
   app translates. Minified size under 5 kB.
 
-Open:
+Open, both optional:
 
-4. Web app, the open part: a setup page with step-by-step bookmarklet
-   installation for Safari on iPhone, Chrome on Android (run it by typing its
-   name in the address bar) and desktop browsers, with a copy button.
 5. Favorites, optional, later: a transfer link that moves favorites and manual
    rounds to another device through the same URL-fragment hand-off, without a
    server.
@@ -155,18 +152,18 @@ values live in the git-ignored tests/fixtures/expected.json.
 ## Process
 Start with a plan for my approval. Ask questions as plain text in the reply:
 numbered questions, each with lettered options and your recommendation, so I
-can copy them. Don't use interactive question boxes. Changes reach main through pull requests
-that I merge; the workflow builds and tests every pull request and deploys
-every merge, so each version can be tested live on my phone. Done so far:
+can copy them. Don't use interactive question boxes. Changes reach main
+through pull requests that I merge; the workflow builds and tests every pull
+request and deploys every merge, so each version can be tested live on my
+phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
-calculator, the Top 8 panel and the Rating tab design pass
-(docs/finished-steps.md). Build the rest in this order, committing after
-each working step:
-- Setup page: complete the minimal one with the full step-by-step
-  installation
+calculator, the Top 8 panel, the Rating tab design pass and the setup page
+with How it works (docs/finished-steps.md). Nothing else is planned: the
+open items under Architecture are optional and wait until I ask. Commit
+after each working step.
 
 Verification runs typecheck, tests, the i18n check and the build only: no
 local preview servers or handoff runs. I test on my phone after merging.
