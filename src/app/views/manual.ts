@@ -7,12 +7,13 @@ import type { ManualRoundInput } from '../players';
 import { MAX_EVENT_NAME, MAX_FAVORITES, MAX_MANUAL_ROUNDS, type StoredManualRound } from '../storage';
 
 /*
- * Quick manual entry on the Rating tab, under the prediction: an "Add a
- * round" button opens a form built for one hand, with the rating first and
- * the Add button last, near the thumb. Below it, the player's manual rounds
- * with a delete button each.
+ * Quick manual entry, the content of the "Add a round" card on the Rating
+ * tab: a form built for one hand, with the rating first and the Add button
+ * last, near the thumb. Below it, the player's manual rounds with a delete
+ * button each.
  */
 
+/** The card's header button (cardToggleId('manual')). */
 export const MANUAL_TOGGLE_ID = 'manual-toggle';
 export const MANUAL_RATING_ID = 'manual-rating';
 export const MANUAL_ADD_ID = 'manual-add';
@@ -75,7 +76,6 @@ export function readManualRound(draft: ManualDraft, today: PlainDate): ManualRea
 
 export interface ManualProps {
   rounds: readonly StoredManualRound[];
-  open: boolean;
   draft: ManualDraft;
   flash: ManualFlash;
   /** "Delete all" waits for confirmation. */
@@ -85,7 +85,6 @@ export interface ManualProps {
   /** The player's label, for the message when adding a round saves the player as a favorite. */
   player: string;
   today: PlainDate;
-  onToggle: () => void;
   onDraft: (field: ManualField, value: string) => void;
   onAdd: (round: ManualRoundInput) => void;
   onDelete: (id: string) => void;
@@ -285,33 +284,21 @@ function clearRow(props: ManualProps): HTMLElement {
   );
 }
 
-export function manualEntry(props: ManualProps): HTMLElement {
-  const { open, rounds } = props;
-  return el(
-    'section',
-    { id: 'manual', class: 'manual', 'aria-label': t('manual.title') },
-    el(
-      'button',
-      {
-        id: MANUAL_TOGGLE_ID,
-        class: 'button button-block',
-        type: 'button',
-        'aria-expanded': open ? 'true' : 'false',
-        'aria-controls': PANEL_ID,
-        onclick: props.onToggle,
-      },
-      t('manual.toggle'),
-    ),
-    !open && rounds.length > 0 && el('p', { class: 'hint' }, t('manual.count', { count: rounds.length })),
-    open && entryForm(props),
-    open &&
-      rounds.length > 0 &&
-      el(
-        'div',
-        { class: 'manual-list' },
-        el('h2', {}, t('manual.listTitle')),
-        el('ul', { class: 'manual-rounds' }, ...newestFirst(rounds).map((round) => roundItem(round, props.onDelete))),
-        clearRow(props),
-      ),
-  );
+/** The card's content: the form, then the player's manual rounds. */
+export function manualEntry(props: ManualProps): HTMLElement[] {
+  const { rounds } = props;
+  return [
+    entryForm(props),
+    ...(rounds.length > 0
+      ? [
+          el(
+            'div',
+            { class: 'manual-list' },
+            el('h3', {}, t('manual.listTitle')),
+            el('ul', { class: 'manual-rounds' }, ...newestFirst(rounds).map((round) => roundItem(round, props.onDelete))),
+            clearRow(props),
+          ),
+        ]
+      : []),
+  ];
 }

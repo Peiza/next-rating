@@ -1,19 +1,22 @@
 import { TOP_COUNT } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
-import { disclosure, el, type Disclosure } from '../dom';
+import { el } from '../dom';
 import { formatDate, formatRating } from '../format';
 import type { TopEight, TopPeriod } from '../top8';
 import { eventUrl } from './pdga';
 import { segmented, type Segment } from './segmented';
 
 /*
- * The Top 8 panel on the Rating tab, laid out like the PDGA Global Masters
- * Series player card in the app's own themes: a band with the period, Sum,
- * Average and High, then the rounds highest first.
+ * The content of the Top 8 card on the Rating tab, laid out like the PDGA
+ * Global Masters Series player card in the app's own themes: a band with the
+ * period, Sum, Average and High, then the rounds highest first.
  */
 
-export interface Top8Props extends Disclosure {
+/** PDGA's page about the Global Masters Series, which the Top 8 follows. */
+export const GMS_URL = 'https://www.pdga.com/global-masters-series';
+
+export interface Top8Props {
   top: TopEight;
   onPeriod: (period: TopPeriod) => void;
 }
@@ -56,7 +59,7 @@ function figure(label: MessageKey, value: number): HTMLElement {
   return el('div', { class: 'top8-figure' }, el('dt', {}, t(label)), el('dd', {}, formatRating(value)));
 }
 
-function card(top: TopEight): HTMLElement {
+function gmsCard(top: TopEight): HTMLElement {
   const { result } = top;
   if (result.sum === null || result.average === null || result.high === null) {
     return el(
@@ -87,16 +90,7 @@ function card(top: TopEight): HTMLElement {
   );
 }
 
-export function top8Panel(props: Top8Props): HTMLElement {
-  return el(
-    'details',
-    { id: 'top8', class: 'top8', ...disclosure(props) },
-    el('summary', {}, t('top8.title')),
-    el(
-      'div',
-      { class: 'top8-body' },
-      segmented('top8.period', 'top8-period', TOP8_PERIODS, props.top.period, props.onPeriod),
-      card(props.top),
-    ),
-  );
+/** The card's content: the period, then the GMS-style card. */
+export function top8Panel(props: Top8Props): HTMLElement[] {
+  return [segmented('top8.period', 'top8-period', TOP8_PERIODS, props.top.period, props.onPeriod), gmsCard(props.top)];
 }

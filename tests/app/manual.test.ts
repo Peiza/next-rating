@@ -11,7 +11,7 @@ import {
   type ManualProps,
 } from '../../src/app/views/manual';
 import { ratingView } from '../../src/app/views/rating';
-import type { StoredManualRound } from '../../src/app/storage';
+import { DEFAULT_CARDS, type StoredManualRound } from '../../src/app/storage';
 import { rawDetailsRow, rawPlayer } from '../handoff/raw';
 
 const TODAY = '2026-10-20';
@@ -28,14 +28,12 @@ const ROUNDS: StoredManualRound[] = [
 function props(extra: Partial<ManualProps> = {}): ManualProps {
   return {
     rounds: [],
-    open: true,
     draft: draft(),
     flash: null,
     confirmClear: false,
     undo: null,
     player: 'Test Player #100001',
     today: TODAY,
-    onToggle: vi.fn(),
     onDraft: vi.fn(),
     onAdd: vi.fn(),
     onDelete: vi.fn(),
@@ -44,6 +42,13 @@ function props(extra: Partial<ManualProps> = {}): ManualProps {
     onClear: vi.fn(),
     ...extra,
   };
+}
+
+/** The card's content in one element, as the card shows it. */
+function entry(manual: ManualProps): HTMLElement {
+  const view = document.createElement('div');
+  view.append(...manualEntry(manual));
+  return view;
 }
 
 function submit(view: HTMLElement) {
@@ -100,17 +105,29 @@ describe('readManualRound', () => {
   });
 });
 
+function ratingPage(manual: ManualProps, open = false): HTMLElement {
+  const stored: StoredImport = { at: '2026-10-19T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [] };
+  const now = new Date('2026-10-20T10:00:00.000Z');
+  const model = buildModel(stored, 100001, now, manualToRounds(manual.rounds));
+  const cards = { ...DEFAULT_CARDS, manual: open };
+  return ratingView({ model, manual, cards, favorite: true, now, onAddFavorite: vi.fn() });
+}
+
 describe('manual entry view', () => {
-  it('is a button until opened, with the count of manual rounds', () => {
-    const view = manualEntry(props({ open: false, rounds: ROUNDS }));
+  it('is a closed card until opened, with the count of manual rounds in its header', () => {
+    const view = ratingPage(props({ rounds: ROUNDS }));
     const toggle = view.querySelector<HTMLButtonElement>('#manual-toggle')!;
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(view.querySelector('form')).toBeNull();
-    expect(view.textContent).toContain('2 manual rounds');
+    expect(toggle.textContent).toBe('Add a round2 manual rounds');
+    expect(view.querySelector('#manual form')).toBeNull();
+    const open = ratingPage(props({ rounds: ROUNDS }), true);
+    expect(open.querySelector('#manual-toggle .card-teaser')).toBeNull();
+    expect(open.querySelector('#manual-body')!.firstElementChild!.className).toBe('card-intro');
+    expect(open.querySelector('#manual-body form')).not.toBeNull();
   });
 
   it('puts the rating first, the date (today by default, up to a year ahead) next, and Add last', () => {
-    const view = manualEntry(props());
+    const view = entry(props());
     const form = view.querySelector('form')!;
     const inputs = [...form.querySelectorAll('input')];
     expect(inputs[0]!.id).toBe('manual-rating');
@@ -125,7 +142,7 @@ describe('manual entry view', () => {
 
   it('adds the typed round', () => {
     const onAdd = vi.fn();
-    const view = manualEntry(props({ onAdd }));
+    const view = entry(props({ onAdd }));
     type(view, 'manual-rating', '985');
     type(view, 'manual-date', '2026-11-01');
     submit(view);
@@ -134,7 +151,7 @@ describe('manual entry view', () => {
 
   it('marks a field that is not valid and says why', () => {
     const onAdd = vi.fn();
-    const view = manualEntry(props({ onAdd }));
+    const view = entry(props({ onAdd }));
     type(view, 'manual-rating', '985');
     type(view, 'manual-holes', '100');
     submit(view);
@@ -145,11 +162,11 @@ describe('manual entry view', () => {
   });
 
   it('keeps what was typed through a re-render, and opens "More" when it holds something', () => {
-    const view = manualEntry(props({ draft: draft({ rating: '97', eventName: 'Club night' }) }));
+    const view = entry(props({ draft: draft({ rating: '97', eventName: 'Club night' }) }));
     expect(view.querySelector<HTMLInputElement>('#manual-rating')!.value).toBe('97');
     expect(view.querySelector<HTMLDetailsElement>('details')!.open).toBe(true);
     const onDraft = vi.fn();
-    const next = manualEntry(props({ onDraft }));
+    const next = entry(props({ onDraft }));
     const input = next.querySelector<HTMLInputElement>('#manual-rating')!;
     input.value = '9';
     input.dispatchEvent(new Event('input'));
@@ -157,7 +174,7 @@ describe('manual entry view', () => {
   });
 
   it('says when adding saved the player as a favorite', () => {
-    const view = manualEntry(props({ flash: { kind: 'added', rating: 985, savedFavorite: true } }));
+    const view = entry(props({ flash: { kind: 'added', rating: 985, savedFavorite: true } }));
     expect(view.querySelector('#manual-status')!.textContent).toBe(
       'Added 985. Test Player #100001 is now a favorite, so the round is kept.',
     );
@@ -165,7 +182,7 @@ describe('manual entry view', () => {
 
   it('lists manual rounds newest first, each with a labelled delete button', () => {
     const onDelete = vi.fn();
-    const view = manualEntry(props({ rounds: ROUNDS, onDelete }));
+    const view = entry(props({ rounds: ROUNDS, onDelete }));
     const items = [...view.querySelectorAll('.manual-round')];
     expect(items.map((item) => item.querySelector('.round-rating')!.textContent)).toEqual(['985', '950']);
     expect(items[1]!.textContent).toContain('Club night');
@@ -177,9 +194,9 @@ describe('manual entry view', () => {
   });
 
   it('offers Undo after a delete, beside "Removed" in the status line', () => {
-    expect(manualEntry(props({ rounds: ROUNDS })).querySelector('#manual-undo')).toBeNull();
+    expect(entry(props({ rounds: ROUNDS })).querySelector('#manual-undo')).toBeNull();
     const onUndo = vi.fn();
-    const view = manualEntry(props({ rounds: ROUNDS, undo: { rating: 990, date: '2026-10-12' }, onUndo }));
+    const view = entry(props({ rounds: ROUNDS, undo: { rating: 990, date: '2026-10-12' }, onUndo }));
     expect(view.querySelector('#manual-status')!.textContent).toBe('Removed 990');
     const undo = view.querySelector<HTMLButtonElement>('#manual-undo')!;
     expect(undo.textContent).toBe('Undo');
@@ -187,16 +204,16 @@ describe('manual entry view', () => {
     undo.click();
     expect(onUndo).toHaveBeenCalled();
     // A newer message wins over "Removed".
-    const restored = manualEntry(props({ flash: { kind: 'restored', rating: 990 } }));
+    const restored = entry(props({ flash: { kind: 'restored', rating: 990 } }));
     expect(restored.querySelector('#manual-status')!.textContent).toBe('Restored 990.');
   });
 
   it('asks before deleting all, with Cancel first', () => {
     const onAskClear = vi.fn();
     const onClear = vi.fn();
-    manualEntry(props({ rounds: ROUNDS, onAskClear })).querySelector<HTMLButtonElement>('#manual-clear')!.click();
+    entry(props({ rounds: ROUNDS, onAskClear })).querySelector<HTMLButtonElement>('#manual-clear')!.click();
     expect(onAskClear).toHaveBeenCalledWith(true);
-    const view = manualEntry(props({ rounds: ROUNDS, confirmClear: true, onAskClear, onClear }));
+    const view = entry(props({ rounds: ROUNDS, confirmClear: true, onAskClear, onClear }));
     expect(view.querySelector('.confirm p')!.textContent).toBe('Delete all 2 manual rounds for this player?');
     const buttons = [...view.querySelectorAll<HTMLButtonElement>('.confirm button')];
     expect(buttons.map((button) => button.id)).toEqual(['manual-clear-cancel', 'manual-clear-confirm']);
@@ -204,12 +221,9 @@ describe('manual entry view', () => {
     expect(onClear).toHaveBeenCalled();
   });
 
-  it('sits right under the prediction on the Rating tab', () => {
-    const stored: StoredImport = { at: '2026-10-19T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [] };
-    const now = new Date('2026-10-20T10:00:00.000Z');
-    const model = buildModel(stored, 100001, now, manualToRounds(ROUNDS));
-    const view = ratingView({ model, manual: props({ open: false }), favorite: true, now, onAddFavorite: vi.fn() });
-    expect(view.querySelector('.summary')!.nextElementSibling!.id).toBe('manual');
+  it('follows Why it changed on the Rating tab, and its rounds show in the round list', () => {
+    const view = ratingPage(props({ rounds: ROUNDS }));
+    expect(view.querySelector('#why')!.nextElementSibling!.id).toBe('manual');
     expect([...view.querySelectorAll('.round-meta')].some((meta) => meta.textContent!.includes('Manual'))).toBe(true);
   });
 });

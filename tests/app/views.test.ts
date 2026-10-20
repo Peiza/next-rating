@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { el } from '../../src/app/dom';
+import { el, textWithNodes } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
@@ -12,7 +12,7 @@ import { isOlderVersion, setupView } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
-import type { StoredPlayer } from '../../src/app/storage';
+import { CARDS, DEFAULT_CARDS, type CardState, type StoredPlayer } from '../../src/app/storage';
 import { setLanguage } from '../../src/i18n';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
 
@@ -20,6 +20,9 @@ afterEach(() => setLanguage('en'));
 
 /** Three days after the imports below. */
 const NOW = new Date('2026-10-04T10:00:00.000Z');
+
+/** Every Rating tab card open, so their content shows. */
+const ALL_OPEN = Object.fromEntries(CARDS.map((name) => [name, true])) as CardState;
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
   return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenSetup: vi.fn() });
@@ -175,7 +178,7 @@ describe('rating view', () => {
   };
 
   function ratingPage(favorite = true, onAddFavorite = vi.fn()) {
-    return ratingView({ model: buildModel(stored, 100001, NOW), favorite, now: NOW, onAddFavorite });
+    return ratingView({ model: buildModel(stored, 100001, NOW), cards: ALL_OPEN, favorite, now: NOW, onAddFavorite });
   }
 
   it('names the player once, in the heading, with the data age on the line below', () => {
@@ -293,9 +296,9 @@ describe('rating view', () => {
     expect(event.textContent).toBe('Example Open, Round 1');
   });
 
-  it('has a stats panel', () => {
-    const stats = ratingPage().querySelector('details#stats')!;
-    expect(stats.querySelector('summary')!.textContent).toBe('Statistics');
+  it('has a stats card', () => {
+    const stats = ratingPage().querySelector('#stats')!;
+    expect(stats.querySelector('#stats-toggle')!.textContent).toBe('Statistics');
     const rows = [...stats.querySelectorAll('dl > div.stat')];
     expect(rows.length).toBeGreaterThan(0);
     expect(stats.querySelectorAll('dt').length).toBe(rows.length);
@@ -318,9 +321,9 @@ describe('rating view', () => {
     // PDGA's rounds give 965, so with this official rating there is no difference line.
     const reproduced = rawPlayer({ currentRating: '965' });
 
-    function why(extra: Partial<StoredImport> = {}): HTMLElement | null {
+    function why(extra: Partial<StoredImport> = {}, cards = ALL_OPEN): HTMLElement | null {
       const model = buildModel({ ...stored, player: reproduced, ...extra }, 100001, NOW);
-      return ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#why');
+      return ratingView({ model, cards, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#why');
     }
 
     it('follows the summary with the new rounds, largest effect first', () => {
@@ -348,7 +351,7 @@ describe('rating view', () => {
       const event = rawEvent({}, [rawEventRow('100001', ratings)]);
       event.divisions[0]!.holes = ratings.map(() => '18');
       const section = why({ events: [event] })!;
-      expect(section.querySelectorAll(':scope > ul > .reason')).toHaveLength(5);
+      expect(section.querySelectorAll('.card-body > ul > .reason')).toHaveLength(5);
       const more = section.querySelector('details.reasons-more')!;
       expect(more.querySelector('summary')!.textContent).toBe('Show all 6');
       expect(more.querySelectorAll('.reason')).toHaveLength(1);
@@ -357,7 +360,7 @@ describe('rating view', () => {
     it("adds the difference from PDGA's last calculation as the last visible line", () => {
       // The official rating is 950, not the 965 that PDGA's rounds give.
       const section = why({ player: rawPlayer({ currentRating: '950' }) })!;
-      const lines = [...section.querySelectorAll(':scope > ul > .reason')];
+      const lines = [...section.querySelectorAll('.card-body > ul > .reason')];
       expect(lines.map((line) => line.id)).toEqual(['', '', 'why-difference']);
       expect(lines.at(-1)!.querySelector('.reason-text')!.textContent).toBe("Difference from PDGA's last calculation");
       expect(lines.at(-1)!.querySelector('.reason-effect')!.textContent).toMatch(/^[↑↓→][−+]?\d+\.\d$/);
@@ -382,6 +385,18 @@ describe('rating view', () => {
       expect(why({ events: [] })).toBeNull();
       expect(why({ player: undefined })).toBeNull();
     });
+
+    it('shows the largest effect in its header while closed', () => {
+      const closed = why({}, DEFAULT_CARDS)!;
+      expect(closed.querySelector('.reason')).toBeNull();
+      expect(closed.querySelector('.card-teaser')!.textContent).toBe('New round 960, −1.4');
+      expect(why()!.querySelector('.card-teaser')).toBeNull();
+    });
+
+    it("shows the difference from PDGA's last calculation in the header when it is the largest", () => {
+      const teaser = why({ player: rawPlayer({ currentRating: '950' }) }, DEFAULT_CARDS)!.querySelector('.card-teaser')!;
+      expect(teaser.textContent).toMatch(/^Difference from PDGA's last calculation, \+\d+\.\d$/);
+    });
   });
 
   it('offers to save the unsaved player as a favorite', () => {
@@ -403,23 +418,114 @@ describe('rating view', () => {
   });
 });
 
-describe('panel open state', () => {
-  const stored: StoredImport = { at: '2026-10-01T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [] };
+describe('rating tab cards', () => {
+  /** The official rating 950 against a new unofficial round, so there is a change to explain. */
+  const stored: StoredImport = {
+    at: '2026-10-01T10:00:00.000Z',
+    player: rawPlayer({ currentRating: '950' }),
+    details: [rawDetailsRow()],
+    events: [rawEvent()],
+  };
 
-  it('opens Statistics from its kept state and reports a toggle', () => {
+  function page(cards?: CardState, onToggleCard = vi.fn()) {
     const model = buildModel(stored, 100001, NOW);
-    const onToggle = vi.fn();
-    const view = ratingView({ model, stats: { open: true, onToggle }, favorite: true, now: NOW, onAddFavorite: vi.fn() });
-    const stats = view.querySelector<HTMLDetailsElement>('details#stats')!;
-    expect(stats.open).toBe(true);
-    stats.open = false;
-    stats.dispatchEvent(new Event('toggle'));
-    expect(onToggle).toHaveBeenLastCalledWith(false);
+    const target = { draft: { target: '1000', count: '3' }, answer: null, onDraft: vi.fn(), onCalculate: vi.fn() };
+    const manual = {
+      rounds: [],
+      draft: { rating: '', date: '2026-10-04', eventName: '', holes: '' },
+      flash: null,
+      confirmClear: false,
+      undo: null,
+      player: 'Test Player #100001',
+      today: '2026-10-04',
+      onDraft: vi.fn(),
+      onAdd: vi.fn(),
+      onDelete: vi.fn(),
+      onUndo: vi.fn(),
+      onAskClear: vi.fn(),
+      onClear: vi.fn(),
+    };
+    const top8 = { top: topEight(model, 'year', '2026-10-04'), onPeriod: vi.fn() };
+    return ratingView({ model, manual, target, top8, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+  }
+
+  it('follow the summary in a fixed order, then the unofficial notice', () => {
+    const view = page();
+    expect([...view.querySelectorAll('.card')].map((card) => card.id)).toEqual(['why', 'manual', 'target', 'top8', 'stats', 'rounds']);
+    expect(view.querySelector('.summary')!.nextElementSibling!.id).toBe('why');
+    expect(view.querySelector('#rounds')!.nextElementSibling!.className).toBe('notice');
   });
 
-  it('starts closed without a kept state', () => {
-    const view = ratingView({ model: buildModel(stored, 100001, NOW), favorite: true, now: NOW, onAddFavorite: vi.fn() });
-    expect(view.querySelector<HTMLDetailsElement>('details#stats')!.open).toBe(false);
+  it('start with only Rounds open', () => {
+    const view = page();
+    const open = [...view.querySelectorAll('.card-toggle')].map((toggle) => [toggle.id, toggle.getAttribute('aria-expanded')]);
+    expect(open).toEqual([
+      ['why-toggle', 'false'],
+      ['manual-toggle', 'false'],
+      ['target-toggle', 'false'],
+      ['top8-toggle', 'false'],
+      ['stats-toggle', 'false'],
+      ['rounds-toggle', 'true'],
+    ]);
+    expect(view.querySelectorAll('.card-body')).toHaveLength(1);
+    expect(view.querySelector('#rounds-body .round')).not.toBeNull();
+  });
+
+  it('each have a header button inside a heading, with a turning arrow, and name the section after the title', () => {
+    const card = page().querySelector('#stats')!;
+    const toggle = card.querySelector<HTMLButtonElement>('h2 > button.card-toggle')!;
+    expect(toggle.type).toBe('button');
+    expect(toggle.hasAttribute('aria-controls')).toBe(false);
+    expect(toggle.querySelector('.card-arrow')!.getAttribute('aria-hidden')).toBe('true');
+    expect(card.getAttribute('aria-labelledby')).toBe('stats-title');
+    expect(card.querySelector('#stats-title')!.textContent).toBe('Statistics');
+    const open = page({ ...DEFAULT_CARDS, stats: true }).querySelector('#stats-toggle')!;
+    expect(open.getAttribute('aria-controls')).toBe('stats-body');
+  });
+
+  it('report a tap on the header with the card name', () => {
+    const onToggleCard = vi.fn();
+    page(undefined, onToggleCard).querySelector<HTMLButtonElement>('#top8-toggle')!.click();
+    expect(onToggleCard).toHaveBeenCalledWith('top8');
+  });
+
+  it('each start with a one-line explanation', () => {
+    const view = page(ALL_OPEN);
+    const intros = [...view.querySelectorAll('.card-body')].map((body) => body.firstElementChild!);
+    expect(intros.map((intro) => intro.className)).toEqual(Array(6).fill('card-intro'));
+    expect(intros.map((intro) => intro.textContent)).toEqual([
+      'What moved the prediction away from the official rating, largest effect first.',
+      'Add round ratings that are not on pdga.com yet, or rounds you expect to play.',
+      'The average round rating your next rounds need to reach a rating at the next update.',
+      "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",
+      'The numbers behind the prediction: the window, dropped and doubled rounds, and averages.',
+      'Every round the app knows, newest first, and how it counts in the prediction.',
+    ]);
+  });
+
+  it('link the Global Masters Series to its pdga.com page, in the same tab', () => {
+    const link = page(ALL_OPEN).querySelector<HTMLAnchorElement>('#top8-body .card-intro a')!;
+    expect(link.textContent).toBe('Global Masters Series');
+    expect(link.getAttribute('href')).toBe('https://www.pdga.com/global-masters-series');
+    expect(link.hasAttribute('target')).toBe(false);
+  });
+
+  it('keep Rounds for events without rated rounds, and leave it out with neither', () => {
+    const empty = rawEvent({}, [rawEventRow('100002', ['950'])]);
+    const model = buildModel({ ...stored, details: [], events: [empty] }, 100001, NOW);
+    const view = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    expect(view.querySelector('#rounds-body .hint')!.textContent).toMatch(/^No rated rounds for #100001 yet in: /);
+    expect(view.querySelector('#rounds-body .rounds')).toBeNull();
+    const none = buildModel({ ...stored, details: [], events: [] }, 100001, NOW);
+    expect(ratingView({ model: none, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#rounds')).toBeNull();
+  });
+});
+
+describe('textWithNodes', () => {
+  it('puts nodes in place of placeholders and keeps the rest as text', () => {
+    const link = el('a', {}, 'here');
+    const parts = textWithNodes('Read {link}, not {other} <b>.', { link });
+    expect(parts).toEqual(['Read ', link, ', not ', '{other}', ' <b>.']);
   });
 });
 
@@ -441,30 +547,21 @@ describe('top 8 panel', () => {
   function page(props: Partial<Top8Props> = {}, data = stored) {
     const model = buildModel(data, 100001, NOW);
     const top8: Top8Props = {
-      open: false,
       top: topEight(model, props.top?.period ?? 'year', '2026-10-04'),
-      onToggle: vi.fn(),
       onPeriod: vi.fn(),
       ...props,
     };
-    return ratingView({ model, top8, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    return ratingView({ model, top8, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
-  it('is a closed panel right after Statistics', () => {
-    const view = page();
-    const panel = view.querySelector<HTMLDetailsElement>('details#top8')!;
-    expect(panel.open).toBe(false);
-    expect(panel.querySelector('summary')!.textContent).toBe('Top 8');
-    expect(view.querySelector('#stats')!.nextElementSibling).toBe(panel);
-  });
-
-  it('opens from its kept state and reports a toggle', () => {
-    const onToggle = vi.fn();
-    const panel = page({ open: true, onToggle }).querySelector<HTMLDetailsElement>('details#top8')!;
-    expect(panel.open).toBe(true);
-    panel.open = false;
-    panel.dispatchEvent(new Event('toggle'));
-    expect(onToggle).toHaveBeenLastCalledWith(false);
+  it('is a card right before Statistics, closed by default', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const top8 = { top: topEight(model, 'year', '2026-10-04'), onPeriod: vi.fn() };
+    const view = ratingView({ model, top8, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const card = view.querySelector('#top8')!;
+    expect(card.querySelector('#top8-toggle')!.getAttribute('aria-expanded')).toBe('false');
+    expect(card.querySelector('#top8-title')!.textContent).toBe('Top 8');
+    expect(card.nextElementSibling!.id).toBe('stats');
   });
 
   it('shows the calendar year by default and switches to the rating window', () => {
@@ -532,7 +629,7 @@ describe('top 8 panel', () => {
   it('shows in Swedish', () => {
     setLanguage('sv');
     const view = page();
-    expect(view.querySelector('#top8 summary')!.textContent).toBe('Topp 8');
+    expect(view.querySelector('#top8-title')!.textContent).toBe('Topp 8');
     expect([...view.querySelectorAll('.top8-figure dt')].map((dt) => dt.textContent)).toEqual(['Summa', 'Snitt', 'Högsta']);
   });
 });

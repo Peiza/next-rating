@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
 import { formatDayMonth } from '../../src/app/format';
 import { buildModel, manualToRounds } from '../../src/app/model';
-import type { StoredManualRound } from '../../src/app/storage';
+import { DEFAULT_CARDS, type StoredManualRound } from '../../src/app/storage';
 import {
   calculateTarget,
   emptyTargetDraft,
@@ -37,7 +37,14 @@ function draft(extra: Partial<TargetDraft> = {}): TargetDraft {
 }
 
 function props(extra: Partial<TargetProps> = {}): TargetProps {
-  return { open: true, draft: draft(), answer: null, onToggle: vi.fn(), onDraft: vi.fn(), onCalculate: vi.fn(), ...extra };
+  return { draft: draft(), answer: null, onDraft: vi.fn(), onCalculate: vi.fn(), ...extra };
+}
+
+/** The card's content in one element, as the card shows it. */
+function calculator(target: TargetProps): HTMLElement {
+  const view = document.createElement('div');
+  view.append(targetCalculator(target));
+  return view;
 }
 
 function answer(result: Partial<TargetAnswer['result']>, extra: Partial<TargetAnswer> = {}): TargetAnswer {
@@ -130,14 +137,22 @@ describe('calculateTarget', () => {
 });
 
 describe('target calculator view', () => {
-  it('is a button until opened', () => {
-    const view = targetCalculator(props({ open: false }));
-    expect(view.querySelector('#target-toggle')!.getAttribute('aria-expanded')).toBe('false');
-    expect(view.querySelector('form')).toBeNull();
+  it('is a closed card until opened, and starts with its explanation', () => {
+    const model = buildModel(STORED, 100001, NOW);
+    const page = (open: boolean) =>
+      ratingView({ model, target: props(), cards: { ...DEFAULT_CARDS, target: open }, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const closed = page(false);
+    expect(closed.querySelector('#target-toggle')!.getAttribute('aria-expanded')).toBe('false');
+    expect(closed.querySelector('#target form')).toBeNull();
+    const body = page(true).querySelector('#target-body')!;
+    expect(body.firstElementChild!.textContent).toBe(
+      'The average round rating your next rounds need to reach a rating at the next update.',
+    );
+    expect(body.querySelector('form')).not.toBeNull();
   });
 
   it('puts the target first, the rounds next and Calculate last, before the answer', () => {
-    const form = targetCalculator(props()).querySelector('form')!;
+    const form = calculator(props()).querySelector('form')!;
     const inputs = [...form.querySelectorAll('input')];
     expect(inputs.map((input) => [input.id, input.value, input.getAttribute('inputmode')])).toEqual([
       ['target-rating', '960', 'numeric'],
@@ -148,7 +163,7 @@ describe('target calculator view', () => {
 
   it('calculates with the typed values', () => {
     const onCalculate = vi.fn();
-    const view = targetCalculator(props({ onCalculate }));
+    const view = calculator(props({ onCalculate }));
     view.querySelector<HTMLInputElement>('#target-rating')!.value = '1000';
     view.querySelector<HTMLInputElement>('#target-count')!.value = '5';
     submit(view);
@@ -157,7 +172,7 @@ describe('target calculator view', () => {
 
   it('marks a field that is not valid and says why', () => {
     const onCalculate = vi.fn();
-    const view = targetCalculator(props({ onCalculate, answer: answer({}) }));
+    const view = calculator(props({ onCalculate, answer: answer({}) }));
     view.querySelector<HTMLInputElement>('#target-count')!.value = '0';
     submit(view);
     expect(onCalculate).not.toHaveBeenCalled();
@@ -168,7 +183,7 @@ describe('target calculator view', () => {
 
   it('keeps what was typed through a re-render', () => {
     const onDraft = vi.fn();
-    const view = targetCalculator(props({ draft: draft({ target: '99' }), onDraft }));
+    const view = calculator(props({ draft: draft({ target: '99' }), onDraft }));
     const input = view.querySelector<HTMLInputElement>('#target-rating')!;
     expect(input.value).toBe('99');
     input.value = '995';
@@ -177,29 +192,29 @@ describe('target calculator view', () => {
   });
 
   it('says the average needed', () => {
-    const view = targetCalculator(props({ answer: answer({}) }));
+    const view = calculator(props({ answer: answer({}) }));
     expect(lines(view)).toEqual([`Average at least 1012 in the next 3 rounds to reach 1000 at the ${NOV_10} update.`]);
-    const one = targetCalculator(props({ answer: answer({}, { query: { target: 1000, count: 1 } }) }));
+    const one = calculator(props({ answer: answer({}, { query: { target: 1000, count: 1 } }) }));
     expect(lines(one)).toEqual([`Rate at least 1012 in the next round to reach 1000 at the ${NOV_10} update.`]);
   });
 
   it('says when it is already reached, and what keeps it', () => {
-    const view = targetCalculator(props({ answer: answer({ without: 1003, reached: true, average: 982 }) }));
+    const view = calculator(props({ answer: answer({ without: 1003, reached: true, average: 982 }) }));
     expect(lines(view)).toEqual([
       `Already reached: 1003 at the ${NOV_10} update without new rounds.`,
       'To stay at 1000 or above after 3 more rounds, average at least 982.',
     ]);
-    const any = targetCalculator(props({ answer: answer({ without: 1003, reached: true, average: 0 }) }));
+    const any = calculator(props({ answer: answer({ without: 1003, reached: true, average: 0 }) }));
     expect(lines(any)[1]).toBe('Any 3 rounds keep it at 1000 or above.');
   });
 
   it('says when it is out of reach', () => {
-    const view = targetCalculator(props({ answer: answer({ average: null, rating: 991 }) }));
+    const view = calculator(props({ answer: answer({ average: null, rating: 991 }) }));
     expect(lines(view)).toEqual(['Out of reach in 3 rounds: even 3 rounds rated 1150 give 991.']);
   });
 
   it('says when rounds played today count in the following update', () => {
-    const view = targetCalculator(props({ answer: answer({}, { update: DECEMBER, following: true }) }));
+    const view = calculator(props({ answer: answer({}, { update: DECEMBER, following: true }) }));
     expect(lines(view)).toEqual([
       `Rounds played today miss the ${NOV_8} report deadline, so this is for the ${DEC_8} update.`,
       `Average at least 1012 in the next 3 rounds to reach 1000 at the ${DEC_8} update.`,
@@ -208,7 +223,7 @@ describe('target calculator view', () => {
 
   it('sits before the statistics on the Rating tab', () => {
     const model = buildModel(STORED, 100001, NOW);
-    const view = ratingView({ model, target: props({ open: false }), favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const view = ratingView({ model, target: props(), favorite: true, now: NOW, onAddFavorite: vi.fn() });
     expect(view.querySelector('#target')!.nextElementSibling!.id).toBe('stats');
   });
 });

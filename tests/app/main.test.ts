@@ -208,7 +208,8 @@ describe('app start', () => {
     );
     await start('/next-rating/');
     document.getElementById('manual-toggle')!.click();
-    expect(document.activeElement?.id).toBe('manual-rating');
+    // Focus stays on the card's header, so no keyboard pops up.
+    expect(document.activeElement?.id).toBe('manual-toggle');
     const rating = () => document.querySelector<HTMLInputElement>('#manual-rating')!;
     rating().value = '1010';
     document.querySelector('#manual-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
@@ -251,7 +252,7 @@ describe('app start', () => {
     expect(document.getElementById('manual-undo')).toBeNull();
   });
 
-  it('calculates a target, keeps the answer through a re-render, and starts closed for another player', async () => {
+  it('calculates a target, keeps the answer through a re-render, and starts empty for another player', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player' });
     localStorage.setItem(
@@ -268,7 +269,7 @@ describe('app start', () => {
     const toggle = () => document.getElementById('target-toggle')!;
     toggle().click();
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    expect(document.activeElement?.id).toBe('target-rating');
+    expect(document.activeElement?.id).toBe('target-toggle');
     expect(document.querySelector<HTMLInputElement>('#target-rating')!.value).toBe('960');
 
     document.querySelector('#target-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
@@ -282,14 +283,13 @@ describe('app start', () => {
 
     document.getElementById('players-menu')!.click();
     document.getElementById('player-100002')!.click();
-    expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    expect(document.getElementById('target-panel')).toBeNull();
-    toggle().click();
+    // The card stays open, with a fresh draft for this player.
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
     expect(document.querySelector<HTMLInputElement>('#target-rating')!.value).toBe('1010');
     expect(status().textContent).toBe('');
   });
 
-  it('keeps the Top 8 and Statistics panels open, and the Top 8 period, through a re-render', async () => {
+  it('remembers open cards across launches, with only Rounds open on the first', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(
       STORAGE_KEY,
@@ -299,22 +299,35 @@ describe('app start', () => {
       }),
     );
     await start('/next-rating/');
-    const panel = (id: string) => document.querySelector<HTMLDetailsElement>(`details#${id}`)!;
-    expect(panel('top8').open).toBe(false);
-    expect(document.querySelector<HTMLInputElement>('#top8-year')!.checked).toBe(true);
+    const expanded = (id: string) => document.getElementById(`${id}-toggle`)!.getAttribute('aria-expanded');
+    expect(['top8', 'stats', 'rounds'].map(expanded)).toEqual(['false', 'false', 'true']);
 
-    for (const id of ['top8', 'stats']) {
-      panel(id).open = true;
-      panel(id).dispatchEvent(new Event('toggle'));
-    }
+    for (const id of ['top8', 'stats', 'rounds']) document.getElementById(`${id}-toggle`)!.click();
+    expect(document.activeElement?.id).toBe('rounds-toggle');
+    expect(stored().cards).toMatchObject({ top8: true, stats: true, rounds: false });
+
+    await start('/next-rating/');
+    expect(['top8', 'stats', 'rounds'].map(expanded)).toEqual(['true', 'true', 'false']);
+  });
+
+  it('keeps the Top 8 period through a re-render', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { top8: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    expect(document.querySelector<HTMLInputElement>('#top8-year')!.checked).toBe(true);
     const windowPeriod = document.querySelector<HTMLInputElement>('#top8-window')!;
     windowPeriod.checked = true;
     windowPeriod.dispatchEvent(new Event('change'));
     expect(document.activeElement?.id).toBe('top8-window');
 
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
-    expect(panel('top8').open).toBe(true);
-    expect(panel('stats').open).toBe(true);
     expect(document.querySelector<HTMLInputElement>('#top8-window')!.checked).toBe(true);
     expect(document.querySelector('.top8-band')!.textContent).toMatch(/^Rating window/);
   });

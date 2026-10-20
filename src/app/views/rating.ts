@@ -1,7 +1,7 @@
 import { type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
-import { disclosure, el, type Disclosure } from '../dom';
+import { el, textWithNodes, type Child } from '../dom';
 import {
   formatAge,
   formatAverage,
@@ -13,21 +13,24 @@ import {
   formatRating,
 } from '../format';
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
+import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
+import { card, cardIntro } from './card';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { targetCalculator, type TargetProps } from './target';
-import { top8Panel, type Top8Props } from './top8';
+import { GMS_URL, top8Panel, type Top8Props } from './top8';
 
 export interface RatingProps {
   model: Model;
-  /** Quick manual entry, under the prediction. */
+  /** The Add a round card's content. */
   manual?: ManualProps;
-  /** The target calculator, before the statistics. */
+  /** The Reach a target rating card's content. */
   target?: TargetProps;
-  /** The Statistics panel's open state. */
-  stats?: Disclosure;
-  /** The Top 8 panel, after the statistics. */
+  /** The Top 8 card's content. */
   top8?: Top8Props;
+  /** Which cards are open; only Rounds when left out. */
+  cards?: CardState;
+  onToggleCard?: (name: CardName) => void;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
   /** For the data age and the next update. */
@@ -216,14 +219,20 @@ function effect(value: number): HTMLElement {
   );
 }
 
-function reasonItem({ round, item }: ListedChange): HTMLElement {
+/** What happened to the round, such as "985 no longer counts twice". */
+function reasonText({ item }: ListedChange): string {
   const key = item.kind === 'new' ? (NEW_ROUND[item.after] ?? REASON.new) : REASON[item.kind];
+  return t(key, { rating: formatRating(item.rating) });
+}
+
+function reasonItem(change: ListedChange): HTMLElement {
+  const { round, item } = change;
   const where = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), formatDate(round.date)];
   return el(
     'li',
     { class: 'reason' },
     effect(item.effect),
-    el('p', { class: 'reason-text' }, t(key, { rating: formatRating(item.rating) })),
+    el('p', { class: 'reason-text' }, reasonText(change)),
     el('p', { class: 'reason-meta' }, where.filter(Boolean).join(' · ')),
   );
 }
@@ -238,16 +247,29 @@ function differenceItem(value: number): HTMLElement {
   );
 }
 
+/** True when there is something to explain about the change. */
+function hasChanges({ changes, prediction, difference }: Model): boolean {
+  return prediction.change !== null && changes !== null && (changes.length > 0 || difference !== null);
+}
+
+/** The largest effect as one line for the closed card, such as "907 no longer counts twice, +0.7". */
+function whyTeaser({ changes, difference }: Model): string | false {
+  const top = changes?.[0];
+  const [reason, value] =
+    top && (difference === null || Math.abs(top.item.effect) >= Math.abs(difference))
+      ? [reasonText(top), top.item.effect]
+      : difference !== null
+        ? [t('why.difference'), difference]
+        : [null, 0];
+  return reason !== null && t('why.teaser', { reason, effect: formatEffect(value) });
+}
+
 /** What changed since the last official update, largest effect first. */
-function whyChanged(model: Model): HTMLElement | false {
-  const { changes, prediction, difference, staleDetails, player } = model;
-  if (prediction.change === null || !changes || (changes.length === 0 && difference === null)) return false;
+function whyBody(model: Model, changes: ListedChange[]): Child[] {
+  const { difference, staleDetails, player } = model;
   const shown = changes.slice(0, REASONS_SHOWN);
   const more = changes.slice(REASONS_SHOWN);
-  return el(
-    'section',
-    { id: 'why', class: 'why', 'aria-labelledby': 'why-title' },
-    el('h2', { id: 'why-title' }, t('why.title')),
+  return [
     el('ul', { class: 'reasons' }, ...shown.map(reasonItem), difference !== null && differenceItem(difference)),
     more.length > 0 &&
       el(
@@ -260,10 +282,10 @@ function whyChanged(model: Model): HTMLElement | false {
       staleDetails &&
       player?.ratingDate &&
       el('p', { class: 'hint' }, t('why.staleDetails', { date: formatDate(player.ratingDate) })),
-  );
+  ];
 }
 
-function statsPanel(stats: RatingStats, exact: number | null, state?: Disclosure): HTMLElement {
+function statsList(stats: RatingStats, exact: number | null): HTMLElement {
   const count = (value: number) => formatRating(value);
   const average = (value: number | null) => (value === null ? DASH : formatAverage(value));
   const hasWindow = stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null;
@@ -293,41 +315,23 @@ function statsPanel(stats: RatingStats, exact: number | null, state?: Disclosure
     ['stats.lowestLimit', average(stats.lowestLimit)],
   ];
   return el(
-    'details',
-    { id: 'stats', class: 'stats', ...disclosure(state) },
-    el('summary', {}, t('stats.title')),
-    el(
-      'dl',
-      {},
-      ...rows.map(([key, value, detail]) =>
-        el(
-          'div',
-          { class: 'stat' },
-          el('dt', {}, t(key)),
-          el('dd', {}, value),
-          detail !== undefined && el('dd', { class: 'stat-detail' }, detail),
-        ),
+    'dl',
+    { class: 'stats' },
+    ...rows.map(([key, value, detail]) =>
+      el(
+        'div',
+        { class: 'stat' },
+        el('dt', {}, t(key)),
+        el('dd', {}, value),
+        detail !== undefined && el('dd', { class: 'stat-detail' }, detail),
       ),
     ),
   );
 }
 
-/** The Rating tab once there is imported data. */
-export function ratingView(props: RatingProps): HTMLElement {
-  const { model } = props;
-  return el(
-    'section',
-    { class: 'view', 'aria-labelledby': 'view-title' },
-    el(
-      'h1',
-      { id: 'view-title' },
-      model.player?.name
-        ? t('rating.player', { name: model.player.name, number: model.pdgaNumber })
-        : t('rating.playerNumber', { number: model.pdgaNumber }),
-    ),
-    summary(props),
-    props.manual && manualEntry(props.manual),
-    whyChanged(model),
+/** Every round, newest first, after the events that have no rated round for the player yet. */
+function roundsBody(model: Model): Child[] {
+  return [
     model.eventsWithoutRounds.length > 0 &&
       el(
         'p',
@@ -339,11 +343,53 @@ export function ratingView(props: RatingProps): HTMLElement {
             .join(', '),
         }),
       ),
-    props.target && targetCalculator(props.target),
-    statsPanel(model.prediction.stats, model.prediction.exact, props.stats),
-    props.top8 && top8Panel(props.top8),
-    model.rows.length > 0 && el('h2', {}, t('rating.rounds')),
     model.rows.length > 0 && el('ol', { class: 'rounds' }, ...model.rows.map(roundItem)),
+  ];
+}
+
+/** The Top 8 explanation, with the Global Masters Series linked to PDGA's page about it. */
+function top8Intro(): HTMLElement {
+  const gms = el('a', { href: GMS_URL, rel: 'noreferrer' }, t('top8.gms'));
+  return cardIntro(...textWithNodes(t('top8.intro'), { gms }));
+}
+
+/**
+ * The Rating tab once there is imported data: the summary, then one card
+ * per section, each starting with a one-line explanation.
+ */
+export function ratingView(props: RatingProps): HTMLElement {
+  const { model, manual, target, top8, cards = DEFAULT_CARDS, onToggleCard = () => {} } = props;
+  const section = (name: CardName, title: MessageKey, body: () => Child[], teaser?: string | false) =>
+    card({ name, title, open: cards[name], teaser, onToggle: onToggleCard }, body);
+  const { changes } = model;
+  return el(
+    'section',
+    { class: 'view', 'aria-labelledby': 'view-title' },
+    el(
+      'h1',
+      { id: 'view-title' },
+      model.player?.name
+        ? t('rating.player', { name: model.player.name, number: model.pdgaNumber })
+        : t('rating.playerNumber', { number: model.pdgaNumber }),
+    ),
+    summary(props),
+    hasChanges(model) &&
+      section('why', 'why.title', () => [cardIntro(t('why.intro')), ...whyBody(model, changes!)], whyTeaser(model)),
+    manual &&
+      section(
+        'manual',
+        'manual.toggle',
+        () => [cardIntro(t('manual.intro')), ...manualEntry(manual)],
+        manual.rounds.length > 0 && t('manual.count', { count: manual.rounds.length }),
+      ),
+    target && section('target', 'target.toggle', () => [cardIntro(t('target.intro')), targetCalculator(target)]),
+    top8 && section('top8', 'top8.title', () => [top8Intro(), ...top8Panel(top8)]),
+    section('stats', 'stats.title', () => [
+      cardIntro(t('stats.intro')),
+      statsList(model.prediction.stats, model.prediction.exact),
+    ]),
+    (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
+      section('rounds', 'rating.rounds', () => [cardIntro(t('rating.roundsIntro')), ...roundsBody(model)]),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }
