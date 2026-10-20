@@ -443,6 +443,56 @@ a.button[target='_blank']::after {
   margin-bottom: 0.25rem;
 }
 
+/* "Why it changed": the effect in a column of its own, the text and where beside it. */
+.why {
+  margin: 1.5rem 0;
+}
+
+.reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reason {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.reason p {
+  margin: 0;
+  grid-column: 2;
+}
+
+.reason-effect {
+  grid-row: span 2;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reason-arrow {
+  margin-right: 0.25em;
+}
+
+.reason-text {
+  font-weight: 700;
+}
+
+.reason-meta {
+  color: var(--text-muted);
+}
+
+.reasons-more summary {
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .stats {
   margin: 1.5rem 0;
   border: 2px solid var(--border);

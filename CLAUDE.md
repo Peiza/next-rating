@@ -307,7 +307,7 @@ order, committing after each working step:
 - Favorites (docs/plan-favorites.md; before manual entry, so manual rounds
   are stored per player from the start) (done)
 - Change explanation: why the prediction differs from the official rating
-  (docs/plan-change-explanation.md)
+  (docs/plan-change-explanation.md) (done)
 - Polish after favorites (Architecture 7)
 - Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
   the offline PWA

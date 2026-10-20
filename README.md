@@ -16,6 +16,10 @@ App: https://peiza.github.io/next-rating/
   [PDGA ratings guide](https://www.pdga.com/ratings/guide): a 12-month window
   (24 months with fewer than 8 rounds), low outliers dropped, the most recent
   25% of rounds counted twice, and rounds weighted by hole count.
+- "Why it changed" lists what moved the prediction away from the official
+  rating: new rounds, rounds that left the window, started or stopped
+  counting twice, or were dropped or brought back. Each one shows how many
+  points it adds or takes away, and together they add up to the change.
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 

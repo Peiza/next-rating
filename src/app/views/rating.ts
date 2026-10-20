@@ -1,8 +1,8 @@
-import type { RatingStats, RoundStatus } from '../../engine';
+import type { ChangeKind, RatingStats, RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import { el } from '../dom';
-import { formatAverage, formatChange, formatDate, formatDateTime, formatRating } from '../format';
-import type { ListedResult, Model } from '../model';
+import { formatAverage, formatChange, formatDate, formatDateTime, formatEffect, formatRating } from '../format';
+import type { ListedChange, ListedResult, Model } from '../model';
 
 export interface RatingProps {
   model: Model;
@@ -28,12 +28,16 @@ const SOURCE: Record<ListedResult['round']['source'], MessageKey> = {
 
 const DASH = '–';
 
-/** The arrow and the sign carry the direction, so it never depends on colour alone. */
+/** The class suffix and arrow for a change. The arrow and a sign carry it, never colour alone. */
+function direction(value: number): ['up' | 'down' | 'none', string] {
+  return value > 0 ? ['up', '↑'] : value < 0 ? ['down', '↓'] : ['none', '→'];
+}
+
 function change(value: number): HTMLElement {
-  const [direction, arrow] = value > 0 ? ['up', '↑'] : value < 0 ? ['down', '↓'] : ['none', '→'];
+  const [dir, arrow] = direction(value);
   return el(
     'p',
-    { class: `change change-${direction}` },
+    { class: `change change-${dir}` },
     el('span', { class: 'change-arrow', 'aria-hidden': 'true' }, arrow),
     t('rating.change', { change: formatChange(value) }),
   );
@@ -105,6 +109,73 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
   );
 }
 
+/** The "Why it changed" text for each kind of change. New rounds that do not count say why. */
+const REASON: Record<ChangeKind, MessageKey> = {
+  new: 'why.new',
+  'left-window': 'why.leftWindow',
+  'entered-window': 'why.enteredWindow',
+  'started-doubling': 'why.startedDoubling',
+  'stopped-doubling': 'why.stoppedDoubling',
+  'newly-dropped': 'why.newlyDropped',
+  'no-longer-dropped': 'why.noLongerDropped',
+};
+
+const NEW_ROUND: Partial<Record<RoundStatus, MessageKey>> = {
+  doubled: 'why.newDoubled',
+  dropped: 'why.newDropped',
+  'outside-window': 'why.newOutsideWindow',
+};
+
+/** Lines shown before "Show all". */
+const REASONS_SHOWN = 5;
+
+function reasonItem({ round, item }: ListedChange): HTMLElement {
+  // The arrow follows the effect as shown, so a tiny effect shown as 0.0 gets →.
+  const [dir, arrow] = direction(Math.round(item.effect * 10));
+  const key = item.kind === 'new' ? (NEW_ROUND[item.after] ?? REASON.new) : REASON[item.kind];
+  const where = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), formatDate(round.date)];
+  return el(
+    'li',
+    { class: 'reason' },
+    el(
+      'span',
+      { class: `reason-effect change-${dir}` },
+      el('span', { class: 'reason-arrow', 'aria-hidden': 'true' }, arrow),
+      formatEffect(item.effect),
+    ),
+    el('p', { class: 'reason-text' }, t(key, { rating: formatRating(item.rating) })),
+    el('p', { class: 'reason-meta' }, where.filter(Boolean).join(' · ')),
+  );
+}
+
+/** What changed since the last official update, largest effect first. */
+function whyChanged(model: Model): HTMLElement | false {
+  const { changes, prediction, officialMismatch, player } = model;
+  if (prediction.change === null || !changes || changes.length === 0) return false;
+  const shown = changes.slice(0, REASONS_SHOWN);
+  const more = changes.slice(REASONS_SHOWN);
+  return el(
+    'section',
+    { id: 'why', class: 'why', 'aria-labelledby': 'why-title' },
+    el('h2', { id: 'why-title' }, t('why.title')),
+    el('ul', { class: 'reasons' }, ...shown.map(reasonItem)),
+    more.length > 0 &&
+      el(
+        'details',
+        { class: 'reasons-more' },
+        el('summary', {}, t('why.showAll', { total: changes.length })),
+        el('ul', { class: 'reasons' }, ...more.map(reasonItem)),
+      ),
+    officialMismatch !== null &&
+      player?.currentRating != null &&
+      el(
+        'p',
+        { class: 'hint' },
+        t('why.mismatch', { computed: formatRating(officialMismatch), official: formatRating(player.currentRating) }),
+      ),
+  );
+}
+
 function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
   const count = (value: number) => formatRating(value);
   const average = (value: number | null) => (value === null ? DASH : formatAverage(value));
@@ -163,6 +234,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     { class: 'view', 'aria-labelledby': 'view-title' },
     el('h1', { id: 'view-title' }, t('rating.title')),
     summary(props),
+    whyChanged(model),
     model.eventsWithoutRounds.length > 0 &&
       el(
         'p',
