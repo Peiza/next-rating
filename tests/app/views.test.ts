@@ -151,9 +151,23 @@ describe('rating view', () => {
   it('shows the prediction, the change and the official rating', () => {
     const view = ratingPage();
     expect(view.querySelector('#predicted')!.textContent).toBe('962');
-    expect(view.querySelector('.change')!.textContent).toBe('+12 vs official rating');
+    expect(view.querySelector('.change')!.textContent).toBe('↑+12 vs official rating');
     expect(view.querySelector('.official')!.textContent).toContain('950');
     expect(view.textContent).toContain('Last import:');
+  });
+
+  it.each([
+    ['950', 'up', '↑', '+12'],
+    ['970', 'down', '↓', '−8'],
+    ['962', 'none', '→', '0'],
+  ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
+    const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
+    const line = ratingView({ model, defaultPdgaNumber: 100001, onMakeDefault: vi.fn() }).querySelector('.change')!;
+    expect(line.classList.contains(`change-${direction}`)).toBe(true);
+    const icon = line.querySelector('.change-arrow')!;
+    expect(icon.textContent).toBe(arrow);
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    expect(line.textContent).toBe(`${arrow}${sign} vs official rating`);
   });
 
   it('lists rounds newest first with a text label and a symbol for each status', () => {
