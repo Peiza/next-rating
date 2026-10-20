@@ -34,6 +34,7 @@ import {
 } from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
 import { calculateTarget, emptyTargetDraft, type TargetAnswer, type TargetDraft, type TargetQuery } from './target';
+import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
   emptyDraft,
@@ -60,6 +61,7 @@ import {
 } from './views/players';
 import { ratingView } from './views/rating';
 import { TARGET_RATING_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID } from './views/target';
+import { TOP8_PERIODS } from './views/top8';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
@@ -117,6 +119,13 @@ let targetDraft: TargetDraft | null = null;
 let targetQuery: TargetQuery | null = null;
 /** The last answer and what it came from, so a re-render does not run the search again. */
 let targetMemo: { key: string; answer: TargetAnswer } | null = null;
+/**
+ * The Statistics and Top 8 panels: open or not, so a re-render keeps them,
+ * and the Top 8 period. They last until the page reloads, for every player.
+ */
+let statsOpen = false;
+let top8Open = false;
+let top8Period: TopPeriod = 'year';
 /**
  * The player the manual entry and target calculator state belongs to;
  * another player starts with them closed and empty.
@@ -320,6 +329,11 @@ function clearManual(): void {
   render(MANUAL_TOGGLE_ID);
 }
 
+function setTop8Period(period: TopPeriod): void {
+  top8Period = period;
+  render(TOP8_PERIODS.find((segment) => segment.value === period)!.id);
+}
+
 function toggleTarget(): void {
   targetOpen = !targetOpen;
   render(targetOpen ? TARGET_RATING_ID : TARGET_TOGGLE_ID);
@@ -495,6 +509,20 @@ function currentView(): HTMLElement {
           targetDraft = { ...targetDraft!, [field]: value };
         },
         onCalculate: calculate,
+      },
+      stats: {
+        open: statsOpen,
+        onToggle: (open) => {
+          statsOpen = open;
+        },
+      },
+      top8: {
+        open: top8Open,
+        top: topEight(model, top8Period, today(now)),
+        onToggle: (open) => {
+          top8Open = open;
+        },
+        onPeriod: setTop8Period,
       },
       manual: {
         rounds: player.manualRounds,

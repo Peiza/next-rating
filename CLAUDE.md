@@ -64,7 +64,8 @@ single build-time setting.
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 3 bookmarklet, 4 web app (import, results, theme, manual entry, data age,
 local storage, offline PWA), 5 favorites, 6 change explanation, 7 polish
-after favorites, 8 deadline-aware prediction, 9 target calculator.
+after favorites, 8 deadline-aware prediction, 9 target calculator, 10 Top 8
+panel.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -90,21 +91,6 @@ Open:
 5. Favorites, optional, later: a transfer link that moves favorites and manual
    rounds to another device through the same URL-fragment hand-off, without a
    server.
-10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
-   the PDGA Global Masters Series (GMS) player card but for any player. Visual
-   style only: no PDGA logos or other PDGA assets.
-   - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
-     below them the 8 highest-rated rounds, each with round label, event name
-     and rating, highest first.
-   - Count every rated round: official rounds from the details page and
-     unofficial rounds from imported events. No tier filter and no hole
-     weighting. DNF and manual rounds do not count.
-   - Period: by default the current calendar year, following today's date (as
-     GMS does). A switch offers instead exactly the window the rating
-     prediction uses, with the same anchor (the most recent rated round) and
-     the same 24-month fallback.
-   - With fewer than 8 rounds, show how many were found and the average of
-     those.
 11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
@@ -172,10 +158,9 @@ every merge, so each version can be tested live on my phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
-web app commit 3 (manual entry, data age, offline PWA) and the target
-calculator (docs/finished-steps.md). Build the rest in this order,
-committing after each working step:
-- Top 8 panel
+web app commit 3 (manual entry, data age, offline PWA), the target
+calculator and the Top 8 panel (docs/finished-steps.md). Build the rest in
+this order, committing after each working step:
 - Setup page: complete the minimal one with the full step-by-step
   installation
 

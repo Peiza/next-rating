@@ -289,6 +289,36 @@ describe('app start', () => {
     expect(status().textContent).toBe('');
   });
 
+  it('keeps the Top 8 and Statistics panels open, and the Top 8 period, through a re-render', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const panel = (id: string) => document.querySelector<HTMLDetailsElement>(`details#${id}`)!;
+    expect(panel('top8').open).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('#top8-year')!.checked).toBe(true);
+
+    for (const id of ['top8', 'stats']) {
+      panel(id).open = true;
+      panel(id).dispatchEvent(new Event('toggle'));
+    }
+    const windowPeriod = document.querySelector<HTMLInputElement>('#top8-window')!;
+    windowPeriod.checked = true;
+    windowPeriod.dispatchEvent(new Event('change'));
+    expect(document.activeElement?.id).toBe('top8-window');
+
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(panel('top8').open).toBe(true);
+    expect(panel('stats').open).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('#top8-window')!.checked).toBe(true);
+    expect(document.querySelector('.top8-band')!.textContent).toMatch(/^Rating window/);
+  });
+
   it('shows what another tab stored', async () => {
     await start('/next-rating/');
     expect(predicted()).toBeUndefined();

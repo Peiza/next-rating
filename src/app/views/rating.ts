@@ -1,7 +1,7 @@
 import { type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
-import { el } from '../dom';
+import { disclosure, el, type Disclosure } from '../dom';
 import {
   formatAge,
   formatAverage,
@@ -16,6 +16,7 @@ import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '..
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { targetCalculator, type TargetProps } from './target';
+import { top8Panel, type Top8Props } from './top8';
 
 export interface RatingProps {
   model: Model;
@@ -23,6 +24,10 @@ export interface RatingProps {
   manual?: ManualProps;
   /** The target calculator, before the statistics. */
   target?: TargetProps;
+  /** The Statistics panel's open state. */
+  stats?: Disclosure;
+  /** The Top 8 panel, after the statistics. */
+  top8?: Top8Props;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
   /** For the data age and the next update. */
@@ -258,7 +263,7 @@ function whyChanged(model: Model): HTMLElement | false {
   );
 }
 
-function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
+function statsPanel(stats: RatingStats, exact: number | null, state?: Disclosure): HTMLElement {
   const count = (value: number) => formatRating(value);
   const average = (value: number | null) => (value === null ? DASH : formatAverage(value));
   const hasWindow = stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null;
@@ -289,7 +294,7 @@ function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
   ];
   return el(
     'details',
-    { id: 'stats', class: 'stats' },
+    { id: 'stats', class: 'stats', ...disclosure(state) },
     el('summary', {}, t('stats.title')),
     el(
       'dl',
@@ -335,7 +340,8 @@ export function ratingView(props: RatingProps): HTMLElement {
         }),
       ),
     props.target && targetCalculator(props.target),
-    statsPanel(model.prediction.stats, model.prediction.exact),
+    statsPanel(model.prediction.stats, model.prediction.exact, props.stats),
+    props.top8 && top8Panel(props.top8),
     model.rows.length > 0 && el('h2', {}, t('rating.rounds')),
     model.rows.length > 0 && el('ol', { class: 'rounds' }, ...model.rows.map(roundItem)),
     el('p', { class: 'notice' }, t('app.unofficial')),
