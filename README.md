@@ -57,6 +57,14 @@ When a player's data is more than 7 days old, the Rating tab says so, with a
 button to that player's ratings details on pdga.com, where the bookmarklet
 refreshes it.
 
+## Top 8
+
+The Top 8 panel on the Rating tab is laid out like a Global Masters Series
+player card, for any player: the sum, average and highest of the player's 8
+highest rated rounds, then those rounds. Official and unofficial rounds
+count; manual rounds and DNF rounds do not. The period is the current
+calendar year, or the same window the prediction uses.
+
 ## Offline and the home screen
 
 After the first visit, the app works without a connection: a service worker

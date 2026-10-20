@@ -235,6 +235,31 @@ manual per-page fallback.
    leaves out rounds that cannot matter (outside the window, DNF, after the
    deadline), and main.ts memoizes the answer, so a re-render does not run
    it again.
+10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+   the PDGA Global Masters Series (GMS) player card but for any player. Visual
+   style only: no PDGA logos or other PDGA assets.
+   - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
+     below them the 8 highest-rated rounds, each with round label, event name
+     and rating, highest first.
+   - Count every rated round: official rounds from the details page and
+     unofficial rounds from imported events. No tier filter and no hole
+     weighting. DNF and manual rounds do not count.
+   - Period: by default the current calendar year, following today's date (as
+     GMS does). A switch offers instead exactly the window the rating
+     prediction uses, with the same anchor (the most recent rated round) and
+     the same 24-month fallback.
+   - With fewer than 8 rounds, show how many were found and the average of
+     those.
+   Built as (docs/plan-top8.md): `topRounds` in src/engine/top8.ts takes the
+   rounds in a date range, both ends inclusive; rounds the prediction drops
+   as outliers still count. The calendar year counts unofficial rounds after
+   the report deadline, since they were rated that year. The rating window is
+   the prediction's `windowStart` to `windowEnd`, so those rounds fall
+   outside it, and a manual round can be its anchor without being listed.
+   Equal ratings list the newer round first. The panel comes after
+   Statistics, in the app's own themes, with the round label as "RD 1". Its
+   open state and period, and Statistics' open state, live in main.ts: they
+   survive a re-render and last until the page reloads.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
@@ -267,3 +292,5 @@ Built in this order:
   the offline PWA (done)
 - Target calculator (Architecture 9, docs/plan-target-calculator.md), with
   Undo for deleting a manual round (done)
+- Top 8 panel (Architecture 10, docs/plan-top8.md), with Statistics kept
+  open through a re-render (done)
