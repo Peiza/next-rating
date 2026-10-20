@@ -1,4 +1,14 @@
-import { compareDates, explainChange, predictRating, type ChangeItem, type PlainDate, type Prediction, type RoundResult } from '../engine';
+import {
+  compareDates,
+  explainChange,
+  nextRatingUpdate,
+  predictRating,
+  type ChangeItem,
+  type PlainDate,
+  type Prediction,
+  type RatingUpdate,
+  type RoundResult,
+} from '../engine';
 import {
   detailsToRounds,
   eventToRounds,
@@ -36,6 +46,8 @@ export interface Model {
   /** Rounds with their status, newest first. */
   rows: ListedResult[];
   prediction: Prediction;
+  /** The update the prediction is for; new rounds after its deadline count in the following one. */
+  nextUpdate: RatingUpdate;
   /** Why the prediction differs from the official state, largest effect first. Null without official rounds. */
   changes: ListedChange[] | null;
   /**
@@ -53,7 +65,12 @@ export interface Model {
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
 }
 
-export function buildModel(stored: StoredImport, pdgaNumber: number, manualRounds: readonly ListedRound[] = []): Model {
+export function buildModel(
+  stored: StoredImport,
+  pdgaNumber: number,
+  now: Date,
+  manualRounds: readonly ListedRound[] = [],
+): Model {
   const player = stored.player ? normalizePlayer(stored.player) : null;
   const official = detailsToRounds(normalizeRatingsDetails(stored.details ?? []).rounds);
 
@@ -68,7 +85,8 @@ export function buildModel(stored: StoredImport, pdgaNumber: number, manualRound
   // Newest first for the engine too: on the same date, earlier counts as more recent.
   const rounds = mergeRounds(official, ...eventRounds.reverse(), [...manualRounds].reverse());
   const currentRating = player?.currentRating ?? null;
-  const prediction = predictRating(rounds, { currentRating });
+  const nextUpdate = nextRatingUpdate(today(now), player?.ratingDate ?? null);
+  const prediction = predictRating(rounds, { currentRating, deadline: nextUpdate.deadline });
   const rows = rounds
     .map((round, i) => ({ round, result: prediction.rounds[i]! }))
     .sort((a, b) => (a.round.date < b.round.date ? 1 : a.round.date > b.round.date ? -1 : 0));
@@ -84,6 +102,7 @@ export function buildModel(stored: StoredImport, pdgaNumber: number, manualRound
     pdgaNumber,
     rows,
     prediction,
+    nextUpdate,
     changes,
     difference: explanation?.difference ?? null,
     staleDetails,

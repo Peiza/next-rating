@@ -52,6 +52,19 @@ describe('explainChange', () => {
     expect(explanation.total).toBe(0);
   });
 
+  it('leaves out rounds after the report deadline, which wait for the following update', () => {
+    const before = fresh(1000, '2026-07-05');
+    const later = fresh(1000, '2026-07-06');
+    const rounds = [later, before, ...weekly([950, 960, 940, 970, 930, 950, 960, 940, 950, 955])];
+    const after = predictRating(rounds, { deadline: '2026-07-05' });
+    const explanation = explainChange(rounds, after)!;
+    const ids = explanation.items.map((item) => item.id);
+    expect(ids).toContain(before.id);
+    expect(ids).not.toContain(later.id);
+    const sum = explanation.items.reduce((total, item) => total + item.effect, 0);
+    expect(sum).toBeCloseTo(explanation.total, 9);
+  });
+
   it('lets a 985 round that stops counting twice outweigh a new 938 round', () => {
     // 13 counted rounds double the newest 4; 14 still double 4, so the new
     // round pushes the 985 round out of the double-weighted ones.

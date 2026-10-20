@@ -130,7 +130,8 @@ function weigh(
 /**
  * Predicts the next rating from all known rounds: official, unofficial and
  * manual. PDGA's Included flags are never used: inclusion is recomputed from
- * scratch, since adding rounds can bring back previously dropped ones.
+ * scratch, since adding rounds can bring back previously dropped ones. With
+ * a deadline, new rounds dated after it wait for the following update.
  */
 export function predictRating(
   rounds: readonly RoundInput[],
@@ -138,11 +139,16 @@ export function predictRating(
 ): Prediction {
   validate(rounds);
 
-  const status: RoundStatus[] = rounds.map((round) => (round.dnf ? 'dnf' : 'outside-window'));
-  const rated = rounds.flatMap((round, i) => (round.dnf ? [] : [i]));
+  const { deadline } = options;
+  const later = (round: RoundInput) =>
+    !round.dnf && round.source !== 'official' && deadline !== undefined && compareDates(round.date, deadline) > 0;
+  const status: RoundStatus[] = rounds.map((round) =>
+    round.dnf ? 'dnf' : later(round) ? 'after-deadline' : 'outside-window',
+  );
+  const rated = rounds.flatMap((round, i) => (round.dnf || later(round) ? [] : [i]));
   const ratingOf = (i: number) => rounds[i]!.rating!;
   const careerEvents = new Set(
-    rounds.filter((round) => round.source !== 'manual').map((round) => round.eventKey),
+    rounds.filter((round) => round.source !== 'manual' && !later(round)).map((round) => round.eventKey),
   ).size;
 
   let windowMonths: 12 | 24 | null = null;
@@ -190,7 +196,7 @@ export function predictRating(
 
   const stats: RatingStats = {
     totalRounds: rated.length,
-    dnfRounds: rounds.length - rated.length,
+    dnfRounds: rounds.filter((round) => round.dnf).length,
     careerEvents,
     windowMonths,
     windowStart,

@@ -48,7 +48,7 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
     const { parts, owner, unreadable } = await fromPayload(payload);
     expect(unreadable).toEqual([]);
     expect(parts.profileEvents).toHaveLength(expected.profile.events);
-    const model = buildModel(applyImport(null, parts, AT, owner!)!, owner!);
+    const model = buildModel(applyImport(null, parts, AT, owner!)!, owner!, new Date(AT));
     const official = parsePlayer(parseHtml(html.profile))!.currentRating;
     expect(official).not.toBeNull();
     expect(model.prediction.rating).toBe(official);
@@ -63,7 +63,7 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
     const { parts } = readPages([{ url, html: pageHtml(doc, 'event') }]);
     const rows = parts.events![0]!.divisions.flatMap((division) => division.rows);
     expect(rows.map((row) => row.pdgaNumber)).toEqual([String(pdgaNumber)]);
-    const model = buildModel(applyImport(null, parts, AT, pdgaNumber)!, pdgaNumber);
+    const model = buildModel(applyImport(null, parts, AT, pdgaNumber)!, pdgaNumber, new Date(AT));
     expect(model.rows.map(({ round }) => round.rating)).toEqual(ratings);
   });
 

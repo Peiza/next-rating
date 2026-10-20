@@ -610,6 +610,7 @@ a {
 }
 
 .round-outside-window .round-status,
+.round-after-deadline .round-status,
 .round-meta {
   color: var(--text-muted);
 }

@@ -105,6 +105,7 @@
   "round.status.doubled": "Räknas dubbelt",
   "round.status.dropped": "Struken",
   "round.status.outside-window": "Utanför perioden",
+  "round.status.after-deadline": "Räknas i uppdateringen därpå",
   "round.status.dnf": "DNF",
   "stats.title": "Statistik",
   "stats.exact": "Oavrundad beräkning",
