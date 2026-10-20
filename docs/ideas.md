@@ -16,3 +16,6 @@ Process list in CLAUDE.md.
    November update".
 5. Personal bests and milestones: mark the player's highest rated round and
    when the rating passes a round number such as 950 or 1000.
+6. Following update too: when some rounds count only in the following update
+   (dated after the report deadline), also show the prediction for that
+   update, so both are visible.
