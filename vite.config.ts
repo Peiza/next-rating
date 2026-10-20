@@ -30,6 +30,10 @@ function contentSecurityPolicy(): Plugin {
 export default defineConfig({
   // Relative asset paths, so dist/ works on any static host and under any path.
   base: './',
+  // Shown in Settings, so it is clear which version is live. GitHub Actions sets GITHUB_SHA.
+  define: {
+    __BUILD_ID__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'),
+  },
   plugins: [contentSecurityPolicy()],
   build: {
     // Small assets would become data: URIs, which the policy blocks.

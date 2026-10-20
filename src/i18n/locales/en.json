@@ -26,6 +26,7 @@
   "settings.languageDevice": "Device setting ({language})",
   "settings.storageUnavailable": "This browser does not let the app store data, so your settings are lost when you close the page.",
   "settings.about": "About",
+  "settings.version": "Version {version}",
   "import.title": "Import",
   "import.close": "Close",
   "import.status.ok": "Import complete.",

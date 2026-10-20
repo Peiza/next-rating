@@ -61,3 +61,21 @@ Allow Node.js through the firewall if asked.
 Tests that use pages saved from pdga.com read them from `tests/fixtures/`.
 That folder is local only and never committed, since the pages contain
 personal data, so those tests are skipped when it is missing (as in CI).
+
+## Deployment
+
+`.github/workflows/pages.yml` runs the type checks, tests, translation check
+and build on every pull request and every push to `main`. Pushes to `main`
+are then deployed to GitHub Pages; pull requests are never deployed.
+
+One-time setup in the GitHub web UI: **Settings > Pages > Build and
+deployment > Source: GitHub Actions.** The `github-pages` environment that
+this creates only accepts deployments from `main`.
+
+Settings > About in the app shows the short commit id of the build that is
+live ("dev" in a local build). GitHub Pages lets browsers cache pages for up
+to 10 minutes, so a new version can take a few minutes to show up on a phone.
+
+The workflow's actions are pinned to full commit SHAs. When updating one,
+pick a release that is at least 14 days old and pin its commit SHA, with the
+version in a comment.

@@ -92,6 +92,10 @@ describe('settings view', () => {
     expect(options[2]!.getAttribute('lang')).toBe('sv');
   });
 
+  it('shows the build id', () => {
+    expect(settingsView(props).querySelector('#version')!.textContent).toBe('Version dev');
+  });
+
   it('warns when the browser cannot store data', () => {
     expect(settingsView(props).querySelector('.warning')).toBeNull();
     expect(settingsView({ ...props, persistent: false }).querySelector('.warning')).not.toBeNull();
