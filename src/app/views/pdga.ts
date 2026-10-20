@@ -1,9 +1,16 @@
-import { t } from '../../i18n';
+import { t, type MessageKey } from '../../i18n';
 import { parseInteger, RANGES } from '../../parsers/values';
 import { el } from '../dom';
+import { MAX_FAVORITES } from '../storage';
 
 /** What the PDGA number form says after a save. */
-export type PdgaFlash = 'saved' | 'removed' | null;
+export type PdgaFlash = 'saved' | 'removed' | 'full' | null;
+
+const FLASH: Record<NonNullable<PdgaFlash>, MessageKey> = {
+  saved: 'pdga.saved',
+  removed: 'pdga.removed',
+  full: 'favorites.full',
+};
 
 export const PDGA_INPUT_ID = 'pdga-number';
 export const PDGA_SAVE_ID = 'pdga-number-save';
@@ -38,8 +45,8 @@ export function pdgaNumberForm(
   });
   const status = el(
     'p',
-    { id: statusId, class: 'status', role: 'status' },
-    flash === 'saved' ? t('pdga.saved') : flash === 'removed' ? t('pdga.removed') : '',
+    { id: statusId, class: flash === 'full' ? 'status error' : 'status', role: 'status' },
+    flash ? t(FLASH[flash], { max: MAX_FAVORITES }) : '',
   );
   const submit = (event: Event) => {
     event.preventDefault();

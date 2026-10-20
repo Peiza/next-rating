@@ -6,8 +6,9 @@ import type { ListedResult, Model } from '../model';
 
 export interface RatingProps {
   model: Model;
-  defaultPdgaNumber: number | null;
-  onMakeDefault: (pdgaNumber: number) => void;
+  /** False for the unsaved player, which gets an Add to favorites button. */
+  favorite: boolean;
+  onAddFavorite: (pdgaNumber: number) => void;
 }
 
 /** Every status has a symbol and a text label, so it never depends on colour alone. */
@@ -38,20 +39,19 @@ function change(value: number): HTMLElement {
   );
 }
 
-function summary({ model, defaultPdgaNumber, onMakeDefault }: RatingProps): HTMLElement {
-  const { player, prediction } = model;
+function summary({ model, favorite, onAddFavorite }: RatingProps): HTMLElement {
+  const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
   return el(
     'div',
     { class: 'summary' },
-    player &&
-      el(
-        'p',
-        { class: 'player' },
-        player.name
-          ? t('rating.player', { name: player.name, number: player.pdgaNumber })
-          : t('rating.playerNumber', { number: player.pdgaNumber }),
-      ),
+    el(
+      'p',
+      { class: 'player' },
+      player?.name
+        ? t('rating.player', { name: player.name, number: pdgaNumber })
+        : t('rating.playerNumber', { number: pdgaNumber }),
+    ),
     prediction.rating !== null
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
@@ -65,12 +65,11 @@ function summary({ model, defaultPdgaNumber, onMakeDefault }: RatingProps): HTML
           : t('rating.officialNoDate', { rating: formatRating(official) }),
       ),
     el('p', { class: 'hint' }, t('rating.lastImport', { time: formatDateTime(model.importedAt) })),
-    player !== null &&
-      player.pdgaNumber !== defaultPdgaNumber &&
+    !favorite &&
       el(
         'button',
-        { id: 'make-default', class: 'button', type: 'button', onclick: () => onMakeDefault(player.pdgaNumber) },
-        t('rating.makeDefault', { number: player.pdgaNumber }),
+        { id: 'add-favorite', class: 'button', type: 'button', onclick: () => onAddFavorite(pdgaNumber) },
+        t('rating.addFavorite', { number: pdgaNumber }),
       ),
   );
 }
@@ -164,9 +163,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     { class: 'view', 'aria-labelledby': 'view-title' },
     el('h1', { id: 'view-title' }, t('rating.title')),
     summary(props),
-    model.needsNumber && el('p', { class: 'warning' }, t('rating.needsNumber')),
-    model.pdgaNumber !== null &&
-      model.eventsWithoutRounds.length > 0 &&
+    model.eventsWithoutRounds.length > 0 &&
       el(
         'p',
         { class: 'hint' },

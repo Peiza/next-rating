@@ -11,6 +11,8 @@ export interface Banner {
   failed?: readonly string[];
   /** The hand-off came from an older bookmarklet. */
   outdated?: boolean;
+  /** The import could not be saved, so it lasts only until the page is closed. */
+  storageFull?: boolean;
 }
 
 export const BANNER_ID = 'import-banner';
@@ -37,6 +39,7 @@ export function bannerView(banner: Banner, onClose: () => void, onOpenSetup: () 
           el('li', {}, el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, pageLabel(url))),
         ),
       ),
+    banner.storageFull && el('p', {}, t('import.storageFull')),
     banner.outdated && el('p', {}, t('import.outdated')),
     el(
       'div',

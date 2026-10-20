@@ -170,8 +170,8 @@ describe('rating view', () => {
     events: [rawEvent()],
   };
 
-  function ratingPage(defaultPdgaNumber: number | null = 100001, onMakeDefault = vi.fn()) {
-    return ratingView({ model: buildModel(stored, defaultPdgaNumber), defaultPdgaNumber, onMakeDefault });
+  function ratingPage(favorite = true, onAddFavorite = vi.fn()) {
+    return ratingView({ model: buildModel(stored, 100001), favorite, onAddFavorite });
   }
 
   it('shows the prediction, the change and the official rating', () => {
@@ -188,7 +188,7 @@ describe('rating view', () => {
     ['962', 'none', '→', '0'],
   ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
     const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
-    const line = ratingView({ model, defaultPdgaNumber: 100001, onMakeDefault: vi.fn() }).querySelector('.change')!;
+    const line = ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.change')!;
     expect(line.classList.contains(`change-${direction}`)).toBe(true);
     const icon = line.querySelector('.change-arrow')!;
     expect(icon.textContent).toBe(arrow);
@@ -235,11 +235,18 @@ describe('rating view', () => {
     expect(range!.textContent).toMatch(/^\S+ to \S+$/);
   });
 
-  it('offers to make the imported player the default player', () => {
-    const onMakeDefault = vi.fn();
-    expect(ratingPage(100001).querySelector('#make-default')).toBeNull();
-    ratingPage(100009, onMakeDefault).querySelector<HTMLButtonElement>('#make-default')!.click();
-    expect(onMakeDefault).toHaveBeenCalledWith(100001);
+  it('offers to save the unsaved player as a favorite', () => {
+    const onAddFavorite = vi.fn();
+    expect(ratingPage(true).querySelector('#add-favorite')).toBeNull();
+    const button = ratingPage(false, onAddFavorite).querySelector<HTMLButtonElement>('#add-favorite')!;
+    expect(button.textContent).toBe('Add #100001 to favorites');
+    button.click();
+    expect(onAddFavorite).toHaveBeenCalledWith(100001);
+  });
+
+  it('names the player by number before a player header is imported', () => {
+    const model = buildModel({ ...stored, player: undefined }, 100001);
+    expect(ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.player')!.textContent).toBe('#100001');
   });
 
   it('ends with the unofficial notice', () => {
