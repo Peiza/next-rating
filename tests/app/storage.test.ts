@@ -20,6 +20,9 @@ const IMPORT: StoredImport = {
   events: [],
 };
 
+/** IMPORT after migration from v1, which records when the details were imported. */
+const MIGRATED: StoredImport = { ...IMPORT, detailsAt: IMPORT.at };
+
 function player(pdgaNumber: number, extra: Partial<StoredPlayer> = {}): StoredPlayer {
   return { pdgaNumber, favorite: true, import: null, ...extra };
 }
@@ -152,7 +155,9 @@ describe('validateData', () => {
     const corrupt = { ...IMPORT, details: [{ rating: 950 }] };
     expect(validateData({ players: [player(100001, { import: corrupt as never })] }).players).toEqual([player(100001)]);
     expect(validateData({ players: [player(100002, { import: IMPORT })] }).players).toEqual([player(100002)]);
+    // IMPORT has no detailsAt, like data stored before it was added.
     expect(validateData({ players: [player(100001, { import: IMPORT })] }).players[0]!.import).toEqual(IMPORT);
+    expect(validateData({ players: [player(100001, { import: MIGRATED })] }).players[0]!.import).toEqual(MIGRATED);
   });
 
   it('ignores anything that is not an object', () => {
@@ -166,7 +171,7 @@ describe('migration from v1', () => {
   it('makes the default player a favorite and "me", with its import', () => {
     const { data, complete } = migrateV1({ pdgaNumber: 100001, language: 'sv', theme: 'dark', lastImport: IMPORT });
     expect(complete).toBe(true);
-    expect(data).toEqual({ language: 'sv', theme: 'dark', me: 100001, players: [player(100001, { import: IMPORT })] });
+    expect(data).toEqual({ language: 'sv', theme: 'dark', me: 100001, players: [player(100001, { import: MIGRATED })] });
   });
 
   it('keeps a default player without an import', () => {
@@ -174,13 +179,13 @@ describe('migration from v1', () => {
   });
 
   it('makes the imported player "me" when there was no default player', () => {
-    expect(migrateV1({ lastImport: IMPORT }).data).toEqual({ ...EMPTY_DATA, me: 100001, players: [player(100001, { import: IMPORT })] });
+    expect(migrateV1({ lastImport: IMPORT }).data).toEqual({ ...EMPTY_DATA, me: 100001, players: [player(100001, { import: MIGRATED })] });
   });
 
   it("stores another player's import as the unsaved player", () => {
     const { data } = migrateV1({ pdgaNumber: 100009, lastImport: IMPORT });
     expect(data.me).toBe(100009);
-    expect(data.players).toEqual([player(100009), player(100001, { favorite: false, import: IMPORT })]);
+    expect(data.players).toEqual([player(100009), player(100001, { favorite: false, import: MIGRATED })]);
   });
 
   it("trims stored events to the player's rows", () => {
@@ -208,7 +213,7 @@ describe('migration from v1', () => {
         player(100002, {
           favorite: false,
           // Everything is kept, but the event page only with the player's own row.
-          import: { ...lastImport, events: [eventForPlayer(lastImport.events[0], 100002)] },
+          import: { ...lastImport, detailsAt: lastImport.at, events: [eventForPlayer(lastImport.events[0], 100002)] },
         }),
       ],
     });
@@ -222,7 +227,7 @@ describe('migration from v1', () => {
     const storage = new MemoryStorage();
     storage.setItem(V1_KEY, JSON.stringify({ pdgaNumber: 100001, language: 'sv', lastImport: IMPORT }));
     const store = createStore(storage);
-    expect(store.get().players).toEqual([player(100001, { import: IMPORT })]);
+    expect(store.get().players).toEqual([player(100001, { import: MIGRATED })]);
     expect(storage.getItem(V1_KEY)).toBeNull();
     expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual(store.get());
   });

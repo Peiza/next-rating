@@ -22,6 +22,9 @@ App: https://peiza.github.io/next-rating/
   rating: new rounds, rounds that left the window, started or stopped
   counting twice, or were dropped or brought back. Each one shows how many
   points it adds or takes away, and together they add up to the change.
+  The starting point is the set of rounds PDGA itself counted; if that still
+  does not give the official rating, the gap shows as its own line,
+  "Difference from PDGA's last calculation".
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 

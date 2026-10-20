@@ -39,6 +39,7 @@ describe('applyImport', () => {
   it('stores the first import', () => {
     expect(fullImport()).toEqual({
       at: FIRST,
+      detailsAt: FIRST,
       player: rawPlayer(),
       details: [rawDetailsRow()],
       profileEvents: [rawProfileEvent()],
@@ -103,10 +104,24 @@ describe('applyImport', () => {
   it('merges a pasted ratings details table without a player header', () => {
     const pasted = [rawDetailsRow({ eventId: '', rating: '940' })];
     const stored = fullImport();
-    expect(applyImport(stored, { details: pasted }, LATER, PLAYER)).toEqual({ ...stored, at: LATER, details: pasted });
+    expect(applyImport(stored, { details: pasted }, LATER, PLAYER)).toEqual({ ...stored, at: LATER, detailsAt: LATER, details: pasted });
     const fresh = applyImport(null, { details: pasted }, LATER, 100003)!;
-    expect(fresh).toEqual({ at: LATER, details: pasted, events: [] });
+    expect(fresh).toEqual({ at: LATER, detailsAt: LATER, details: pasted, events: [] });
     expect(validateStoredImport(fresh)).toEqual(fresh);
+  });
+
+  it('records when the ratings details were imported', () => {
+    const stored = fullImport();
+    const eventOnly = applyImport(stored, { events: [rawEvent({ eventId: '900009' })] }, LATER, PLAYER)!;
+    expect(eventOnly.at).toBe(LATER);
+    expect(eventOnly.detailsAt).toBe(FIRST);
+    expect(applyImport(stored, { details: [rawDetailsRow()] }, LATER, PLAYER)!.detailsAt).toBe(LATER);
+  });
+
+  it('reads an import stored without a details timestamp, and refuses an invalid one', () => {
+    const { detailsAt: _, ...older } = fullImport();
+    expect(validateStoredImport(older)).toEqual(older);
+    expect(validateStoredImport({ ...fullImport(), detailsAt: 'yesterday' })).toBeNull();
   });
 
   it('drops events that the ratings details now include', () => {

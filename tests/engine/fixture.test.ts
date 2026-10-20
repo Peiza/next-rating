@@ -100,6 +100,13 @@ describe.skipIf(!fixtures)('rule check against pdga.com', () => {
         expect(included).toEqual(details.map((round) => round.included));
         expect(prediction.rating).toBe(official);
       });
+
+      it("gives the official rating from PDGA's flags, with no difference line", () => {
+        const explanation = explainChange(rounds, prediction, official)!;
+        expect(explanation.before.fromFlags).toBe(true);
+        expect(explanation.before.rating).toBe(official);
+        expect(explanation.difference).toBeNull();
+      });
     });
   }
 

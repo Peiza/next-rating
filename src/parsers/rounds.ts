@@ -36,6 +36,7 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
         eventKey,
         ...(round.holes !== null && { holes: round.holes }),
         source: 'official',
+        pdga: { evaluated: round.evaluated, included: round.included },
         eventName: round.eventName,
         roundLabel: round.roundLabel,
       };

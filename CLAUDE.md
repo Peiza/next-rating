@@ -163,8 +163,13 @@ single build-time setting.
 6. Change explanation, on the Rating tab:
    - Under the change line, a short "Why it changed" list compares the last
      official update with the prediction, using the real engine.
-   - The official state is the official rounds only, which reproduces the
-     official rating; the new state is all rounds.
+   - The official state is exactly what PDGA counted: the official rounds
+     with PDGA's own Evaluated and Included flags, and only the doubling rule
+     and hole weights on top. The new state is all rounds, recomputed.
+   - If the official state still differs from the official rating, a
+     "Difference from PDGA's last calculation" line makes the lines add up
+     to the change shown. A new import is suggested only when the ratings
+     details were imported before the official rating date.
    - List what differs: new rounds with their ratings, rounds that left the
      window, rounds that started or stopped counting twice, and rounds newly
      dropped or no longer dropped.

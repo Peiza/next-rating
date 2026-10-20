@@ -17,6 +17,11 @@ export interface RoundInput {
   /** A DNF round never counts. */
   dnf?: boolean;
   source: RoundSource;
+  /**
+   * PDGA's flags from the ratings details page, on official rounds. Only
+   * officialState uses them; predictRating ignores them and recomputes.
+   */
+  pdga?: { evaluated: boolean; included: boolean };
 }
 
 export type RoundStatus =

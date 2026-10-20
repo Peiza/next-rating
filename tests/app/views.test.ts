@@ -164,7 +164,7 @@ describe('rating view', () => {
     details: [
       rawDetailsRow({ rating: '970', round: '2', roundLabel: '2' }),
       rawDetailsRow({ rating: '960', round: 'Finals', roundLabel: 'Finals' }),
-      rawDetailsRow({ eventId: '900000', date: '1-Jul-2024', rating: '900' }),
+      rawDetailsRow({ eventId: '900000', date: '1-Jul-2024', rating: '900', evaluated: 'No', included: 'No' }),
     ],
     events: [rawEvent()],
   };
@@ -235,14 +235,16 @@ describe('rating view', () => {
   });
 
   describe('why it changed', () => {
+    // PDGA's rounds give 965, so with this official rating there is no difference line.
+    const reproduced = rawPlayer({ currentRating: '965' });
+
     function why(extra: Partial<StoredImport> = {}): HTMLElement | null {
-      const model = buildModel({ ...stored, ...extra }, 100001);
+      const model = buildModel({ ...stored, player: reproduced, ...extra }, 100001);
       return ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('#why');
     }
 
     it('follows the summary with the new rounds, largest effect first', () => {
-      const view = ratingPage();
-      const section = view.querySelector('#why')!;
+      const section = why()!;
       expect(section.previousElementSibling!.classList.contains('summary')).toBe(true);
       expect(section.querySelector('h2')!.textContent).toBe('Why it changed');
       const items = [...section.querySelectorAll('.reason')];
@@ -272,11 +274,28 @@ describe('rating view', () => {
       expect(more.querySelectorAll('.reason')).toHaveLength(1);
     });
 
-    it('says when the official rounds do not give the official rating', () => {
-      expect(why()!.querySelector('.hint')!.textContent).toBe(
-        'The official rounds give 965, not the official 950. Import the ratings details again for exact effects.',
-      );
-      expect(why({ player: rawPlayer({ currentRating: '965' }) })!.querySelector('.hint')).toBeNull();
+    it("adds the difference from PDGA's last calculation as the last visible line", () => {
+      // The official rating is 950, not the 965 that PDGA's rounds give.
+      const section = why({ player: rawPlayer({ currentRating: '950' }) })!;
+      const lines = [...section.querySelectorAll(':scope > ul > .reason')];
+      expect(lines.map((line) => line.id)).toEqual(['', '', 'why-difference']);
+      expect(lines.at(-1)!.querySelector('.reason-text')!.textContent).toBe("Difference from PDGA's last calculation");
+      expect(lines.at(-1)!.querySelector('.reason-effect')!.textContent).toMatch(/^[↑↓→][−+]?\d+\.\d$/);
+      expect(why()!.querySelector('#why-difference')).toBeNull();
+    });
+
+    it('shows the difference line on its own when no round changed', () => {
+      const section = why({ events: [], player: rawPlayer({ currentRating: '950' }) })!;
+      expect([...section.querySelectorAll('.reason')].map((line) => line.id)).toEqual(['why-difference']);
+    });
+
+    it('suggests a new import only when the details are older than the official rating', () => {
+      const differs = rawPlayer({ currentRating: '950' });
+      expect(why({ player: differs })!.querySelector('.hint')).toBeNull();
+      const hint = why({ player: differs, detailsAt: '2026-09-01T10:00:00.000Z' })!.querySelector('.hint')!;
+      expect(hint.textContent).toMatch(/^The ratings details were imported before the rating update of \S+\. Import them again/);
+      // Without a difference there is nothing to fix.
+      expect(why({ detailsAt: '2026-09-01T10:00:00.000Z' })!.querySelector('.hint')).toBeNull();
     });
 
     it('is hidden when nothing changed or the official rating is unknown', () => {

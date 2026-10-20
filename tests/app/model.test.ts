@@ -80,17 +80,42 @@ describe('buildModel', () => {
     // The official rounds give 960: a 960 round changes nothing, a 955 one lowers it.
     expect(model.changes![0]!.item.effect).toBeLessThan(0);
     expect(model.changes![1]!.item.effect).toBe(0);
-    expect(model.officialMismatch).toBeNull();
+    expect(model.difference).toBeNull();
   });
 
   it('has no explanation without ratings details', () => {
     expect(buildModel(stored({ events: [rawEvent()] }), 100001).changes).toBeNull();
   });
 
-  it('reports when the official rounds do not give the official rating', () => {
-    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details }), 100001);
-    expect(model.officialMismatch).toBe(960);
-    expect(buildModel(stored({ details }), 100001).officialMismatch).toBeNull();
+  it("adds the difference from PDGA's last calculation, so the lines add up to the change shown", () => {
+    // PDGA's rounds give 960, but the official rating is 950.
+    const model = buildModel(stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] }), 100001);
+    const effects = model.changes!.reduce((sum, { item }) => sum + item.effect, 0);
+    expect(model.difference).not.toBeNull();
+    expect(effects + model.difference!).toBeCloseTo(model.prediction.change!, 9);
+    expect(buildModel(stored({ details }), 100001).difference).toBeNull();
+  });
+
+  describe('stale ratings details', () => {
+    // The official rating is from 2026-09-08.
+    const staleAt = (extra: Partial<StoredImport>) =>
+      buildModel(stored({ player: rawPlayer(), details, ...extra }), 100001).staleDetails;
+
+    it('are imported before the official rating date', () => {
+      expect(staleAt({ at: '2026-09-07T10:00:00.000Z' })).toBe(true);
+      expect(staleAt({ at: '2026-09-08T10:00:00.000Z' })).toBe(false);
+      expect(staleAt({ at: '2026-09-09T10:00:00.000Z' })).toBe(false);
+    });
+
+    it('go by when the details were imported, and by the last import in older data', () => {
+      expect(staleAt({ at: AT, detailsAt: '2026-09-01T10:00:00.000Z' })).toBe(true);
+      expect(staleAt({ at: AT, detailsAt: '2026-09-10T10:00:00.000Z' })).toBe(false);
+      expect(staleAt({ at: '2026-09-01T10:00:00.000Z' })).toBe(true);
+    });
+
+    it('need an official rating date', () => {
+      expect(buildModel(stored({ details, at: '2026-09-01T10:00:00.000Z' }), 100001).staleDetails).toBe(false);
+    });
   });
 
   it('adds manual rounds', () => {

@@ -54,8 +54,8 @@ function results(extra: Partial<EventResults> = {}): EventResults {
 }
 
 describe('detailsToRounds', () => {
-  it('groups rounds by event id and keeps hole counts', () => {
-    const rounds = detailsToRounds([detailsRound(), detailsRound({ round: 2, holes: null })]);
+  it("groups rounds by event id and keeps hole counts and PDGA's flags", () => {
+    const rounds = detailsToRounds([detailsRound(), detailsRound({ round: 2, holes: null, included: false })]);
     expect(rounds).toEqual([
       {
         id: 'o:e:900001:MA1:1',
@@ -64,6 +64,7 @@ describe('detailsToRounds', () => {
         eventKey: 'e:900001',
         holes: 18,
         source: 'official',
+        pdga: { evaluated: true, included: true },
         eventName: 'Example Open',
         roundLabel: '1',
       },
@@ -73,6 +74,7 @@ describe('detailsToRounds', () => {
         date: '2026-08-02',
         eventKey: 'e:900001',
         source: 'official',
+        pdga: { evaluated: true, included: false },
         eventName: 'Example Open',
         roundLabel: '1',
       },

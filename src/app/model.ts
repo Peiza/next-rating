@@ -1,4 +1,4 @@
-import { explainChange, predictRating, type ChangeItem, type PlainDate, type Prediction, type RoundResult } from '../engine';
+import { compareDates, explainChange, predictRating, type ChangeItem, type PlainDate, type Prediction, type RoundResult } from '../engine';
 import {
   detailsToRounds,
   eventToRounds,
@@ -9,6 +9,7 @@ import {
   type ListedRound,
   type PlayerInfo,
 } from '../parsers';
+import { today } from './format';
 import type { StoredImport } from './import';
 
 /*
@@ -38,10 +39,15 @@ export interface Model {
   /** Why the prediction differs from the official state, largest effect first. Null without official rounds. */
   changes: ListedChange[] | null;
   /**
-   * The rating the official rounds give, when it differs from the official
-   * rating on the profile, as with ratings details older than the last update.
+   * When PDGA's own round set does not give the official rating: the change
+   * shown minus the listed effects, so the lines add up to the change.
    */
-  officialMismatch: number | null;
+  difference: number | null;
+  /**
+   * The ratings details were imported before the official rating date, so
+   * they may be older than the last update.
+   */
+  staleDetails: boolean;
   importedAt: string;
   /** Imported events with no rated rounds for the player. */
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
@@ -67,11 +73,11 @@ export function buildModel(stored: StoredImport, pdgaNumber: number, manualRound
     .map((round, i) => ({ round, result: prediction.rounds[i]! }))
     .sort((a, b) => (a.round.date < b.round.date ? 1 : a.round.date > b.round.date ? -1 : 0));
 
-  const explanation = explainChange(rounds, prediction);
+  const explanation = explainChange(rounds, prediction, currentRating);
   const byId = new Map(rounds.map((round) => [round.id, round]));
   const changes = explanation?.items.map((item) => ({ round: byId.get(item.id)!, item })) ?? null;
-  const computed = explanation?.before.rating ?? null;
-  const officialMismatch = computed !== null && currentRating !== null && computed !== currentRating ? computed : null;
+  const detailsDate = today(new Date(stored.detailsAt ?? stored.at));
+  const staleDetails = player?.ratingDate != null && compareDates(detailsDate, player.ratingDate) < 0;
 
   return {
     player,
@@ -79,7 +85,8 @@ export function buildModel(stored: StoredImport, pdgaNumber: number, manualRound
     rows,
     prediction,
     changes,
-    officialMismatch,
+    difference: explanation?.difference ?? null,
+    staleDetails,
     importedAt: stored.at,
     eventsWithoutRounds,
   };

@@ -1,6 +1,6 @@
 import { compareDates, isPlainDate, subtractMonths, type PlainDate } from './dates';
 import { mean, populationStdDev, weightedMean } from './stats';
-import type { PredictOptions, Prediction, RatingStats, RoundInput, RoundStatus } from './types';
+import type { PredictOptions, Prediction, RatingStats, RoundInput, RoundResult, RoundStatus } from './types';
 
 /** Rules from pdga.com/ratings/guide, plus the PDGA Ratings team's clarification on double weighting. */
 export const RULES = {
@@ -103,6 +103,31 @@ export function selectDoubleWeighted(
 const nullable = (value: number): number | null => (Number.isNaN(value) ? null : value);
 
 /**
+ * Double-weights the most recent counted rounds and weighs every round.
+ * `status` must mark the counted rounds 'included'; the doubled ones are
+ * changed to 'doubled' in place.
+ */
+function weigh(
+  rounds: readonly RoundInput[],
+  status: RoundStatus[],
+  counted: readonly number[],
+): { doubleCount: number; weights: number[]; exact: number | null } {
+  const doubleCount =
+    counted.length >= RULES.minRoundsForDoubleWeight
+      ? Math.ceil(counted.length * RULES.doubleWeightShare)
+      : 0;
+  for (const i of selectDoubleWeighted(rounds, counted, doubleCount)) status[i] = 'doubled';
+
+  const weights = rounds.map((round, i) => {
+    if (status[i] === 'doubled') return 2 * holeWeight(round);
+    if (status[i] === 'included') return holeWeight(round);
+    return 0;
+  });
+  const exact = nullable(weightedMean(counted.map((i) => rounds[i]!.rating!), counted.map((i) => weights[i]!)));
+  return { doubleCount, weights, exact };
+}
+
+/**
  * Predicts the next rating from all known rounds: official, unofficial and
  * manual. PDGA's Included flags are never used: inclusion is recomputed from
  * scratch, since adding rounds can bring back previously dropped ones.
@@ -159,19 +184,7 @@ export function predictRating(
   const countedSet = new Set(counted);
   for (const i of inWindow) status[i] = countedSet.has(i) ? 'included' : 'dropped';
 
-  const doubleCount =
-    counted.length >= RULES.minRoundsForDoubleWeight
-      ? Math.ceil(counted.length * RULES.doubleWeightShare)
-      : 0;
-  for (const i of selectDoubleWeighted(rounds, counted, doubleCount)) status[i] = 'doubled';
-
-  const weights = rounds.map((round, i) => {
-    if (status[i] === 'doubled') return 2 * holeWeight(round);
-    if (status[i] === 'included') return holeWeight(round);
-    return 0;
-  });
-
-  const exact = nullable(weightedMean(counted.map(ratingOf), counted.map((i) => weights[i]!)));
+  const { doubleCount, weights, exact } = weigh(rounds, status, counted);
   const rating = exact === null ? null : Math.round(exact);
   const currentRating = options.currentRating ?? null;
 
@@ -201,5 +214,47 @@ export function predictRating(
     change: rating !== null && currentRating !== null ? rating - currentRating : null,
     rounds: rounds.map((round, i) => ({ id: round.id, status: status[i]!, weight: weights[i]! })),
     stats,
+  };
+}
+
+/** The last official update as PDGA calculated it. */
+export interface OfficialState {
+  rating: number | null;
+  exact: number | null;
+  /** One result per official round, in input order. */
+  rounds: RoundResult[];
+  /** False when PDGA's flags were missing and the state was recomputed instead. */
+  fromFlags: boolean;
+}
+
+/**
+ * The last official update, from the official rounds only. PDGA's Evaluated
+ * and Included flags give the round set, since that is exactly what PDGA
+ * counted; only the double-weight rule and hole weights are applied on top.
+ * Without flags on every official round, or with none included, the state is
+ * recomputed with predictRating instead. Only the change explanation uses
+ * the flags: the prediction always recomputes.
+ */
+export function officialState(rounds: readonly RoundInput[]): OfficialState {
+  const official = rounds.filter((round) => round.source === 'official');
+  const flags = official.map((round) => round.pdga);
+  if (!flags.every((flag) => flag !== undefined) || !official.some((round, i) => !round.dnf && flags[i]!.included)) {
+    const { rating, exact, rounds: results } = predictRating(official);
+    return { rating, exact, rounds: results, fromFlags: false };
+  }
+  validate(official);
+
+  const status: RoundStatus[] = official.map((round, i) => {
+    if (round.dnf) return 'dnf';
+    if (flags[i]!.included) return 'included';
+    return flags[i]!.evaluated ? 'dropped' : 'outside-window';
+  });
+  const counted = status.flatMap((value, i) => (value === 'included' ? [i] : []));
+  const { weights, exact } = weigh(official, status, counted);
+  return {
+    rating: exact === null ? null : Math.round(exact),
+    exact,
+    rounds: official.map((round, i) => ({ id: round.id, status: status[i]!, weight: weights[i]! })),
+    fromFlags: true,
   };
 }

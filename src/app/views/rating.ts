@@ -129,36 +129,50 @@ const NEW_ROUND: Partial<Record<RoundStatus, MessageKey>> = {
 /** Lines shown before "Show all". */
 const REASONS_SHOWN = 5;
 
-function reasonItem({ round, item }: ListedChange): HTMLElement {
+function effect(value: number): HTMLElement {
   // The arrow follows the effect as shown, so a tiny effect shown as 0.0 gets →.
-  const [dir, arrow] = direction(Math.round(item.effect * 10));
+  const [dir, arrow] = direction(Math.round(value * 10));
+  return el(
+    'span',
+    { class: `reason-effect change-${dir}` },
+    el('span', { class: 'reason-arrow', 'aria-hidden': 'true' }, arrow),
+    formatEffect(value),
+  );
+}
+
+function reasonItem({ round, item }: ListedChange): HTMLElement {
   const key = item.kind === 'new' ? (NEW_ROUND[item.after] ?? REASON.new) : REASON[item.kind];
   const where = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), formatDate(round.date)];
   return el(
     'li',
     { class: 'reason' },
-    el(
-      'span',
-      { class: `reason-effect change-${dir}` },
-      el('span', { class: 'reason-arrow', 'aria-hidden': 'true' }, arrow),
-      formatEffect(item.effect),
-    ),
+    effect(item.effect),
     el('p', { class: 'reason-text' }, t(key, { rating: formatRating(item.rating) })),
     el('p', { class: 'reason-meta' }, where.filter(Boolean).join(' · ')),
   );
 }
 
+/** The part of the change the rounds do not explain, so the lines add up to the change shown. */
+function differenceItem(value: number): HTMLElement {
+  return el(
+    'li',
+    { id: 'why-difference', class: 'reason' },
+    effect(value),
+    el('p', { class: 'reason-text' }, t('why.difference')),
+  );
+}
+
 /** What changed since the last official update, largest effect first. */
 function whyChanged(model: Model): HTMLElement | false {
-  const { changes, prediction, officialMismatch, player } = model;
-  if (prediction.change === null || !changes || changes.length === 0) return false;
+  const { changes, prediction, difference, staleDetails, player } = model;
+  if (prediction.change === null || !changes || (changes.length === 0 && difference === null)) return false;
   const shown = changes.slice(0, REASONS_SHOWN);
   const more = changes.slice(REASONS_SHOWN);
   return el(
     'section',
     { id: 'why', class: 'why', 'aria-labelledby': 'why-title' },
     el('h2', { id: 'why-title' }, t('why.title')),
-    el('ul', { class: 'reasons' }, ...shown.map(reasonItem)),
+    el('ul', { class: 'reasons' }, ...shown.map(reasonItem), difference !== null && differenceItem(difference)),
     more.length > 0 &&
       el(
         'details',
@@ -166,13 +180,10 @@ function whyChanged(model: Model): HTMLElement | false {
         el('summary', {}, t('why.showAll', { total: changes.length })),
         el('ul', { class: 'reasons' }, ...more.map(reasonItem)),
       ),
-    officialMismatch !== null &&
-      player?.currentRating != null &&
-      el(
-        'p',
-        { class: 'hint' },
-        t('why.mismatch', { computed: formatRating(officialMismatch), official: formatRating(player.currentRating) }),
-      ),
+    difference !== null &&
+      staleDetails &&
+      player?.ratingDate &&
+      el('p', { class: 'hint' }, t('why.staleDetails', { date: formatDate(player.ratingDate) })),
   );
 }
 
