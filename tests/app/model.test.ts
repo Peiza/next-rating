@@ -124,6 +124,7 @@ describe('buildModel', () => {
       rating: 1000,
       date: '2026-09-20',
       eventKey: 'm:1',
+      eventId: null,
       source: 'manual',
       eventName: '',
       roundLabel: '',

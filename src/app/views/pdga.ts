@@ -19,6 +19,10 @@ export function detailsUrl(pdgaNumber: number): string {
   return `https://www.pdga.com/player/${pdgaNumber}/details`;
 }
 
+export function eventUrl(eventId: number): string {
+  return `https://www.pdga.com/tour/event/${eventId}`;
+}
+
 /** Reads a typed PDGA number. Spaces and "#" are ignored, so a number copied from pdga.com works. */
 export function readPdgaNumber(text: string): { empty: boolean; pdgaNumber: number | null } {
   const digits = text.replace(/[\s#]/g, '');
@@ -105,8 +109,7 @@ export function detailsLink(pdgaNumber: number | null): HTMLElement {
       id: 'details-link',
       class: 'button button-primary button-block',
       href: detailsUrl(pdgaNumber),
-      target: '_blank',
-      rel: 'noopener noreferrer',
+      rel: 'noreferrer',
     },
     t('pdga.openDetails'),
   );

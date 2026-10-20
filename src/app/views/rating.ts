@@ -3,6 +3,8 @@ import { t, type MessageKey } from '../../i18n';
 import { el } from '../dom';
 import { formatAverage, formatChange, formatDate, formatDateTime, formatEffect, formatRating } from '../format';
 import type { ListedChange, ListedResult, Model } from '../model';
+import type { ListedRound } from '../../parsers';
+import { eventUrl } from './pdga';
 
 export interface RatingProps {
   model: Model;
@@ -82,9 +84,19 @@ function roundLabel(label: string): string {
   return /^\d+$/.test(label) ? t('round.number', { number: label }) : label;
 }
 
+/** The event name, linked to its pdga.com page when the id is known, then the round. */
+function roundEvent(round: ListedRound): HTMLElement | false {
+  const label = round.roundLabel && roundLabel(round.roundLabel);
+  if (!round.eventName && !label) return false;
+  const name =
+    round.eventName && round.eventId !== null
+      ? el('a', { href: eventUrl(round.eventId), rel: 'noreferrer' }, round.eventName)
+      : round.eventName;
+  return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
+}
+
 function roundItem({ round, result }: ListedResult): HTMLElement {
   const status = STATUS[result.status];
-  const event = [round.eventName, round.roundLabel && roundLabel(round.roundLabel)].filter(Boolean).join(', ');
   const details = [
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
@@ -104,7 +116,7 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
         ` ${t(status.label)}`,
       ),
     ),
-    event && el('p', { class: 'round-event' }, event),
+    roundEvent(round),
     el('p', { class: 'round-meta' }, details.join(' · ')),
   );
 }

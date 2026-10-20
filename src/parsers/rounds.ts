@@ -4,6 +4,8 @@ import type { DetailsRound, EventResults } from './types';
 
 /** A round with what the round list shows. The engine ignores the extra fields. */
 export type ListedRound = RoundInput & {
+  /** The pdga.com event id, which the round list links to; null when unknown. */
+  eventId: number | null;
   eventName: string;
   /** Round label as pdga.com shows it, such as "2" or "Finals". */
   roundLabel: string;
@@ -37,6 +39,7 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
         ...(round.holes !== null && { holes: round.holes }),
         source: 'official',
         pdga: { evaluated: round.evaluated, included: round.included },
+        eventId: round.eventId,
         eventName: round.eventName,
         roundLabel: round.roundLabel,
       };
@@ -67,6 +70,7 @@ export function eventToRounds(results: EventResults, pdgaNumber: number): Listed
           ...(holes !== null && { holes }),
           ...(round.dnf && { dnf: true }),
           source: 'unofficial',
+          eventId: results.eventId,
           eventName: results.name,
           roundLabel: String(i + 1),
         });

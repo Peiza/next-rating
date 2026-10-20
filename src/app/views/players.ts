@@ -85,8 +85,7 @@ function detailsLink(player: StoredPlayer): HTMLElement {
     {
       class: 'player-link',
       href: detailsUrl(player.pdgaNumber),
-      target: '_blank',
-      rel: 'noopener noreferrer',
+      rel: 'noreferrer',
       'aria-label': t('players.detailsFor', { player: playerLabel(player) }),
     },
     t('players.details'),

@@ -65,6 +65,7 @@ describe('detailsToRounds', () => {
         holes: 18,
         source: 'official',
         pdga: { evaluated: true, included: true },
+        eventId: 900001,
         eventName: 'Example Open',
         roundLabel: '1',
       },
@@ -75,6 +76,7 @@ describe('detailsToRounds', () => {
         eventKey: 'e:900001',
         source: 'official',
         pdga: { evaluated: true, included: false },
+        eventId: 900001,
         eventName: 'Example Open',
         roundLabel: '1',
       },
@@ -85,6 +87,7 @@ describe('detailsToRounds', () => {
     const [round] = detailsToRounds([detailsRound({ eventId: null, round: null, roundLabel: 'Finals' })]);
     expect(round).toMatchObject({
       id: 'o:n:Example Open|2026-08-02:MA1:Finals',
+      eventId: null,
       eventKey: 'n:Example Open|2026-08-02',
       roundLabel: 'Finals',
     });
@@ -99,7 +102,7 @@ describe('detailsToRounds', () => {
 
 describe('eventToRounds', () => {
   it('takes only the given player rounds, with hole counts and DNF', () => {
-    const event = { date: '2026-09-06', eventKey: 'e:900002', source: 'unofficial', eventName: 'Example Cup' };
+    const event = { date: '2026-09-06', eventKey: 'e:900002', source: 'unofficial', eventId: 900002, eventName: 'Example Cup' };
     expect(eventToRounds(results(), 100001)).toEqual([
       { ...event, id: 'u:e:900002:MA1:1', rating: 950, holes: 18, roundLabel: '1' },
       { ...event, id: 'u:e:900002:MA1:2', rating: 960, holes: 9, roundLabel: '2' },
@@ -146,6 +149,7 @@ describe('mergeRounds', () => {
       rating: 1000,
       date: '2026-09-10',
       eventKey: 'm1',
+      eventId: null,
       source: 'manual',
       eventName: '',
       roundLabel: '',

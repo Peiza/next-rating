@@ -36,7 +36,9 @@ describe('getting-started view', () => {
   it("links to the player's ratings details", () => {
     const link = startPage(100001).querySelector<HTMLAnchorElement>('#details-link')!;
     expect(link.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
-    expect(link.rel).toBe('noopener noreferrer');
+    // Same tab, so the bookmarklet brings the user back here; still no Referer to pdga.com.
+    expect(link.hasAttribute('target')).toBe(false);
+    expect(link.rel).toBe('noreferrer');
   });
 
   it('ends with the unofficial notice', () => {
@@ -211,6 +213,24 @@ describe('rating view', () => {
     expect(rounds[3]!.querySelector('.round-event')!.textContent).toBe('Example Open, Finals');
   });
 
+  it("links each round's event name to its pdga.com page, in the same tab", () => {
+    const rounds = [...ratingPage().querySelectorAll('.round')];
+    const official = rounds[3]!.querySelector<HTMLAnchorElement>('.round-event a')!;
+    expect(official.textContent).toBe('Example Open');
+    expect(official.getAttribute('href')).toBe('https://www.pdga.com/tour/event/900001');
+    expect(official.hasAttribute('target')).toBe(false);
+    expect(official.rel).toBe('noreferrer');
+    const unofficial = rounds[1]!.querySelector<HTMLAnchorElement>('.round-event a')!;
+    expect(unofficial.getAttribute('href')).toBe('https://www.pdga.com/tour/event/900002');
+  });
+
+  it('shows the event name without a link when its id is unknown', () => {
+    const model = buildModel({ ...stored, details: [rawDetailsRow({ eventId: '' })], events: [] }, 100001);
+    const event = ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.round-event')!;
+    expect(event.querySelector('a')).toBeNull();
+    expect(event.textContent).toBe('Example Open, Round 1');
+  });
+
   it('has a stats panel', () => {
     const stats = ratingPage().querySelector('details#stats')!;
     expect(stats.querySelector('summary')!.textContent).toBe('Statistics');
@@ -329,6 +349,7 @@ describe('import banner', () => {
     const links = [...banner.querySelectorAll('a')];
     expect(links.map((link) => link.getAttribute('href'))).toEqual(failed);
     expect(links.map((link) => link.textContent)).toEqual(['Ratings details on pdga.com', 'Event 900003 on pdga.com']);
+    expect(links.some((link) => link.hasAttribute('target'))).toBe(false);
     expect(banner.textContent).toContain('run the bookmarklet on each of them');
   });
 
@@ -464,6 +485,7 @@ describe('players panel', () => {
       'https://www.pdga.com/player/100003/details',
     ]);
     expect(links[0]!.getAttribute('aria-label')).toBe('Ratings details for Test Player #100001 on pdga.com');
+    expect(links.some((link) => link.hasAttribute('target'))).toBe(false);
   });
 
   it('selects a player', () => {

@@ -264,11 +264,6 @@ a {
   cursor: not-allowed;
 }
 
-a.button[target='_blank']::after {
-  content: '\2197' / '';
-  margin-left: 0.4em;
-}
-
 .status {
   min-height: 1.45em;
   margin: 0.5rem 0 0;
