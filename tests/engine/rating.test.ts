@@ -41,7 +41,7 @@ describe('predictRating', () => {
     expect(prediction.exact).toBe(950);
     expect(prediction.rating).toBe(950);
     expect(statuses(prediction)).toEqual(['included', 'included', 'included']);
-    expect(prediction.stats.dropThreshold).toBeNull();
+    expect(prediction.stats.lowestLimit).toBeNull();
   });
 
   it('keeps results in input order', () => {
@@ -99,56 +99,65 @@ describe('predictRating', () => {
     it('does not drop with only 6 rounds in the window', () => {
       const prediction = predictRating(weekly([950, 950, 950, 950, 950, 700]));
       expect(statuses(prediction)).not.toContain('dropped');
-      expect(prediction.stats.dropThreshold).toBeNull();
+      expect(prediction.stats.lowestInWindow).toBe(700);
+      expect(prediction.stats.lowestLimit).toBeNull();
       expect(prediction.rating).toBe(908);
     });
 
-    it('drops a round more than 100 below the average with 7 rounds', () => {
+    it('drops a round far below the other rounds with 7 rounds', () => {
       const prediction = predictRating(weekly([950, 950, 950, 950, 950, 950, 700]));
       expect(statuses(prediction).at(-1)).toBe('dropped');
-      expect(prediction.stats.dropThreshold).toBeCloseTo(814.29, 2);
       expect(prediction.stats.roundsDropped).toBe(1);
       expect(prediction.rating).toBe(950);
     });
 
-    it('keeps a round exactly 100 below the average', () => {
-      // Average 1000, 2.5 standard deviations is about 116, so the limit is 900.
-      const prediction = predictRating(weekly([1000, 1000, 1000, 1000, 1050, 1050, 900]));
-      expect(prediction.stats.dropThreshold).toBe(900);
+    it('keeps a round exactly 100 below the average of the other rounds', () => {
+      // The other rounds average 1000, and 2.5 standard deviations is about 161, so the limit is 900.
+      const prediction = predictRating(weekly([1000, 1000, 1100, 900, 1050, 950, 900]));
+      expect(prediction.stats.lowestLimit).toBe(900);
       expect(statuses(prediction)).not.toContain('dropped');
     });
 
     it('drops a round just below the 100-point limit', () => {
-      const prediction = predictRating(weekly([1000, 1000, 1000, 1000, 1050, 1051, 899]));
-      expect(prediction.stats.dropThreshold).toBe(900);
+      const prediction = predictRating(weekly([1000, 1000, 1100, 900, 1050, 950, 899]));
+      expect(prediction.stats.lowestInWindow).toBe(899);
+      expect(prediction.stats.lowestLimit).toBe(900);
+      expect(statuses(prediction)).toEqual([...Array<RoundStatus>(6).fill('included'), 'dropped']);
+    });
+
+    it('uses 2.5 standard deviations of the other rounds when that limit is stricter', () => {
+      // The other rounds average 1000 with standard deviation 10: the limit is 975, not 900.
+      const kept = predictRating(weekly([1010, 990, 1010, 990, 1010, 990, 975]));
+      expect(kept.stats.lowestLimit).toBe(975);
+      expect(statuses(kept)).not.toContain('dropped');
+      const dropped = predictRating(weekly([1010, 990, 1010, 990, 1010, 990, 974]));
+      expect(statuses(dropped).at(-1)).toBe('dropped');
+    });
+
+    it('judges a round against the other rounds, leaving itself out', () => {
+      // All 7 rounds together would put the limit at about 952.3 and keep the 960.
+      const prediction = predictRating(weekly([1010, 990, 1010, 990, 1010, 990, 960]));
+      expect(prediction.stats.averageInWindow).toBeCloseTo(994.29, 2);
+      expect(prediction.stats.lowestLimit).toBe(975);
       expect(statuses(prediction).at(-1)).toBe('dropped');
     });
 
-    it('uses 2.5 standard deviations when that limit is stricter', () => {
-      // Average 992.5, standard deviation about 19.8: the limit is about 942.9, not 892.5.
-      const prediction = predictRating(weekly([1000, 1000, 1000, 1000, 1000, 1000, 1000, 940]));
-      expect(prediction.stats.meanMinusPoints).toBe(892.5);
-      expect(prediction.stats.dropThreshold).toBeCloseTo(942.89, 2);
-      expect(statuses(prediction).at(-1)).toBe('dropped');
-      expect(prediction.rating).toBe(1000);
-    });
-
-    it('computes the limit from all rounds in the window, before dropping', () => {
+    it('reports the average in the window before dropping', () => {
       const prediction = predictRating(weekly([950, 950, 950, 950, 950, 950, 700]));
       expect(prediction.stats.averageInWindow).toBeCloseTo(914.29, 2);
       expect(prediction.stats.averageCounted).toBe(950);
     });
 
-    it('includes a previously dropped round again when new rounds lower the limit', () => {
+    it('includes a previously dropped round again when new rounds raise the standard deviation', () => {
       const earlier = weekly([1000, 1000, 1000, 1000, 1000, 1000, 1000, 940], '2026-06-30');
       const before = predictRating(earlier);
       const lowRound = earlier.at(-1)!;
       expect(statusOf(before, lowRound)).toBe('dropped');
 
-      const newRounds = [round(900, '2026-08-20'), round(910, '2026-08-13')];
+      const newRounds = [round(1080, '2026-08-20'), round(1080, '2026-08-13')];
       const after = predictRating([...newRounds, ...earlier]);
-      // Average 975, standard deviation about 39.3: the limit drops to about 876.7.
-      expect(after.stats.dropThreshold).toBeCloseTo(876.7, 1);
+      // The other rounds average about 1017.8 with standard deviation about 33.3: the limit drops to about 934.6.
+      expect(after.stats.lowestLimit).toBeCloseTo(934.63, 2);
       expect(statusOf(after, lowRound)).toBe('included');
       expect(after.stats.roundsDropped).toBe(0);
     });
@@ -237,20 +246,19 @@ describe('predictRating', () => {
   });
 
   describe('hole weighting', () => {
-    it('weights rounds by holes / 18', () => {
+    it('weights shorter rounds by holes / 18 and counts longer rounds as one round', () => {
       const rounds = [round(1000, '2026-08-27'), round(900, '2026-08-20', { holes: 9 }), round(950, '2026-08-13', { holes: 27 })];
       const prediction = predictRating(rounds);
-      expect(prediction.rounds.map((r) => r.weight)).toEqual([1, 0.5, 1.5]);
-      // (1000 + 0.5 * 900 + 1.5 * 950) / 3
-      expect(prediction.exact).toBeCloseTo(958.333, 3);
-      expect(prediction.rating).toBe(958);
+      expect(prediction.rounds.map((r) => r.weight)).toEqual([1, 0.5, 1]);
+      // (1000 + 0.5 * 900 + 950) / 2.5
+      expect(prediction.exact).toBe(960);
     });
 
-    it('treats an unknown hole count as 18 and handles 19 holes', () => {
+    it('treats an unknown hole count as 18 and 19 holes as one round', () => {
       const rounds = [round(1000, '2026-08-27', { holes: 19 }), round(900, '2026-08-20')];
       const prediction = predictRating(rounds);
-      expect(prediction.rounds.map((r) => r.weight)).toEqual([19 / 18, 1]);
-      expect(prediction.exact).toBeCloseTo((1000 * 19 + 900 * 18) / 37, 9);
+      expect(prediction.rounds.map((r) => r.weight)).toEqual([1, 1]);
+      expect(prediction.exact).toBe(950);
     });
 
     it('combines hole weighting with double weighting', () => {
@@ -320,7 +328,9 @@ describe('predictRating', () => {
         roundsDoubled: 0,
       });
       expect(stats.averageAll).toBeCloseTo((950 * 6 + 700 + 600 + 1000) / 9, 9);
-      expect(stats.meanMinusStdDevs).toBeCloseTo(stats.averageInWindow! - 2.5 * stats.stdDev!, 9);
+      expect(stats.lowestInWindow).toBe(700);
+      // The other 7 rounds in the window average about 957.1 with standard deviation about 17.5.
+      expect(stats.lowestLimit).toBeCloseTo(913.4, 1);
     });
   });
 

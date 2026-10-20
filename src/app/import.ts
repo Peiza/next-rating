@@ -7,6 +7,11 @@ import { asRecord } from '../parsers/values';
 export interface StoredImport {
   /** When data was last imported, as an ISO 8601 timestamp. */
   at: string;
+  /**
+   * When the ratings details were last imported. Missing in data stored
+   * before it was added; `at` is the best estimate then.
+   */
+  detailsAt?: string;
   player?: RawPlayer;
   details?: RawDetailsRow[];
   profileEvents?: RawProfileEvent[];
@@ -16,14 +21,19 @@ export interface StoredImport {
 
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 
+function isTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value));
+}
+
 /** Reads a stored import back, or null when anything in it is not valid. */
 export function validateStoredImport(value: unknown): StoredImport | null {
   try {
     const record = asRecord(value, 'stored import');
-    const { at } = record;
-    if (typeof at !== 'string' || !TIMESTAMP.test(at) || Number.isNaN(Date.parse(at))) return null;
+    const { at, detailsAt } = record;
+    if (!isTimestamp(at)) return null;
+    if (detailsAt !== undefined && !isTimestamp(detailsAt)) return null;
     const { events = [], ...parts } = cleanParts(record);
-    return { at, ...parts, events };
+    return { at, ...(detailsAt !== undefined && { detailsAt }), ...parts, events };
   } catch {
     return null;
   }
@@ -87,7 +97,10 @@ export function applyImport(
 
   const next: StoredImport = { ...base, at };
   if (parts.player) next.player = parts.player;
-  if (parts.details) next.details = parts.details;
+  if (parts.details) {
+    next.details = parts.details;
+    next.detailsAt = at;
+  }
   if (parts.profileEvents) next.profileEvents = parts.profileEvents;
 
   let events = base.events;

@@ -1,4 +1,4 @@
-import { predictRating } from './rating';
+import { officialState, type OfficialState } from './rating';
 import type { Prediction, RoundInput, RoundResult, RoundStatus } from './types';
 
 /** What happened to a round between the last official update and the prediction. */
@@ -25,12 +25,18 @@ export interface ChangeItem {
 }
 
 export interface Explanation {
-  /** The official state: the official rounds only. */
-  before: Prediction;
+  /** The official state: PDGA's own round set, with the double-weight rule on top. */
+  before: OfficialState;
   /** Largest effect first. */
   items: ChangeItem[];
   /** after.exact - before.exact. The effects add up to this. */
   total: number;
+  /**
+   * When the official state does not give the official rating: the change
+   * shown (after.rating - officialRating) minus total, so the effects plus
+   * this add up to the change shown. Null otherwise.
+   */
+  difference: number | null;
 }
 
 /** The kind of an official round whose weight changed. */
@@ -44,21 +50,25 @@ function kindOf(before: RoundStatus, after: RoundStatus): ChangeKind {
 
 /**
  * Explains the change from the last official update to the prediction. The
- * official state is the engine run on the official rounds only, which
- * reproduces the official rating; `after` is the run on all rounds.
+ * official state is what PDGA counted (officialState), which reproduces the
+ * official rating; `after` is the engine run on all rounds.
  *
  * Each round's effect is (weight after - weight before) * (rating - official
  * average) / total weight after. Since the official weights average to the
  * official average, the effects add up exactly to the change, and effects of
- * one round on another (moving the window, the drop threshold or the
+ * one round on another (moving the window, the drop limits or the
  * double-weight boundary) are credited to the rounds whose weight changed.
  *
  * Listed: every new round with a rating, also one that does not count (effect
  * 0), and every official round whose weight changed.
  */
-export function explainChange(rounds: readonly RoundInput[], after: Prediction): Explanation | null {
-  const before = predictRating(rounds.filter((round) => round.source === 'official'));
-  if (before.exact === null || after.exact === null) return null;
+export function explainChange(
+  rounds: readonly RoundInput[],
+  after: Prediction,
+  officialRating: number | null = null,
+): Explanation | null {
+  const before = officialState(rounds);
+  if (before.exact === null || after.exact === null || after.rating === null) return null;
   const average = before.exact;
 
   const beforeById = new Map<string, RoundResult>(before.rounds.map((result) => [result.id, result]));
@@ -85,5 +95,8 @@ export function explainChange(rounds: readonly RoundInput[], after: Prediction):
   items.sort(
     (a, b) => Math.abs(b.effect) - Math.abs(a.effect) || Number(b.kind === 'new') - Number(a.kind === 'new'),
   );
-  return { before, items, total: after.exact - average };
+  const total = after.exact - average;
+  const difference =
+    officialRating !== null && before.rating !== officialRating ? after.rating - officialRating - total : null;
+  return { before, items, total, difference };
 }

@@ -1,4 +1,4 @@
-export { RULES, predictRating } from './rating';
+export { RULES, officialState, predictRating, type OfficialState } from './rating';
 export { explainChange, type ChangeItem, type ChangeKind, type Explanation } from './explain';
 export { compareDates, isPlainDate, subtractMonths, type PlainDate } from './dates';
 export type {

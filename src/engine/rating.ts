@@ -1,6 +1,6 @@
 import { compareDates, isPlainDate, subtractMonths, type PlainDate } from './dates';
 import { mean, populationStdDev, weightedMean } from './stats';
-import type { PredictOptions, Prediction, RatingStats, RoundInput, RoundStatus } from './types';
+import type { PredictOptions, Prediction, RatingStats, RoundInput, RoundResult, RoundStatus } from './types';
 
 /** Rules from pdga.com/ratings/guide, plus the PDGA Ratings team's clarification on double weighting. */
 export const RULES = {
@@ -15,8 +15,27 @@ export const RULES = {
   /** Double weighting only applies when at least this many rounds count. */
   minRoundsForDoubleWeight: 9,
   doubleWeightShare: 0.25,
+  /** Hole weighting divides by this, and caps longer rounds at it: they count as one round. */
   standardHoles: 18,
 } as const;
+
+/**
+ * The outlier limit for one round, from the other rounds in the window:
+ * their plain mean minus 100 or minus 2.5 standard deviations, whichever is
+ * higher. Leaving the round itself out reproduces PDGA's Included flags.
+ */
+function dropLimit(others: readonly number[]): number {
+  const average = mean(others);
+  return Math.max(
+    average - RULES.outlierPoints,
+    average - RULES.outlierStdDevs * populationStdDev(others),
+  );
+}
+
+/** holes / 18, capped at 1: a round longer than 18 holes counts as one round. */
+function holeWeight(round: RoundInput): number {
+  return Math.min(round.holes ?? RULES.standardHoles, RULES.standardHoles) / RULES.standardHoles;
+}
 
 function validate(rounds: readonly RoundInput[]): void {
   const ids = new Set<string>();
@@ -40,7 +59,7 @@ function validate(rounds: readonly RoundInput[]): void {
  * newest first). When the boundary falls inside an event, the event's highest
  * rated rounds are double-weighted, not the first or last in table order.
  */
-function selectDoubleWeighted(
+export function selectDoubleWeighted(
   rounds: readonly RoundInput[],
   counted: readonly number[],
   count: number,
@@ -84,6 +103,31 @@ function selectDoubleWeighted(
 const nullable = (value: number): number | null => (Number.isNaN(value) ? null : value);
 
 /**
+ * Double-weights the most recent counted rounds and weighs every round.
+ * `status` must mark the counted rounds 'included'; the doubled ones are
+ * changed to 'doubled' in place.
+ */
+function weigh(
+  rounds: readonly RoundInput[],
+  status: RoundStatus[],
+  counted: readonly number[],
+): { doubleCount: number; weights: number[]; exact: number | null } {
+  const doubleCount =
+    counted.length >= RULES.minRoundsForDoubleWeight
+      ? Math.ceil(counted.length * RULES.doubleWeightShare)
+      : 0;
+  for (const i of selectDoubleWeighted(rounds, counted, doubleCount)) status[i] = 'doubled';
+
+  const weights = rounds.map((round, i) => {
+    if (status[i] === 'doubled') return 2 * holeWeight(round);
+    if (status[i] === 'included') return holeWeight(round);
+    return 0;
+  });
+  const exact = nullable(weightedMean(counted.map((i) => rounds[i]!.rating!), counted.map((i) => weights[i]!)));
+  return { doubleCount, weights, exact };
+}
+
+/**
  * Predicts the next rating from all known rounds: official, unofficial and
  * manual. PDGA's Included flags are never used: inclusion is recomputed from
  * scratch, since adding rounds can bring back previously dropped ones.
@@ -122,36 +166,25 @@ export function predictRating(
     inWindow = window.indices;
   }
 
-  // Outlier statistics use all rounds in the window, before any are dropped,
-  // so dropping a round never feeds back into its own threshold. They are
-  // unweighted: hole weighting only applies to the final average.
+  // Each round is judged against the other rounds in the window (leave one
+  // out), all of them before any are dropped, so the rule is not iterated.
+  // The statistics are unweighted: hole and double weighting only apply to
+  // the final average. Two low rounds are each judged with the other one in.
   const windowRatings = inWindow.map(ratingOf);
   const averageInWindow = mean(windowRatings);
   const stdDev = populationStdDev(windowRatings);
-  const meanMinusPoints = averageInWindow - RULES.outlierPoints;
-  const meanMinusStdDevs = averageInWindow - RULES.outlierStdDevs * stdDev;
-  const dropThreshold =
-    inWindow.length >= RULES.minRoundsForOutlierDrop ? Math.max(meanMinusPoints, meanMinusStdDevs) : null;
+  const dropRule = inWindow.length >= RULES.minRoundsForOutlierDrop;
+  const limitOf = (i: number) => dropLimit(inWindow.filter((j) => j !== i).map(ratingOf));
 
-  const counted =
-    dropThreshold === null ? inWindow : inWindow.filter((i) => ratingOf(i) >= dropThreshold);
+  const counted = dropRule ? inWindow.filter((i) => ratingOf(i) >= limitOf(i)) : inWindow;
+  const lowest = inWindow.reduce<number | null>(
+    (low, i) => (low === null || ratingOf(i) < ratingOf(low) ? i : low),
+    null,
+  );
   const countedSet = new Set(counted);
   for (const i of inWindow) status[i] = countedSet.has(i) ? 'included' : 'dropped';
 
-  const doubleCount =
-    counted.length >= RULES.minRoundsForDoubleWeight
-      ? Math.ceil(counted.length * RULES.doubleWeightShare)
-      : 0;
-  for (const i of selectDoubleWeighted(rounds, counted, doubleCount)) status[i] = 'doubled';
-
-  const weights = rounds.map((round, i) => {
-    const holeWeight = (round.holes ?? RULES.standardHoles) / RULES.standardHoles;
-    if (status[i] === 'doubled') return 2 * holeWeight;
-    if (status[i] === 'included') return holeWeight;
-    return 0;
-  });
-
-  const exact = nullable(weightedMean(counted.map(ratingOf), counted.map((i) => weights[i]!)));
+  const { doubleCount, weights, exact } = weigh(rounds, status, counted);
   const rating = exact === null ? null : Math.round(exact);
   const currentRating = options.currentRating ?? null;
 
@@ -171,9 +204,8 @@ export function predictRating(
     averageInWindow: nullable(averageInWindow),
     averageCounted: nullable(mean(counted.map(ratingOf))),
     stdDev: nullable(stdDev),
-    meanMinusPoints: nullable(meanMinusPoints),
-    meanMinusStdDevs: nullable(meanMinusStdDevs),
-    dropThreshold,
+    lowestInWindow: lowest === null ? null : ratingOf(lowest),
+    lowestLimit: dropRule && lowest !== null ? limitOf(lowest) : null,
   };
 
   return {
@@ -182,5 +214,47 @@ export function predictRating(
     change: rating !== null && currentRating !== null ? rating - currentRating : null,
     rounds: rounds.map((round, i) => ({ id: round.id, status: status[i]!, weight: weights[i]! })),
     stats,
+  };
+}
+
+/** The last official update as PDGA calculated it. */
+export interface OfficialState {
+  rating: number | null;
+  exact: number | null;
+  /** One result per official round, in input order. */
+  rounds: RoundResult[];
+  /** False when PDGA's flags were missing and the state was recomputed instead. */
+  fromFlags: boolean;
+}
+
+/**
+ * The last official update, from the official rounds only. PDGA's Evaluated
+ * and Included flags give the round set, since that is exactly what PDGA
+ * counted; only the double-weight rule and hole weights are applied on top.
+ * Without flags on every official round, or with none included, the state is
+ * recomputed with predictRating instead. Only the change explanation uses
+ * the flags: the prediction always recomputes.
+ */
+export function officialState(rounds: readonly RoundInput[]): OfficialState {
+  const official = rounds.filter((round) => round.source === 'official');
+  const flags = official.map((round) => round.pdga);
+  if (!flags.every((flag) => flag !== undefined) || !official.some((round, i) => !round.dnf && flags[i]!.included)) {
+    const { rating, exact, rounds: results } = predictRating(official);
+    return { rating, exact, rounds: results, fromFlags: false };
+  }
+  validate(official);
+
+  const status: RoundStatus[] = official.map((round, i) => {
+    if (round.dnf) return 'dnf';
+    if (flags[i]!.included) return 'included';
+    return flags[i]!.evaluated ? 'dropped' : 'outside-window';
+  });
+  const counted = status.flatMap((value, i) => (value === 'included' ? [i] : []));
+  const { weights, exact } = weigh(official, status, counted);
+  return {
+    rating: exact === null ? null : Math.round(exact),
+    exact,
+    rounds: official.map((round, i) => ({ id: round.id, status: status[i]!, weight: weights[i]! })),
+    fromFlags: true,
   };
 }

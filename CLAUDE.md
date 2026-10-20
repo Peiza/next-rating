@@ -163,8 +163,13 @@ single build-time setting.
 6. Change explanation, on the Rating tab:
    - Under the change line, a short "Why it changed" list compares the last
      official update with the prediction, using the real engine.
-   - The official state is the official rounds only, which reproduces the
-     official rating; the new state is all rounds.
+   - The official state is exactly what PDGA counted: the official rounds
+     with PDGA's own Evaluated and Included flags, and only the doubling rule
+     and hole weights on top. The new state is all rounds, recomputed.
+   - If the official state still differs from the official rating, a
+     "Difference from PDGA's last calculation" line makes the lines add up
+     to the change shown. A new import is suggested only when the ratings
+     details were imported before the official rating date.
    - List what differs: new rounds with their ratings, rounds that left the
      window, rounds that started or stopped counting twice, and rounds newly
      dropped or no longer dropped.
@@ -255,9 +260,13 @@ single build-time setting.
 ## Rating rules (from pdga.com/ratings/guide plus confirmed clarification)
 - Window: 12 months back from the most recent rated round; if fewer than 8
   rounds, use 24 months.
-- Outlier drop: compute mean and population stdev over ALL candidate rounds
-  (before exclusion, to avoid circularity). Drop rounds below
-  max(mean - 100, mean - 2.5 * stdev), only if at least 7 candidates exist.
+- Outlier drop (leave-one-out): compare each round in the window with the
+  plain (unweighted) mean and population stdev of the OTHER rounds in the
+  window, all taken before any exclusion, so the rule is not iterated. Drop it
+  when it is below max(mean - 100, mean - 2.5 * stdev), only if at least 7
+  rounds are in the window. Verified against several players' Included flags;
+  one limit from the mean of all rounds, and a mean with double weighting,
+  both fail (the local rule check in tests/engine/fixture.test.ts).
   Previously excluded official rounds can become included again when new rounds
   are added, so never trust PDGA's Included flag for prediction; recompute.
 - Double weighting: the most recent 25% (rounded up) of included rounds count
@@ -265,7 +274,10 @@ single build-time setting.
 - If the 25% boundary falls inside an event, double-weight the HIGHEST rated
   rounds of that event, not the first/last by table order (confirmed by the
   PDGA Ratings team).
-- Hole weighting: weight = holes / 18 where hole count is known.
+- Hole weighting: weight = min(holes, 18) / 18 where hole count is known. A
+  round longer than 18 holes counts as one round (verified against an official
+  rating); shorter rounds are weighted down (not yet verified against a
+  fixture).
 - DNF rounds never count.
 - Multi-day date ranges like "1-Aug to 2-Aug-2026" use the last date.
 

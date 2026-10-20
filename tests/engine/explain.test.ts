@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { explainChange, type Explanation } from '../../src/engine/explain';
-import { predictRating } from '../../src/engine/rating';
+import { officialState, predictRating } from '../../src/engine/rating';
 import type { RoundInput } from '../../src/engine/types';
 
 let nextId = 0;
@@ -85,12 +85,12 @@ describe('explainChange', () => {
     const rounds = dates.map((date, i) => official(i % 2 ? 945 : 955, date));
     const old = official(960, '2024-12-01');
     const explanation = explain([fresh(950, '2026-09-01'), ...rounds, old]);
-    expect(explanation.before.stats.windowMonths).toBe(12);
+    expect(predictRating([...rounds, old]).stats.windowMonths).toBe(12);
     expect(itemOf(explanation, old)).toMatchObject({ kind: 'entered-window', before: 'outside-window' });
   });
 
   it('lists rounds that start counting twice', () => {
-    const rounds = weekly([960, 940, 955, 945, 950, 950, 950, 950]);
+    const rounds = weekly([980, 920, 970, 930, 960, 940, 950, 950]);
     const explanation = explain([fresh(950, '2026-09-03'), ...rounds]);
     // 9 counted rounds double 3: the new one and the two newest official ones.
     expect(itemOf(explanation, rounds[0]!)).toMatchObject({ kind: 'started-doubling', after: 'doubled' });
@@ -110,9 +110,10 @@ describe('explainChange', () => {
     expect(itemOf(explanation, newest[0]!)).toBeUndefined();
   });
 
-  it('lists a round that a new round pushes below the drop threshold', () => {
+  it('lists a round that a new round pushes below the drop limit', () => {
+    // 6 official rounds are too few to drop any; the new round makes 7.
     const low = official(900, '2026-07-01');
-    const rounds = [...weekly([950, 950, 950, 950, 950, 950]), low];
+    const rounds = [...weekly([950, 950, 950, 950, 950]), low];
     const explanation = explain([fresh(960, '2026-09-03'), ...rounds]);
     expect(itemOf(explanation, low)).toMatchObject({ kind: 'newly-dropped', before: 'included', after: 'dropped' });
     // Dropping a low round raises the rating.
@@ -152,5 +153,87 @@ describe('explainChange', () => {
     const b = fresh(950, '2026-09-04');
     const explanation = explain([b, a, ...rounds]);
     expect(explanation.items.map((item) => item.id)).toEqual([b.id, a.id]);
+  });
+});
+
+/** Official rounds with PDGA's flags, as from the ratings details page. */
+function flagged(rounds: RoundInput[], included = true, evaluated = true): RoundInput[] {
+  return rounds.map((round) => ({ ...round, pdga: { evaluated, included } }));
+}
+
+describe('officialState', () => {
+  it("uses PDGA's round set, also where the rules would decide otherwise", () => {
+    // The rules would drop the 700, but PDGA counted it.
+    const rounds = flagged(weekly([950, 950, 950, 950, 950, 950, 700]));
+    const state = officialState(rounds);
+    expect(state.fromFlags).toBe(true);
+    expect(state.exact).toBeCloseTo((950 * 6 + 700) / 7, 9);
+    expect(state.rounds.at(-1)).toMatchObject({ status: 'included', weight: 1 });
+    expect(predictRating(rounds).exact).toBe(950);
+  });
+
+  it('marks evaluated rounds PDGA left out as dropped and the others as outside the window', () => {
+    const counted = flagged(weekly([950, 960, 940]));
+    const dropped = flagged([official(800, '2026-05-01')], false);
+    const old = flagged([official(990, '2024-05-01')], false, false);
+    const state = officialState([...counted, ...dropped, ...old]);
+    expect(state.rounds.map((result) => result.status)).toEqual(['included', 'included', 'included', 'dropped', 'outside-window']);
+    expect(state.exact).toBe(950);
+  });
+
+  it('applies the double-weight rule and hole weights on top', () => {
+    const rounds = flagged(weekly([1000, 990, 980, 970, 960, 950, 940, 930, 920]));
+    rounds[1] = { ...rounds[1]!, holes: 9 };
+    const state = officialState(rounds);
+    expect(state.rounds.slice(0, 4).map((result) => [result.status, result.weight])).toEqual([
+      ['doubled', 2],
+      ['doubled', 1],
+      ['doubled', 2],
+      ['included', 1],
+    ]);
+    // (2 * 1000 + 990 + 2 * 980 + 970 + 960 + 950 + 940 + 930 + 920) / 11
+    expect(state.exact).toBeCloseTo(10620 / 11, 9);
+  });
+
+  it('uses only the official rounds', () => {
+    const rounds = [fresh(700, '2026-09-03'), ...flagged(weekly([950, 960, 940]))];
+    expect(officialState(rounds).rounds.map((result) => result.id)).toEqual(rounds.slice(1).map((round) => round.id));
+  });
+
+  it('recomputes when a round has no flags or none is included', () => {
+    const rounds = weekly([950, 950, 950, 950, 950, 950, 700]);
+    const recomputed = predictRating(rounds);
+    expect(officialState(rounds)).toEqual({ rating: 950, exact: 950, rounds: recomputed.rounds, fromFlags: false });
+    expect(officialState([...flagged(rounds.slice(1)), rounds[0]!]).fromFlags).toBe(false);
+    expect(officialState(flagged(rounds, false)).fromFlags).toBe(false);
+  });
+});
+
+describe('the difference from the official rating', () => {
+  // PDGA counted the 700, so its round set gives 914, not the official 950.
+  const rounds = flagged(weekly([950, 950, 950, 950, 950, 950, 700]));
+  const all = [fresh(960, '2026-09-03'), ...rounds];
+
+  it('is null when the official state gives the official rating', () => {
+    const after = predictRating(all);
+    expect(explainChange(all, after, 914)!.difference).toBeNull();
+    expect(explainChange(all, after)!.difference).toBeNull();
+  });
+
+  it('makes the lines add up to the change shown', () => {
+    const after = predictRating(all, { currentRating: 950 });
+    const explanation = explainChange(all, after, 950)!;
+    expect(explanation.before.rating).toBe(914);
+    const effects = explanation.items.reduce((sum, item) => sum + item.effect, 0);
+    expect(explanation.difference).not.toBeNull();
+    expect(effects + explanation.difference!).toBeCloseTo(after.change!, 9);
+  });
+
+  it('covers what the rules decide differently from PDGA', () => {
+    const after = predictRating(rounds, { currentRating: 950 });
+    const explanation = explainChange(rounds, after, 950)!;
+    // The rules drop the 700, which PDGA counted.
+    expect(explanation.items.map((item) => item.kind)).toEqual(['newly-dropped']);
+    expect(explanation.items[0]!.effect + explanation.difference!).toBeCloseTo(after.change!, 9);
   });
 });

@@ -83,7 +83,7 @@ describe('routeImport', () => {
 
   it('uses the owner when the import has no player header', () => {
     const routed = routeImport(data([player(100001)]), { details: [rawDetailsRow()] }, AT, 100001, 100001);
-    expect(routed.data.players).toEqual([player(100001, { import: { at: AT, details: [rawDetailsRow()], events: [] } })]);
+    expect(routed.data.players).toEqual([player(100001, { import: { at: AT, detailsAt: AT, details: [rawDetailsRow()], events: [] } })]);
   });
 
   it('keeps a new player as the unsaved player, replacing the earlier one', () => {

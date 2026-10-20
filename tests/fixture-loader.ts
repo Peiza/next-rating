@@ -19,8 +19,18 @@ export interface ExpectedEvent {
   rows: number;
 }
 
+/** A player's saved ratings details and profile pages, for the rule check. */
+export interface FixturePlayer {
+  /** A label without personal data, such as "own" or "other2". */
+  label: string;
+  details: string;
+  profile: string;
+}
+
 export interface Expected {
   files: Record<FixtureName, string>;
+  /** Players for the rule check, own player included. */
+  players?: FixturePlayer[];
   /** The player of the details and profile pages. */
   pdgaNumber: number;
   details: {
@@ -64,3 +74,19 @@ function load(): Fixtures | null {
 
 /** The fixtures, or null when they are not available (as in CI). */
 export const fixtures = load();
+
+export interface LoadedPlayer {
+  label: string;
+  /** Null when either page is missing, so the player is reported as missing, not failed. */
+  html: { details: string; profile: string } | null;
+}
+
+/** The rule-check players from expected.json, with their pages when both are saved. */
+export function fixturePlayers(): LoadedPlayer[] {
+  return (fixtures?.expected.players ?? []).map(({ label, details, profile }) => {
+    const paths = [join(DIR, details), join(DIR, profile)];
+    if (!paths.every((path) => existsSync(path))) return { label, html: null };
+    const [detailsHtml, profileHtml] = paths.map((path) => readFileSync(path, 'utf8'));
+    return { label, html: { details: detailsHtml!, profile: profileHtml! } };
+  });
+}
