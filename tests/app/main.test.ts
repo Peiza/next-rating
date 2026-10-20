@@ -228,9 +228,27 @@ describe('app start', () => {
     expect(rating()).not.toBe(before);
     expect(rating().value).toBe('99');
 
+    // A single delete does not ask: it happens at once, and Undo gets focus.
     document.getElementById('manual-delete-m1')!.click();
     expect(stored().players[0].manualRounds).toEqual([]);
-    expect(document.activeElement?.id).toBe('manual-toggle');
+    expect(document.getElementById('manual-status')!.textContent).toBe('Removed 1010');
+    expect(document.activeElement?.id).toBe('manual-undo');
+
+    // Undo lasts through a re-render, and puts the round back as it was.
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    document.getElementById('manual-undo')!.click();
+    expect(stored().players[0].manualRounds).toEqual([round]);
+    expect(document.getElementById('manual-status')!.textContent).toBe('Restored 1010.');
+    expect(document.activeElement?.id).toBe('manual-delete-m1');
+    expect(document.getElementById('manual-undo')).toBeNull();
+
+    // Delete all still asks first.
+    document.getElementById('manual-clear')!.click();
+    expect(stored().players[0].manualRounds).toEqual([round]);
+    expect(document.activeElement?.id).toBe('manual-clear-cancel');
+    document.getElementById('manual-clear-confirm')!.click();
+    expect(stored().players[0].manualRounds).toEqual([]);
+    expect(document.getElementById('manual-undo')).toBeNull();
   });
 
   it('shows what another tab stored', async () => {

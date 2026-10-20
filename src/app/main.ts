@@ -15,12 +15,21 @@ import {
   initialSelection,
   removeManualRound,
   removePlayer,
+  restoreManualRound,
   routeImport,
   setMe,
   type ManualRoundInput,
   type Routed,
 } from './players';
-import { browserStorage, createStore, MAX_FAVORITES, STORAGE_KEY, type PlayerOrder, type Theme } from './storage';
+import {
+  browserStorage,
+  createStore,
+  MAX_FAVORITES,
+  STORAGE_KEY,
+  type PlayerOrder,
+  type StoredManualRound,
+  type Theme,
+} from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
@@ -28,9 +37,9 @@ import {
   MANUAL_ADD_ID,
   MANUAL_CLEAR_CANCEL_ID,
   MANUAL_CLEAR_ID,
-  MANUAL_LIST_ID,
   MANUAL_RATING_ID,
   MANUAL_TOGGLE_ID,
+  MANUAL_UNDO_ID,
   type ManualDraft,
   type ManualFlash,
 } from './views/manual';
@@ -93,6 +102,11 @@ let manualOpen = false;
 let manualDraft: ManualDraft = emptyDraft(today());
 let manualFlash: ManualFlash = null;
 let confirmClear = false;
+/**
+ * The manual round deleted last and where it was, for Undo. Unlike the flash,
+ * it lasts through re-renders until the next change to the manual rounds.
+ */
+let manualUndo: { round: StoredManualRound; index: number } | null = null;
 /** The player the manual entry state belongs to; another player starts with it closed and empty. */
 let manualPlayer: number | null = selected;
 /** A new version of the app is installed and waits for a reload. */
@@ -232,6 +246,7 @@ function addFromPanel(pdgaNumber: number): void {
 function toggleManual(): void {
   manualOpen = !manualOpen;
   confirmClear = false;
+  manualUndo = null;
   // A form opened on a later day starts on that day.
   if (manualOpen && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
   render(manualOpen ? MANUAL_RATING_ID : MANUAL_TOGGLE_ID);
@@ -240,6 +255,7 @@ function toggleManual(): void {
 /** Adds a round and keeps the form open for the next one, with the date and event kept. */
 function addManual(round: ManualRoundInput): void {
   if (selected === null) return;
+  manualUndo = null;
   const { data, error, savedFavorite } = addManualRound(store.get(), selected, round);
   if (error) {
     manualFlash = { kind: error };
@@ -252,12 +268,28 @@ function addManual(round: ManualRoundInput): void {
   render(MANUAL_RATING_ID);
 }
 
+/** Deletes at once, without asking: the status line offers Undo instead, which gets focus. */
 function deleteManual(id: string): void {
-  if (selected === null) return;
-  const data = store.update(removeManualRound(store.get(), selected, id));
-  manualFlash = { kind: 'deleted' };
-  const left = findPlayer(data, selected)?.manualRounds.length ?? 0;
-  render(left > 0 ? MANUAL_LIST_ID : MANUAL_TOGGLE_ID);
+  const rounds = findPlayer(store.get(), selected)?.manualRounds ?? [];
+  const index = rounds.findIndex((round) => round.id === id);
+  if (selected === null || index < 0) return;
+  store.update(removeManualRound(store.get(), selected, id));
+  manualUndo = { round: rounds[index]!, index };
+  render(MANUAL_UNDO_ID);
+}
+
+/** Puts the deleted round back in its place, with focus on its Delete button. */
+function undoDelete(): void {
+  if (selected === null || manualUndo === null) return;
+  const { round, index } = manualUndo;
+  manualUndo = null;
+  const data = store.get();
+  const restored = restoreManualRound(data, selected, round, index);
+  if (restored !== data) {
+    store.update(restored);
+    manualFlash = { kind: 'restored', rating: round.rating };
+  }
+  render(restored !== data ? `manual-delete-${round.id}` : MANUAL_TOGGLE_ID);
 }
 
 function askClearManual(ask: boolean): void {
@@ -270,6 +302,7 @@ function clearManual(): void {
   if (selected === null) return;
   store.update(clearManualRounds(store.get(), selected));
   confirmClear = false;
+  manualUndo = null;
   manualFlash = { kind: 'cleared' };
   render(MANUAL_TOGGLE_ID);
 }
@@ -410,6 +443,7 @@ function currentView(): HTMLElement {
     manualOpen = false;
     manualDraft = emptyDraft(today());
     confirmClear = false;
+    manualUndo = null;
   }
   if (player?.import) {
     const now = new Date();
@@ -421,6 +455,7 @@ function currentView(): HTMLElement {
         draft: manualDraft,
         flash: manualFlash,
         confirmClear,
+        undo: manualUndo && { rating: manualUndo.round.rating, date: manualUndo.round.date },
         player: playerLabel(player),
         today: today(now),
         onToggle: toggleManual,
@@ -429,6 +464,7 @@ function currentView(): HTMLElement {
         },
         onAdd: addManual,
         onDelete: deleteManual,
+        onUndo: undoDelete,
         onAskClear: askClearManual,
         onClear: clearManual,
       },

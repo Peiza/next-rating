@@ -16,9 +16,9 @@ import { MAX_EVENT_NAME, MAX_FAVORITES, MAX_MANUAL_ROUNDS, type StoredManualRoun
 export const MANUAL_TOGGLE_ID = 'manual-toggle';
 export const MANUAL_RATING_ID = 'manual-rating';
 export const MANUAL_ADD_ID = 'manual-add';
-export const MANUAL_LIST_ID = 'manual-list-title';
 export const MANUAL_CLEAR_ID = 'manual-clear';
 export const MANUAL_CLEAR_CANCEL_ID = 'manual-clear-cancel';
+export const MANUAL_UNDO_ID = 'manual-undo';
 
 const PANEL_ID = 'manual-panel';
 const DATE_ID = 'manual-date';
@@ -39,7 +39,8 @@ export type ManualField = keyof ManualDraft;
 /** What the form says after the last action. */
 export type ManualFlash =
   | { kind: 'added'; rating: number; savedFavorite: boolean }
-  | { kind: 'deleted' | 'cleared' | 'favorites-full' | 'rounds-full' }
+  | { kind: 'restored'; rating: number }
+  | { kind: 'cleared' | 'favorites-full' | 'rounds-full' }
   | null;
 
 export function emptyDraft(today: PlainDate): ManualDraft {
@@ -78,6 +79,8 @@ export interface ManualProps {
   flash: ManualFlash;
   /** "Delete all" waits for confirmation. */
   confirmClear: boolean;
+  /** The round just deleted, which Undo puts back. A single delete does not ask first. */
+  undo: { rating: number; date: PlainDate } | null;
   /** The player's label, for the message when adding a round saves the player as a favorite. */
   player: string;
   today: PlainDate;
@@ -85,6 +88,7 @@ export interface ManualProps {
   onDraft: (field: ManualField, value: string) => void;
   onAdd: (round: ManualRoundInput) => void;
   onDelete: (id: string) => void;
+  onUndo: () => void;
   onAskClear: (ask: boolean) => void;
   onClear: () => void;
 }
@@ -102,8 +106,8 @@ function flashText(flash: NonNullable<ManualFlash>, player: string): string {
       const rating = formatRating(flash.rating);
       return flash.savedFavorite ? t('manual.addedFavorite', { rating, player }) : t('manual.added', { rating });
     }
-    case 'deleted':
-      return t('manual.deleted');
+    case 'restored':
+      return t('manual.restored', { rating: formatRating(flash.rating) });
     case 'cleared':
       return t('manual.cleared');
     case 'favorites-full':
@@ -126,6 +130,21 @@ function field(id: string, label: MessageKey, input: HTMLInputElement, hint?: Me
     el('label', { for: id, class: 'label' }, t(label)),
     hint && el('p', { id: `${id}-hint`, class: 'hint hint-tight' }, t(hint)),
     input,
+  );
+}
+
+/** Next to "Removed 985" in the status line, so a mistaken tap on Delete is easy to reverse. */
+function undoButton(undo: NonNullable<ManualProps['undo']>, onUndo: () => void): HTMLElement {
+  return el(
+    'button',
+    {
+      id: MANUAL_UNDO_ID,
+      class: 'button button-small',
+      type: 'button',
+      'aria-label': t('manual.undoLabel', { rating: formatRating(undo.rating), date: formatDate(undo.date) }),
+      onclick: onUndo,
+    },
+    t('manual.undo'),
   );
 }
 
@@ -154,10 +173,11 @@ function entryForm(props: ManualProps): HTMLFormElement {
     field(EVENT_ID, 'manual.eventName', inputs.eventName, 'manual.eventNameHint'),
     field(HOLES_ID, 'manual.holes', inputs.holes),
   );
+  const { flash, undo } = props;
   const status = el(
     'p',
-    { id: STATUS_ID, class: isError(props.flash) ? 'status error' : 'status', role: 'status' },
-    props.flash ? flashText(props.flash, props.player) : '',
+    { id: STATUS_ID, class: isError(flash) ? 'status error' : 'status', role: 'status' },
+    flash ? flashText(flash, props.player) : undo ? t('manual.removed', { rating: formatRating(undo.rating) }) : '',
   );
   const submit = (event: Event) => {
     event.preventDefault();
@@ -188,7 +208,7 @@ function entryForm(props: ManualProps): HTMLFormElement {
     field(DATE_ID, 'manual.date', inputs.date, 'manual.dateHint'),
     more,
     el('button', { id: MANUAL_ADD_ID, class: 'button button-primary button-block', type: 'submit' }, t('manual.add')),
-    status,
+    el('div', { class: 'status-row' }, status, undo && undoButton(undo, props.onUndo)),
   );
 }
 
@@ -288,7 +308,7 @@ export function manualEntry(props: ManualProps): HTMLElement {
       el(
         'div',
         { class: 'manual-list' },
-        el('h2', { id: MANUAL_LIST_ID, tabindex: -1 }, t('manual.listTitle')),
+        el('h2', {}, t('manual.listTitle')),
         el('ul', { class: 'manual-rounds' }, ...newestFirst(rounds).map((round) => roundItem(round, props.onDelete))),
         clearRow(props),
       ),

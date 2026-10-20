@@ -674,6 +674,19 @@ a {
   margin: 0;
 }
 
+/* "Removed 985" with Undo beside it. */
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+
+.status-row > .button-small {
+  margin-top: 0.5rem;
+}
+
 /*
  * Players: on phones the top bar's menu button shows the panel in place of
  * the current view; from 64rem (WIDE_QUERY in views/players.ts) the panel is
