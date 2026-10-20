@@ -78,6 +78,10 @@ single build-time setting.
      pages, sequential, about 1 second apart, one attempt per page.
    - On an event results page: extract the results table; the app picks the
      user's rows by PDGA number.
+   - On Unofficial Results pages, round ratings sit behind a "Show round
+     ratings" toggle. Read them even while hidden: the rating cells are in the
+     page either way, so read them with textContent (never innerText or a
+     visibility check) and never click the toggle.
    - If a request returns a Cloudflare challenge or fails, stop fetching and
      hand off what was collected, including the URLs of the pages that could
      not be fetched, so the app can link to them and ask the user to run the
@@ -91,7 +95,8 @@ single build-time setting.
      Do not use window.open after async work, since browsers block it as a
      popup. The fragment is never sent to any server and is reserved for this
      hand-off.
-   - Read only visible page content. Never read cookies, storage or form fields.
+   - Read only page content (including content hidden behind a toggle, as
+     above). Never read cookies, storage or form fields.
    - Keep the minified bookmarklet small (target under 5 kB), since on phones it
      is pasted into the bookmark URL field.
 4. Web app (PWA, works offline after first load):
@@ -99,20 +104,63 @@ single build-time setting.
      A button opens that player's ratings details page on pdga.com with a short
      hint to run the bookmarklet there.
    - Import from the URL fragment, then remove it with history.replaceState.
-   - Paste import as fallback (tab-separated and HTML clipboard content).
+     An import never erases data it does not contain: for the same player it
+     replaces only what it brings, and an import for another player replaces
+     everything.
+   - Paste import as fallback (tab-separated and HTML clipboard content). A
+     pasted ratings details table without a player header asks whose rounds
+     they are, with a PDGA number field prefilled with the default player
+     (the selected player once favorites exist). The same player as the stored
+     import merges; a different player replaces.
    - Quick manual entry of rounds (rating, date defaulting to today, optional
      event name and hole count), usable one-handed on a phone.
    - Results: predicted rating, change vs current official rating, and a round
      list marking included, dropped and double-weighted rounds, plus the stats
      panel from the legacy sheet.
+   - Data age is obvious: next to the predicted rating, show "Updated X days
+     ago" from the last import's timestamp, using Intl.RelativeTimeFormat. When
+     the data is more than 7 days old, show a clear notice with a button that
+     opens the player's pdga.com ratings details page to refresh.
    - Setup page with step-by-step bookmarklet installation for Safari on iPhone,
      Chrome on Android (run it by typing its name in the address bar) and
      desktop browsers, with a copy button.
-   - Store locally only: PDGA number, language override, last import (show its
-     timestamp) and manual rounds. On iOS, home screen web apps do not share
-     storage with Safari tabs, so the full flow must work in a normal browser
-     tab; installing is optional.
-5. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
+   - Store locally only: the language override and the players' data. Each
+     player (each favorite, see 5) keeps its own PDGA number, last import
+     (show its timestamp) and manual rounds. Until the Favorites step, one
+     player's data is stored. When the storage format changes, existing data
+     is migrated, never silently dropped. On iOS, home screen web apps do not
+     share storage with Safari tabs, so the full flow must work in a normal
+     browser tab; installing is optional.
+5. Favorites:
+   - Save several players as favorites. Each favorite keeps its own last
+     import and its own manual rounds, so switching shows the prediction
+     instantly from stored data, within browser storage limits.
+   - On wide screens the favorites sit in a left sidebar; on phones they open
+     from a menu. Each favorite shows when it was last imported and links to
+     its pdga.com ratings details page, where the bookmarklet refreshes it.
+   - An import updates that player's stored data instead of replacing
+     everything. Pasted details tables default to the selected player.
+   - Paste import stays as a fallback but becomes less prominent once the
+     bookmarklet works; manual entry is the main way to add rounds by hand.
+   - Optional, later: a transfer link that moves favorites and manual rounds
+     to another device through the same URL-fragment hand-off, without a
+     server.
+6. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
+   the PDGA Global Masters Series (GMS) player card but for any player. Visual
+   style only: no PDGA logos or other PDGA assets.
+   - Show Sum, Average (rounded to a whole number, as GMS does) and High, and
+     below them the 8 highest-rated rounds, each with round label, event name
+     and rating, highest first.
+   - Count every rated round: official rounds from the details page and
+     unofficial rounds from imported events. No tier filter and no hole
+     weighting. DNF and manual rounds do not count.
+   - Period: by default the current calendar year, following today's date (as
+     GMS does). A switch offers instead exactly the window the rating
+     prediction uses, with the same anchor (the most recent rated round) and
+     the same 24-month fallback.
+   - With fewer than 8 rounds, show how many were found and the average of
+     those.
+7. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
    on Web Page") reusing the same extractor, with setup instructions in the app.
 
 ## Security
@@ -127,7 +175,8 @@ single build-time setting.
   least 14 days ago, and run npm audit afterwards.
 - Never let npx or npm exec download packages. Run tools only through npm
   scripts or packages already pinned in package.json, and stop background
-  servers by stopping the task directly.
+  servers by stopping the task directly. Never use curl or similar tools to
+  check a local server.
 - Bookmarklet source kept readable in the repo, minified by a build script,
   with a version number the app can display.
 - GitHub Actions: least-privilege permissions per job, every action pinned to
@@ -172,6 +221,18 @@ PDGA numbers, event ids, event names or results); fixture-specific expected
 values live in the git-ignored tests/fixtures/expected.json.
 
 ## Process
-Start with a plan for my approval. Build in this order and commit after each
-working step: engine + tests, parsers + tests, web app, GitHub Pages workflow,
-bookmarklet, setup page.
+Start with a plan for my approval. Changes reach main through pull requests
+that I merge; the workflow builds and tests every pull request and deploys
+every merge, so each version can be tested live on my phone. Build in this
+order, committing after each working step:
+- Engine + tests (done)
+- Parsers + tests (done)
+- Web app, commits 1 and 2 of docs/plan-step-3.md (done)
+- GitHub Pages workflow
+- Favorites (before manual entry, so manual rounds are stored per player from
+  the start)
+- Web app, commit 3 of docs/plan-step-3.md: quick manual entry, data age and
+  the offline PWA
+- Top 8 panel
+- Bookmarklet
+- Setup page

@@ -5,6 +5,10 @@ shell, theme, translations and settings) and 2 (import and results) are done;
 this document holds the approved plan, updated with the decisions made while
 building commit 2.
 
+Commit 3 now comes after the GitHub Pages workflow and the Favorites step
+(see Process in CLAUDE.md). Its plan below must be revised then: manual
+rounds are stored per player, and the data age display joins it.
+
 ## Already in place (commit 1)
 
 - Vite 8.3.2 build with `base: './'`, no inlined assets, and no modulepreload
@@ -37,7 +41,7 @@ building commit 2.
 
 ## Commit 2: Import and results
 
-**Hand-off codec (`src/handoff/`)**, shared with the bookmarklet in step 5:
+**Hand-off codec (`src/handoff/`)**, shared with the bookmarklet:
 - Envelope schema v1: `{ v: 1, status, page, bookmarklet, player?, details?,
   profileEvents?, events?, failed? }`, where the payload fields are the
   existing `Raw*` records from `src/parsers/types.ts`. `status` is one of
@@ -78,6 +82,10 @@ building commit 2.
   it with `DOMParser` (an inert document: no scripts, no loading), trying
   `parseRatingsDetails`, then `parseEvent`, then the TSV extractors on
   `text/plain`.
+- A pasted ratings details table without a player header asks whose rounds
+  they are, with a PDGA number field prefilled with the default player. The
+  same player as the stored import merges; a different player replaces.
+  (Added after commit 2, with the GitHub Pages workflow.)
 - Pasted event results have no date, so ask for one (default today) and an
   optional event name, so two pasted events on the same date stay apart. The
   date is stored in the event record in pdga.com format.
@@ -128,7 +136,13 @@ the rating parsed from the player page, derived rather than hard-coded.
 - Manual rounds are listed with a delete button and a "Clear all manual
   rounds" action, confirmed with an inline confirm row (not
   `window.confirm`). The prediction updates immediately.
-- Stored as `manualRounds` in `AppData`, validated on read.
+- Stored as `manualRounds` in `AppData`, validated on read. (To revise: with
+  favorites, manual rounds belong to a player.)
+
+**Data age** (see CLAUDE.md, Web app): "Updated X days ago" next to the
+predicted rating with `Intl.RelativeTimeFormat`, and a refresh notice with a
+button to the player's pdga.com ratings details page when the data is more
+than 7 days old.
 
 **PWA**:
 - `public/manifest.webmanifest`: `start_url: "./"`, `scope: "./"`,
