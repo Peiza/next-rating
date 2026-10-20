@@ -1,14 +1,15 @@
 import type { PageKind } from '../parsers';
-import { ParseError, asRecord } from '../parsers/values';
-import { cleanParts, type ImportParts } from './records';
+import { LIMITS, ParseError, asList, asRecord } from '../parsers/values';
 
 /*
  * The hand-off from the bookmarklet: one versioned envelope with a status
- * code, so the app shows every message in the user's language, and the raw
- * records read from pdga.com.
+ * code, so the app shows every message in the user's language, and the HTML
+ * of the pdga.com pages it read. The bookmarklet does not parse anything:
+ * the app parses the HTML the same way as pasted content (src/app/handoff.ts),
+ * so a change in pdga.com's markup is fixed by deploying the app.
  */
 
-export const HANDOFF_VERSION = 1;
+export const HANDOFF_VERSION = 2;
 
 export const STATUSES = ['ok', 'partial', 'challenge', 'unsupported-page', 'error'] as const;
 /**
@@ -21,19 +22,28 @@ export type HandoffStatus = (typeof STATUSES)[number];
 
 const PAGE_KINDS = ['details', 'profile', 'event', 'challenge', 'unknown'] as const satisfies readonly PageKind[];
 
+/** Pages in one hand-off: the current page, the other player page and up to 10 event pages. */
+export const MAX_PAGES = 12;
 /** Pages that could not be fetched, at most this many. */
 export const MAX_FAILED = 20;
 
 const VERSION = /^\d+(?:\.\d+){0,2}$/;
-const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/details)?|tour\/event\/\d{1,8})$/;
+export const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/details)?|tour\/event\/\d{1,8})$/;
 
-export interface Envelope extends ImportParts {
+/** A pdga.com page as the bookmarklet sent it: the parts the app reads, as HTML. */
+export interface HandoffPage {
+  url: string;
+  html: string;
+}
+
+export interface Envelope {
   v: typeof HANDOFF_VERSION;
   status: HandoffStatus;
   /** The kind of page the bookmarklet ran on. */
   page: PageKind;
   /** The bookmarklet's version. */
   bookmarklet: string;
+  pages?: HandoffPage[];
   /** pdga.com pages that could not be fetched, for the user to open. */
   failed?: string[];
 }
@@ -50,6 +60,17 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], what: st
   throw new ParseError('malformed', `unknown ${what}`);
 }
 
+function pages(value: unknown): HandoffPage[] {
+  return asList(value, MAX_PAGES, 'pages').map((item) => {
+    const page = asRecord(item, 'page');
+    const { url, html } = page;
+    if (typeof url !== 'string' || !PDGA_PAGE.test(url)) throw new ParseError('malformed', 'page is not a pdga.com page');
+    if (typeof html !== 'string') throw new ParseError('malformed', 'page HTML is not text');
+    if (html.length > LIMITS.paste) throw new ParseError('too-large', 'page HTML is too large');
+    return { url, html };
+  });
+}
+
 /** Keeps only pdga.com player and event pages, without duplicates. */
 function failedPages(value: unknown): string[] {
   if (!Array.isArray(value)) throw new ParseError('malformed', 'failed pages is not a list');
@@ -60,6 +81,7 @@ function failedPages(value: unknown): string[] {
 /**
  * Validates a decoded envelope. Throws VersionError for an unknown version
  * and ParseError for anything else that is wrong. Unknown fields are dropped.
+ * The page HTML stays untrusted: it is only ever parsed into an inert document.
  */
 export function validateEnvelope(value: unknown): Envelope {
   const record = asRecord(value, 'hand-off');
@@ -73,7 +95,7 @@ export function validateEnvelope(value: unknown): Envelope {
     status: oneOf(record.status, STATUSES, 'status'),
     page: oneOf(record.page, PAGE_KINDS, 'page kind'),
     bookmarklet,
-    ...cleanParts(record),
+    ...(record.pages !== undefined && { pages: pages(record.pages) }),
     ...(record.failed !== undefined && { failed: failedPages(record.failed) }),
   };
 }

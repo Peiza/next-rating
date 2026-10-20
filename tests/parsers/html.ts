@@ -67,6 +67,17 @@ export function detailsTable(rows: string[], id = 'player-results-details'): str
     <tbody>${rows.join('')}</tbody></table>`;
 }
 
+export function profileTable(division: string, rows: string): string {
+  return `<table id="player-results-${division.toLowerCase()}" class="sticky-enabled">
+    <thead><tr><th class="place">Place</th><th class="tournament">Tournament</th><th class="tier">Tier</th>
+    <th class="dates">Dates</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+export function profileRow(eventId: string, division: string, date: string): string {
+  return `<tr><td class="place">3</td><td class="tournament"><a href="/tour/event/${eventId}#${division}">Example Open</a></td>
+    <td class="tier">B</td><td class="dates">${date}</td></tr>`;
+}
+
 export interface EventRowOptions {
   name?: string;
   pdgaNumber?: string;

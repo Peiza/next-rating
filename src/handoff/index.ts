@@ -9,5 +9,15 @@ export {
   unpackText,
   type HandoffErrorCode,
 } from './codec';
-export { HANDOFF_VERSION, MAX_FAILED, STATUSES, validateEnvelope, type Envelope, type HandoffStatus } from './envelope';
+export {
+  HANDOFF_VERSION,
+  MAX_FAILED,
+  MAX_PAGES,
+  PDGA_PAGE,
+  STATUSES,
+  validateEnvelope,
+  type Envelope,
+  type HandoffPage,
+  type HandoffStatus,
+} from './envelope';
 export { cleanEvent, cleanParts, hasParts, MAX_EVENTS, type ImportParts } from './records';

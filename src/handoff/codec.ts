@@ -1,5 +1,8 @@
 import { ParseError } from '../parsers/values';
 import { validateEnvelope, VersionError, type Envelope } from './envelope';
+import { MAX_PAYLOAD, packText as pack } from './pack';
+
+export { MAX_PAYLOAD };
 
 /*
  * The envelope travels in the URL fragment, which is never sent to any
@@ -9,8 +12,6 @@ import { validateEnvelope, VersionError, type Envelope } from './envelope';
  */
 
 export const FRAGMENT_PREFIX = '#d=';
-/** Characters of encoded payload. */
-export const MAX_PAYLOAD = 512 * 1024;
 /** Bytes of decompressed JSON. */
 export const MAX_JSON_BYTES = 4 * 1024 * 1024;
 
@@ -28,14 +29,6 @@ export class HandoffError extends Error {
 
 const BASE64URL = /^[A-Za-z0-9_-]*$/;
 
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
 function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
   if (!BASE64URL.test(text)) throw new HandoffError('malformed', 'payload is not base64url');
   let binary: string;
@@ -51,8 +44,8 @@ function supported(): boolean {
   return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
 }
 
-/** Runs bytes through a compression or decompression stream, stopping once the output passes `limit` bytes. */
-async function transform(bytes: Uint8Array, stream: TransformStream<BufferSource, Uint8Array>, limit: number) {
+/** Runs bytes through a decompression stream, stopping once the output passes `limit` bytes. */
+async function decompress(bytes: Uint8Array, stream: TransformStream<BufferSource, Uint8Array>, limit: number) {
   const input = new ReadableStream<BufferSource>({
     start(controller) {
       controller.enqueue(bytes as BufferSource);
@@ -84,8 +77,7 @@ async function transform(bytes: Uint8Array, stream: TransformStream<BufferSource
 /** Compresses and encodes text. Used for the envelope's JSON, and by tests for crafted payloads. */
 export async function packText(text: string): Promise<string> {
   if (!supported()) throw new HandoffError('unsupported', 'compression streams are not available');
-  const bytes = new TextEncoder().encode(text);
-  return toBase64Url(await transform(bytes, new CompressionStream('deflate-raw'), Infinity));
+  return pack(text);
 }
 
 /** Decodes and decompresses a payload, stopping as soon as it grows past the limit. */
@@ -95,7 +87,7 @@ export async function unpackText(payload: string): Promise<string> {
   const bytes = fromBase64Url(payload);
   let json: Uint8Array;
   try {
-    json = await transform(bytes, new DecompressionStream('deflate-raw'), MAX_JSON_BYTES);
+    json = await decompress(bytes, new DecompressionStream('deflate-raw'), MAX_JSON_BYTES);
   } catch (error) {
     if (error instanceof HandoffError) throw error;
     throw new HandoffError('malformed', 'payload is not valid compressed data');

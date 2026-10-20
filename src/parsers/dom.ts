@@ -1,6 +1,6 @@
 /*
- * Helpers for the extract layer. The bookmarklet bundles this layer, so keep
- * it small and free of validation: that belongs in the normalize layer.
+ * Helpers for the extract layer, which only reads pages. Validation belongs
+ * in the normalize layer.
  */
 
 /** Text content with runs of whitespace, including no-break spaces, collapsed. */

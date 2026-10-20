@@ -5,12 +5,15 @@ import { describe, expect, it } from 'vitest';
 /*
  * Imported data is untrusted and only ever rendered as text. These APIs turn
  * strings into markup or code, so none of them may appear in the source.
+ * Reading outerHTML is the one exception: the bookmarklet sends page HTML
+ * that way, and the app only ever parses it into an inert document.
  */
 
 const SRC = join(import.meta.dirname, '..', 'src');
 const FORBIDDEN = [
   /\.innerHTML\b/,
-  /\.outerHTML\b/,
+  // Assigning only; see above.
+  /\.outerHTML\s*\+?=(?!=)/,
   /\binsertAdjacentHTML\b/,
   /\bdocument\.write(?:ln)?\b/,
   /\beval\s*\(/,

@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { STORAGE_KEY } from '../../src/app/storage';
 import { encodeHandoff } from '../../src/handoff';
-import { envelope, rawDetailsRow, rawPlayer } from '../handoff/raw';
+import { envelope, handoffPage } from '../handoff/raw';
+import { detailsRow, detailsTable, playerHeader } from '../parsers/html';
 
 /** Loads the app as a fresh page load would. */
 async function start(url: string): Promise<void> {
@@ -12,10 +13,7 @@ async function start(url: string): Promise<void> {
   await import('../../src/app/main');
 }
 
-const details = [
-  rawDetailsRow({ round: '1', rating: '950' }),
-  rawDetailsRow({ round: '2', roundLabel: '2', rating: '970' }),
-];
+const detailsHtml = playerHeader() + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' })]);
 
 describe('app start', () => {
   beforeEach(() => {
@@ -24,7 +22,7 @@ describe('app start', () => {
   });
 
   it('imports a hand-off, removes the fragment and keeps the data after a reload', async () => {
-    const payload = await encodeHandoff(envelope({ player: rawPlayer(), details }));
+    const payload = await encodeHandoff(envelope({ pages: [handoffPage(detailsHtml)] }));
     await start(`/next-rating/#d=${payload}`);
     expect(location.hash).toBe('');
     await vi.waitFor(() => expect(document.getElementById('import-banner')).not.toBeNull());
@@ -60,6 +58,19 @@ describe('app start', () => {
     expect(document.getElementById('import-banner')!.textContent).toContain('Imported 2 rounds');
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).lastImport.player.pdgaNumber).toBe('100003');
     expect(document.getElementById('make-default')!.textContent).toBe('Make #100003 my default player');
+  });
+
+  it('opens the bookmarklet setup over the current tab and goes back to where it was opened', async () => {
+    await start('/next-rating/');
+    const open = document.getElementById('open-setup') as HTMLButtonElement;
+    open.focus();
+    open.click();
+    expect(document.activeElement?.id).toBe('setup-title');
+    const code = document.getElementById('bookmarklet-code') as HTMLTextAreaElement;
+    expect(code.value.startsWith('javascript:')).toBe(true);
+    document.getElementById('setup-back')!.click();
+    expect(document.getElementById('bookmarklet-code')).toBeNull();
+    expect(document.activeElement?.id).toBe('open-setup');
   });
 
   it('shows an error for a broken hand-off and stores nothing', async () => {

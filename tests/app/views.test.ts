@@ -7,6 +7,8 @@ import { bannerView } from '../../src/app/views/banner';
 import { importView, type ImportProps } from '../../src/app/views/import';
 import { ratingView } from '../../src/app/views/rating';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
+import { isOlderVersion, setupView } from '../../src/app/views/setup';
+import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView } from '../../src/app/views/start';
 import { setLanguage } from '../../src/i18n';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
@@ -14,7 +16,7 @@ import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
 afterEach(() => setLanguage('en'));
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
-  return startView({ pdgaNumber, flash: null, onSavePdgaNumber, onOpenImport: vi.fn() });
+  return startView({ pdgaNumber, flash: null, onSavePdgaNumber, onOpenImport: vi.fn(), onOpenSetup: vi.fn() });
 }
 
 function submit(form: HTMLFormElement) {
@@ -83,6 +85,7 @@ describe('settings view', () => {
     persistent: true,
     onSavePdgaNumber: () => {},
     onLanguage: () => {},
+    onOpenSetup: () => {},
   };
 
   it('offers the device setting and every language', () => {
@@ -101,15 +104,29 @@ describe('settings view', () => {
     expect(settingsView({ ...props, persistent: false }).querySelector('.warning')).not.toBeNull();
   });
 
+  it('shows the bookmarklet version and opens the setup', () => {
+    const onOpenSetup = vi.fn();
+    const view = settingsView({ ...props, onOpenSetup });
+    expect(view.textContent).toContain(`Bookmarklet version ${BOOKMARKLET_VERSION}`);
+    view.querySelector<HTMLButtonElement>('#open-setup')!.click();
+    expect(onOpenSetup).toHaveBeenCalled();
+  });
+
   it('ends with the unofficial notice', () => {
     expect(settingsView(props).lastElementChild!.textContent).toMatch(/not affiliated with/);
   });
 });
 
-describe('getting-started paste step', () => {
-  it('opens the Import tab', () => {
+describe('getting-started bookmarklet and paste steps', () => {
+  it('installs the bookmarklet before opening pdga.com, and opens the Import tab', () => {
     const onOpenImport = vi.fn();
-    const view = startView({ pdgaNumber: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport });
+    const onOpenSetup = vi.fn();
+    const view = startView({ pdgaNumber: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport, onOpenSetup });
+    const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
+    expect(steps[1]).toMatch(/Install the bookmarklet/);
+    expect(steps[2]).toMatch(/run the bookmarklet there/);
+    view.querySelector<HTMLButtonElement>('#open-setup')!.click();
+    expect(onOpenSetup).toHaveBeenCalled();
     view.querySelector<HTMLButtonElement>('#open-import')!.click();
     expect(onOpenImport).toHaveBeenCalled();
   });
@@ -178,7 +195,7 @@ describe('rating view', () => {
 describe('import banner', () => {
   it('links to the pages that could not be fetched', () => {
     const failed = ['https://www.pdga.com/player/100001/details', 'https://www.pdga.com/tour/event/900003'];
-    const banner = bannerView({ message: 'import.status.challenge', tone: 'warning', failed }, () => {});
+    const banner = bannerView({ message: 'import.status.challenge', tone: 'warning', failed }, () => {}, () => {});
     expect(banner.getAttribute('role')).toBe('alert');
     const links = [...banner.querySelectorAll('a')];
     expect(links.map((link) => link.getAttribute('href'))).toEqual(failed);
@@ -188,8 +205,68 @@ describe('import banner', () => {
 
   it('closes', () => {
     const onClose = vi.fn();
-    bannerView({ message: 'import.status.ok', tone: 'info' }, onClose).querySelector('button')!.click();
+    bannerView({ message: 'import.status.ok', tone: 'info' }, onClose, () => {}).querySelector('button')!.click();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('offers a newer bookmarklet only after an outdated one', () => {
+    const onOpenSetup = vi.fn();
+    expect(bannerView({ message: 'import.status.ok', tone: 'info' }, () => {}, onOpenSetup).querySelector('#banner-setup')).toBeNull();
+    const banner = bannerView({ message: 'import.status.ok', tone: 'info', outdated: true }, () => {}, onOpenSetup);
+    expect(banner.textContent).toContain('A newer version of the bookmarklet');
+    banner.querySelector<HTMLButtonElement>('#banner-setup')!.click();
+    expect(onOpenSetup).toHaveBeenCalled();
+  });
+});
+
+describe('bookmarklet setup', () => {
+  const CODE = 'javascript:(function(){location.assign("https://example.github.io/next-rating/#d=")})();void 0';
+
+  it('tells older bookmarklet versions apart', () => {
+    expect(isOlderVersion('0.9.9', '1.0.0')).toBe(true);
+    expect(isOlderVersion('1.0', '1.0.1')).toBe(true);
+    expect(isOlderVersion('1.0.0', '1.0.0')).toBe(false);
+    expect(isOlderVersion('1.10.0', '1.9.0')).toBe(false);
+  });
+
+  it('shows the code as plain text, with the version and steps for each browser', () => {
+    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    const code = view.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
+    expect(code.value).toBe(CODE);
+    expect(code.readOnly).toBe(true);
+    expect(code.children).toHaveLength(0);
+    expect(view.querySelector('#bookmarklet-version')!.textContent).toBe(`Bookmarklet version ${BOOKMARKLET_VERSION}`);
+    expect([...view.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual(['Safari on iPhone', 'Chrome on Android', 'Desktop browsers']);
+    expect(view.querySelector('a')).toBeNull();
+  });
+
+  it('copies the code to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
+    await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toMatch(/^Copied/));
+    expect(writeText).toHaveBeenCalledWith(CODE);
+    vi.unstubAllGlobals();
+  });
+
+  it('selects the code for the user to copy when the clipboard is not available', async () => {
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
+    const view = setupView({ bookmarklet: CODE, onBack: vi.fn() });
+    document.body.append(view);
+    view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
+    await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toBe('Copy the selected text.'));
+    const code = view.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
+    expect(document.activeElement).toBe(code);
+    expect(code.selectionEnd - code.selectionStart).toBe(CODE.length);
+    view.remove();
+    vi.unstubAllGlobals();
+  });
+
+  it('goes back', () => {
+    const onBack = vi.fn();
+    setupView({ bookmarklet: CODE, onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
+    expect(onBack).toHaveBeenCalled();
   });
 });
 

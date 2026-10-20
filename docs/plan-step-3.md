@@ -5,8 +5,8 @@ shell, theme, translations and settings) and 2 (import and results) are done;
 this document holds the approved plan, updated with the decisions made while
 building commit 2.
 
-Commit 3 now comes after the GitHub Pages workflow and the Favorites step
-(see Process in CLAUDE.md). Its plan below must be revised then: manual
+Commit 3 now comes after the GitHub Pages workflow, the bookmarklet and the
+Favorites step (see Process in CLAUDE.md). Its plan below must be revised then: manual
 rounds are stored per player, and the data age display joins it.
 
 ## Already in place (commit 1)
@@ -41,7 +41,9 @@ rounds are stored per player, and the data age display joins it.
 
 ## Commit 2: Import and results
 
-**Hand-off codec (`src/handoff/`)**, shared with the bookmarklet:
+**Hand-off codec (`src/handoff/`)**, shared with the bookmarklet. (Step 5
+replaced envelope v1 with v2, which carries page HTML that the app parses;
+see `docs/plan-step-5.md`.)
 - Envelope schema v1: `{ v: 1, status, page, bookmarklet, player?, details?,
   profileEvents?, events?, failed? }`, where the payload fields are the
   existing `Raw*` records from `src/parsers/types.ts`. `status` is one of

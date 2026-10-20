@@ -3,14 +3,15 @@ import {
   decodeHandoff,
   encodeHandoff,
   HandoffError,
-  MAX_EVENTS,
   MAX_JSON_BYTES,
+  MAX_PAGES,
   MAX_PAYLOAD,
   packText,
   STATUSES,
   type HandoffErrorCode,
 } from '../../src/handoff';
-import { envelope, rawDetailsRow, rawEvent, rawPlayer, rawProfileEvent } from './raw';
+import { LIMITS } from '../../src/parsers';
+import { envelope, handoffPage } from './raw';
 
 async function errorCode(payload: string | Promise<string>): Promise<HandoffErrorCode | 'none'> {
   try {
@@ -25,15 +26,11 @@ async function errorCode(payload: string | Promise<string>): Promise<HandoffErro
 const pack = (value: unknown) => packText(JSON.stringify(value));
 
 describe('hand-off codec', () => {
-  it('round-trips an envelope with every kind of record', async () => {
-    const full = envelope({
-      status: 'partial',
-      player: rawPlayer(),
-      details: [rawDetailsRow(), rawDetailsRow({ round: '2', roundLabel: '2', rating: '940' })],
-      profileEvents: [rawProfileEvent()],
-      events: [rawEvent()],
-      failed: ['https://www.pdga.com/tour/event/900003'],
-    });
+  const details = handoffPage('<h1 id="page-title">Test Player #100001</h1><table id="player-results-details"></table>');
+  const event = handoffPage('<div class="leaderboard"></div>', 'https://www.pdga.com/tour/event/900003');
+
+  it('round-trips an envelope with pages', async () => {
+    const full = envelope({ status: 'partial', pages: [details, event], failed: ['https://www.pdga.com/tour/event/900004'] });
     expect(await decodeHandoff(await encodeHandoff(full))).toEqual(full);
   });
 
@@ -43,9 +40,9 @@ describe('hand-off codec', () => {
   });
 
   it('uses only characters that are safe in a URL fragment', async () => {
-    const payload = await encodeHandoff(envelope({ player: rawPlayer({ name: 'Åsa Öberg ✓' }) }));
+    const payload = await encodeHandoff(envelope({ pages: [handoffPage('<h1>Åsa Öberg ✓</h1>')] }));
     expect(payload).toMatch(/^[A-Za-z0-9_-]+$/);
-    expect((await decodeHandoff(payload)).player?.name).toBe('Åsa Öberg ✓');
+    expect((await decodeHandoff(payload)).pages?.[0]?.html).toBe('<h1>Åsa Öberg ✓</h1>');
   });
 
   it('rejects an oversized payload before decoding it', async () => {
@@ -53,7 +50,7 @@ describe('hand-off codec', () => {
   });
 
   it('stops decompressing a small payload that grows too large', async () => {
-    const bomb = await pack({ v: 1, padding: ' '.repeat(MAX_JSON_BYTES) });
+    const bomb = await pack({ v: 2, padding: ' '.repeat(MAX_JSON_BYTES) });
     expect(bomb.length).toBeLessThan(MAX_PAYLOAD);
     expect(await errorCode(bomb)).toBe('too-large');
   });
@@ -73,8 +70,9 @@ describe('hand-off codec', () => {
     expect(await errorCode(packText('not json'))).toBe('malformed');
   });
 
-  it('rejects an unknown version', async () => {
-    expect(await errorCode(pack({ ...envelope(), v: 2 }))).toBe('version');
+  it('rejects an unknown version, including the record-based version 1', async () => {
+    expect(await errorCode(pack({ ...envelope(), v: 1 }))).toBe('version');
+    expect(await errorCode(pack({ ...envelope(), v: 3 }))).toBe('version');
     expect(await errorCode(pack({ status: 'ok' }))).toBe('version');
   });
 
@@ -84,19 +82,32 @@ describe('hand-off codec', () => {
     expect(await errorCode(pack({ ...envelope(), bookmarklet: '<b>' }))).toBe('malformed');
   });
 
-  it('rejects malformed records', async () => {
-    expect(await errorCode(pack(envelope({ player: rawPlayer({ pdgaNumber: '' }) })))).toBe('malformed');
-    expect(await errorCode(pack({ ...envelope(), details: 'rows' }))).toBe('malformed');
-    expect(await errorCode(pack({ ...envelope(), events: [{ divisions: [{ rows: 5 }] }] }))).toBe('malformed');
-    expect(await errorCode(pack({ ...envelope(), player: rawPlayer({ name: 'x'.repeat(1000) }) }))).toBe('too-large');
+  it('rejects malformed pages', async () => {
+    expect(await errorCode(pack({ ...envelope(), pages: 'html' }))).toBe('malformed');
+    expect(await errorCode(pack({ ...envelope(), pages: ['html'] }))).toBe('malformed');
+    expect(await errorCode(pack({ ...envelope(), pages: [{ url: details.url, html: 5 }] }))).toBe('malformed');
+    expect(await errorCode(pack({ ...envelope(), pages: [{ url: details.url }] }))).toBe('malformed');
   });
 
-  it('limits the number of events', async () => {
-    const events = Array.from({ length: MAX_EVENTS + 1 }, (_, i) => rawEvent({ eventId: String(900100 + i) }));
-    expect(await errorCode(pack(envelope({ events })))).toBe('too-large');
+  it.each([
+    'https://evil.example/player/100001',
+    'https://www.pdga.com.evil.example/player/100001',
+    'http://www.pdga.com/player/100001',
+    'https://www.pdga.com/player/100001?next=https://evil.example',
+    'https://www.pdga.com/user/login',
+    'javascript:alert(1)',
+  ])('rejects a page from %s', async (url) => {
+    expect(await errorCode(pack(envelope({ pages: [handoffPage('<p></p>', url)] })))).toBe('malformed');
   });
 
-  it('keeps only pdga.com player and event pages', async () => {
+  it('limits the number of pages and the size of each', async () => {
+    const pages = Array.from({ length: MAX_PAGES + 1 }, () => event);
+    expect(await errorCode(pack(envelope({ pages })))).toBe('too-large');
+    const large = handoffPage(' '.repeat(LIMITS.paste + 1));
+    expect(await errorCode(pack(envelope({ pages: [large] })))).toBe('too-large');
+  });
+
+  it('keeps only pdga.com player and event pages in the failed list', async () => {
     const kept = [
       'https://www.pdga.com/player/100001',
       'https://www.pdga.com/player/100001/details',
@@ -106,9 +117,7 @@ describe('hand-off codec', () => {
       ...kept,
       kept[0],
       'https://evil.example/player/100001',
-      'https://www.pdga.com.evil.example/player/100001',
       'http://www.pdga.com/player/100001',
-      'https://www.pdga.com/player/100001?next=https://evil.example',
       'https://www.pdga.com/user/login',
       'javascript:alert(1)',
       42,
@@ -119,11 +128,11 @@ describe('hand-off codec', () => {
 
   it('drops unknown fields', async () => {
     const extra = {
-      ...envelope({ player: { ...rawPlayer(), cookie: 'secret' } as never }),
+      ...envelope({ pages: [{ ...details, cookie: 'secret' } as never] }),
       script: 'alert(1)',
     };
     const decoded = await decodeHandoff(await pack(extra));
     expect(decoded).not.toHaveProperty('script');
-    expect(decoded.player).toEqual(rawPlayer());
+    expect(decoded.pages).toEqual([details]);
   });
 });

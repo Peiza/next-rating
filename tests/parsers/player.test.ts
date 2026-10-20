@@ -8,18 +8,7 @@ import {
   parseProfileEvents,
 } from '../../src/parsers/player';
 import { ParseError } from '../../src/parsers/values';
-import { detailsRow, detailsTable, page, parseHtml, playerHeader } from './html';
-
-function profileTable(division: string, rows: string): string {
-  return `<table id="player-results-${division.toLowerCase()}" class="sticky-enabled">
-    <thead><tr><th class="place">Place</th><th class="tournament">Tournament</th><th class="tier">Tier</th>
-    <th class="dates">Dates</th></tr></thead><tbody>${rows}</tbody></table>`;
-}
-
-function profileRow(eventId: string, division: string, date: string): string {
-  return `<tr><td class="place">3</td><td class="tournament"><a href="/tour/event/${eventId}#${division}">Example Open</a></td>
-    <td class="tier">B</td><td class="dates">${date}</td></tr>`;
-}
+import { detailsRow, detailsTable, page, parseHtml, playerHeader, profileRow, profileTable } from './html';
 
 describe('player header', () => {
   it('reads name, number, current rating and its date', () => {

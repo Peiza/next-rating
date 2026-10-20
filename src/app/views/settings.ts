@@ -1,4 +1,5 @@
 import { languages, resolveLanguage, t } from '../../i18n';
+import { BOOKMARKLET_VERSION } from '../../bookmarklet/version';
 import { el } from '../dom';
 import { detailsLink, pdgaNumberForm, type PdgaFlash } from './pdga';
 
@@ -12,6 +13,7 @@ export interface SettingsProps {
   persistent: boolean;
   onSavePdgaNumber: (pdgaNumber: number | null) => void;
   onLanguage: (language: string | null) => void;
+  onOpenSetup: () => void;
 }
 
 function languagePicker(language: string | null, preferred: readonly string[], onLanguage: (language: string | null) => void) {
@@ -36,7 +38,7 @@ function languagePicker(language: string | null, preferred: readonly string[], o
 }
 
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { pdgaNumber, flash, language, preferred, persistent, onSavePdgaNumber, onLanguage } = props;
+  const { pdgaNumber, flash, language, preferred, persistent, onSavePdgaNumber, onLanguage, onOpenSetup } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -46,6 +48,13 @@ export function settingsView(props: SettingsProps): HTMLElement {
     detailsLink(pdgaNumber),
     pdgaNumber !== null && el('p', { class: 'hint' }, t('settings.detailsHint')),
     languagePicker(language, preferred, onLanguage),
+    el('h2', {}, t('settings.bookmarklet')),
+    el('p', { class: 'hint' }, t('setup.version', { version: BOOKMARKLET_VERSION })),
+    el(
+      'button',
+      { id: 'open-setup', class: 'button button-block', type: 'button', onclick: onOpenSetup },
+      t('settings.openSetup'),
+    ),
     el('h2', {}, t('settings.about')),
     el('p', {}, t('app.privacy')),
     el('p', { id: 'version', class: 'hint' }, t('settings.version', { version: __BUILD_ID__ })),
