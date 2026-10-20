@@ -88,6 +88,11 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('setup-title');
     const code = document.getElementById('bookmarklet-code') as HTMLTextAreaElement;
     expect(code.value.startsWith('javascript:')).toBe(true);
+    // jsdom is neither a phone nor a touch Mac.
+    expect(document.querySelector<HTMLInputElement>('#platform-computer')!.checked).toBe(true);
+    document.getElementById('platform-android')!.click();
+    expect(document.activeElement?.id).toBe('platform-android');
+    expect(document.querySelector('#setup-steps-title')!.textContent).toBe('Chrome on Android');
     document.getElementById('setup-back')!.click();
     expect(document.getElementById('bookmarklet-code')).toBeNull();
     expect(document.activeElement?.id).toBe('open-setup');

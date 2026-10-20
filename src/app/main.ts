@@ -64,7 +64,7 @@ import { cardToggleId } from './views/card';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
 import { settingsView, themeId } from './views/settings';
-import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
+import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startView } from './views/start';
 
 /*
@@ -99,6 +99,8 @@ let flash: PdgaFlash = null;
 let banner: Banner | null = null;
 /** The bookmarklet setup shows over the current tab, and the id of what opened it gets focus back. */
 let setupOpener: string | null = null;
+/** The kind of browser the setup shows steps for: guessed from the device, then as picked. */
+let setupPlatform: Platform | null = null;
 /** On phones, the players panel shows in place of the current view. */
 let menuOpen = false;
 let editingPlayers = false;
@@ -473,7 +475,17 @@ function tabBar(): HTMLElement {
 }
 
 function currentView(): HTMLElement {
-  if (setupOpener !== null) return setupView({ bookmarklet, stored: store.get().bookmarklet, onBack: closeSetup });
+  if (setupOpener !== null) return setupView({
+      bookmarklet,
+      stored: store.get().bookmarklet,
+      pdgaNumber: store.get().me,
+      platform: (setupPlatform ??= guessPlatform(navigator.userAgent, navigator.maxTouchPoints ?? 0)),
+      onPlatform: (platform) => {
+        setupPlatform = platform;
+        render(platformId(platform));
+      },
+      onBack: closeSetup,
+    });
   const data = store.get();
   if (tab === 'settings') {
     return settingsView({

@@ -8,7 +8,7 @@ import { ratingView } from '../../src/app/views/rating';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
-import { bookmarkletStatus, isOlderVersion, setupView } from '../../src/app/views/setup';
+import { bookmarkletStatus, guessPlatform, isOlderVersion, setupView, type SetupProps } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
@@ -796,6 +796,10 @@ describe('update notice', () => {
   });
 });
 
+function setupProps(bookmarklet: string): SetupProps {
+  return { bookmarklet, stored: null, pdgaNumber: 100001, platform: 'iphone', onPlatform: vi.fn(), onBack: vi.fn() };
+}
+
 describe('bookmarklet status', () => {
   it('says whether the bookmarklet of the last hand-off is up to date', () => {
     expect(bookmarkletStatus('1.0.0', '1.0.0')).toMatchObject({ className: 'hint', textContent: 'Your bookmarklet: 1.0.0, up to date' });
@@ -811,7 +815,7 @@ describe('bookmarklet status', () => {
   });
 
   it('shows at the top of the setup page', () => {
-    const view = setupView({ bookmarklet: 'javascript:void 0', stored: '0.9', onBack: vi.fn() });
+    const view = setupView({ ...setupProps('javascript:void 0'), stored: '0.9' });
     expect(view.querySelector('h1')!.nextElementSibling!.id).toBe('bookmarklet-status');
     expect(view.querySelector('#bookmarklet-status')!.textContent).toContain('0.9, a newer one');
   });
@@ -827,21 +831,76 @@ describe('bookmarklet setup', () => {
     expect(isOlderVersion('1.10.0', '1.9.0')).toBe(false);
   });
 
-  it('shows the code as plain text, with the version and steps for each browser', () => {
-    const view = setupView({ bookmarklet: CODE, stored: null, onBack: vi.fn() });
-    const code = view.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
+  it('guesses the kind of browser from the device', () => {
+    const iPhone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile Safari/604.1';
+    const mac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15';
+    const android = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140.0 Mobile Safari/537.36';
+    const windows = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36';
+    expect(guessPlatform(iPhone, 5)).toBe('iphone');
+    // An iPad reports itself as a Mac with a touch screen.
+    expect(guessPlatform(mac, 5)).toBe('iphone');
+    expect(guessPlatform(mac, 0)).toBe('computer');
+    expect(guessPlatform(android, 5)).toBe('android');
+    expect(guessPlatform(windows, 0)).toBe('computer');
+  });
+
+  it('shows the code as plain text in the first step, with the version', () => {
+    const view = setupView(setupProps(CODE));
+    const first = view.querySelector('#setup-steps > .step')!;
+    expect(first.querySelector('.step-title')!.textContent).toBe('Copy the bookmarklet.');
+    const code = first.querySelector<HTMLTextAreaElement>('#bookmarklet-code')!;
     expect(code.value).toBe(CODE);
     expect(code.readOnly).toBe(true);
     expect(code.children).toHaveLength(0);
+    expect(first.querySelector('#copy-bookmarklet')).not.toBeNull();
     expect(view.querySelector('#bookmarklet-version')!.textContent).toBe(`Bookmarklet version ${BOOKMARKLET_VERSION}`);
-    expect([...view.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual(['Safari on iPhone', 'Chrome on Android', 'Desktop browsers']);
-    expect(view.querySelector('a')).toBeNull();
+    // The code is never a link: the CSP would block it, and dom.ts allows https only.
+    expect(view.querySelector('a[href^="javascript"]')).toBeNull();
+  });
+
+  it.each([
+    ['iphone', 'Safari on iPhone', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its address.', 'Try it on pdga.com.']],
+    ['android', 'Chrome on Android', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
+    ['computer', 'Desktop browsers', ['Copy the bookmarklet.', 'Add a bookmark with the code as its URL.', 'Try it on pdga.com.']],
+  ] as const)('shows numbered steps for %s only', (platform, title, steps) => {
+    const view = setupView({ ...setupProps(CODE), platform });
+    expect([...view.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual([title]);
+    expect([...view.querySelectorAll('#setup-steps .step-title')].map((step) => step.textContent)).toEqual(steps);
+    expect(view.querySelector<HTMLInputElement>(`#platform-${platform}`)!.checked).toBe(true);
+  });
+
+  it('runs the bookmarklet on Android from the address bar', () => {
+    const view = setupView({ ...setupProps(CODE), platform: 'android' });
+    expect(view.querySelector('#setup-steps')!.lastElementChild!.textContent).toContain('type Next Rating');
+  });
+
+  it('switches to another browser', () => {
+    const onPlatform = vi.fn();
+    const view = document.body.appendChild(setupView({ ...setupProps(CODE), onPlatform }));
+    view.querySelector<HTMLInputElement>('#platform-android')!.click();
+    expect(onPlatform).toHaveBeenCalledWith('android');
+    view.remove();
+  });
+
+  it('ends with trying it on your ratings details, which waits for a PDGA number', () => {
+    const last = setupView(setupProps(CODE)).querySelector('#setup-steps')!.lastElementChild!;
+    expect(last.querySelector<HTMLAnchorElement>('a#details-link')!.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
+    expect(last.textContent).toContain('Import complete');
+    const none = setupView({ ...setupProps(CODE), pdgaNumber: null }).querySelector<HTMLButtonElement>('#details-link')!;
+    expect(none.disabled).toBe(true);
+  });
+
+  it('offers help when it does not work, closed', () => {
+    const trouble = setupView(setupProps(CODE)).querySelector<HTMLDetailsElement>('details#setup-trouble')!;
+    expect(trouble.open).toBe(false);
+    expect(trouble.querySelector('summary')!.textContent).toBe("If it doesn't work");
+    expect(trouble.textContent).toContain('javascript:');
   });
 
   it('copies the code to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
-    const view = setupView({ bookmarklet: CODE, stored: null, onBack: vi.fn() });
+    const view = setupView(setupProps(CODE));
     view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
     await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toMatch(/^Copied/));
     expect(writeText).toHaveBeenCalledWith(CODE);
@@ -850,7 +909,7 @@ describe('bookmarklet setup', () => {
 
   it('selects the code for the user to copy when the clipboard is not available', async () => {
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) } });
-    const view = setupView({ bookmarklet: CODE, stored: null, onBack: vi.fn() });
+    const view = setupView(setupProps(CODE));
     document.body.append(view);
     view.querySelector<HTMLButtonElement>('#copy-bookmarklet')!.click();
     await vi.waitFor(() => expect(view.querySelector('#bookmarklet-code-status')!.textContent).toBe('Copy the selected text.'));
@@ -863,7 +922,7 @@ describe('bookmarklet setup', () => {
 
   it('goes back', () => {
     const onBack = vi.fn();
-    setupView({ bookmarklet: CODE, stored: null, onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
+    setupView({ ...setupProps(CODE), onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
     expect(onBack).toHaveBeenCalled();
   });
 });

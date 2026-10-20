@@ -1194,11 +1194,21 @@ a {
   resize: vertical;
 }
 
-.instructions {
-  margin: 0 0 1rem;
-  padding-left: 1.5rem;
+.step .field {
+  margin-top: 1rem;
 }
 
-.instructions li {
-  margin-bottom: 0.5rem;
+.step .hint {
+  margin-bottom: 0.75rem;
+}
+
+.trouble {
+  margin: 1rem 0 1.5rem;
+}
+
+.trouble summary {
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 700;
+  cursor: pointer;
 }
