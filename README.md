@@ -28,9 +28,24 @@ App: https://peiza.github.io/next-rating/
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
 
+## The Rating tab
+
+Under the player's name come the predicted rating, the change against the
+official rating, the next ratings update and how old the data is. "How to
+refresh" next to the data age explains the round trip to pdga.com, with the
+Refresh button under it. When the data is more than 7 days old, it opens by
+itself as a warning.
+
+Below that, each part is a card that opens and closes: Why it changed, Add a
+round, Reach a target rating, Top 8, Statistics and Rounds. Each starts with
+a one-line explanation. Rounds is open at first; the app remembers which
+cards you open, also when you start it from the home screen. While closed,
+Why it changed shows its largest effect in its header, such as "907 no
+longer counts twice, +0.7".
+
 ## Adding rounds yourself
 
-"Add a round" under the prediction takes a round rating, a date (today by
+"Add a round" on the Rating tab takes a round rating, a date (today by
 default) and, optionally, an event name and hole count. The prediction
 updates straight away. Rounds with the same event name and date count as one
 event. The date can be up to a year ahead, so a round you expect to play at
@@ -53,17 +68,15 @@ rated 1150 would not reach it. On the Monday and Tuesday of update week,
 rounds played that day count only in the following update, and the answer
 is for that update.
 
-When a player's data is more than 7 days old, the Rating tab says so, with a
-button to that player's ratings details on pdga.com, where the bookmarklet
-refreshes it.
-
 ## Top 8
 
-The Top 8 panel on the Rating tab is laid out like a Global Masters Series
+The Top 8 card on the Rating tab is laid out like a Global Masters Series
 player card, for any player: the sum, average and highest of the player's 8
 highest rated rounds, then those rounds. Official and unofficial rounds
-count; manual rounds and DNF rounds do not. The period is the current
-calendar year, or the same window the prediction uses.
+count; manual rounds and DNF rounds do not. The period is picked from one
+list: any calendar year the player has rated rounds in (the current year by
+default), the same window the prediction uses, or a custom range of dates.
+The app remembers the choice.
 
 ## Offline and the home screen
 

@@ -1,4 +1,4 @@
-import { isPlainDate, type PlainDate } from '../engine/dates';
+import { compareDates, isPlainDate, type PlainDate } from '../engine/dates';
 import { normalizePlayer } from '../parsers';
 import { parseInteger, RANGES } from '../parsers/values';
 import { applyImport, playerNumber, validateStoredImport, type StoredImport } from './import';
@@ -20,6 +20,28 @@ export type Theme = (typeof THEMES)[number];
 /** How the players panel orders favorites after "me": by name, or newest import first. */
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
+
+/** The collapsible cards on the Rating tab, in the order they show. */
+export const CARDS = ['why', 'manual', 'target', 'top8', 'stats', 'rounds'] as const;
+export type CardName = (typeof CARDS)[number];
+export type CardState = Readonly<Record<CardName, boolean>>;
+
+/** Only Rounds starts open. */
+export const DEFAULT_CARDS: CardState = { why: false, manual: false, target: false, top8: false, stats: false, rounds: true };
+
+/**
+ * The Top 8 period: a calendar year (null follows today's year, the
+ * default), the window the prediction uses, or dates of the user's choice,
+ * both inclusive.
+ */
+export type TopPeriod =
+  | { kind: 'year'; year: number | null }
+  | { kind: 'window' }
+  | { kind: 'custom'; from: PlainDate; to: PlainDate };
+
+export const DEFAULT_TOP_PERIOD: TopPeriod = { kind: 'year', year: null };
+/** The years a stored Top 8 period can name. */
+const TOP_YEARS = [1970, 2200] as const;
 
 export const MAX_FAVORITES = 30;
 export const MAX_MANUAL_ROUNDS = 200;
@@ -54,13 +76,25 @@ export interface AppData {
   theme: Theme | null;
   /** The order picked in the players panel. */
   playerOrder: PlayerOrder;
+  /** Which Rating tab cards are open, the same for every player. */
+  cards: CardState;
+  /** The Top 8 period, the same for every player. */
+  top8Period: TopPeriod;
   /** The favorite the app opens on. */
   me: number | null;
   /** Favorites in the order they were added, and at most one unsaved player. */
   players: StoredPlayer[];
 }
 
-export const EMPTY_DATA: AppData = { language: null, theme: null, playerOrder: 'name', me: null, players: [] };
+export const EMPTY_DATA: AppData = {
+  language: null,
+  theme: null,
+  playerOrder: 'name',
+  cards: DEFAULT_CARDS,
+  top8Period: DEFAULT_TOP_PERIOD,
+  me: null,
+  players: [],
+};
 
 const LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i;
 
@@ -110,6 +144,29 @@ function validateManualRounds(value: unknown): StoredManualRound[] {
   return rounds;
 }
 
+/** Each card on its own, so a bad value costs only that card. */
+function validateCards(value: unknown): CardState {
+  const fields = record(value) ?? {};
+  return Object.fromEntries(
+    CARDS.map((name) => [name, typeof fields[name] === 'boolean' ? fields[name] : DEFAULT_CARDS[name]]),
+  ) as Record<CardName, boolean>;
+}
+
+/** Reads a stored Top 8 period; anything not valid is the current year. */
+export function validateTopPeriod(value: unknown): TopPeriod {
+  const fields = record(value);
+  if (fields?.kind === 'window') return { kind: 'window' };
+  if (fields?.kind === 'year') {
+    if (fields.year === null) return { kind: 'year', year: null };
+    if (wholeIn(fields.year, TOP_YEARS)) return { kind: 'year', year: fields.year };
+  }
+  if (fields?.kind === 'custom') {
+    const { from, to } = fields;
+    if (isPlainDate(from) && isPlainDate(to) && compareDates(from, to) <= 0) return { kind: 'custom', from, to };
+  }
+  return DEFAULT_TOP_PERIOD;
+}
+
 /** Reads one stored player, or null without a valid number. A bad import loses only the import. */
 export function validatePlayer(value: unknown): StoredPlayer | null {
   const fields = record(value);
@@ -151,6 +208,8 @@ export function validateData(value: unknown): AppData {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
     playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
+    cards: validateCards(fields.cards),
+    top8Period: validateTopPeriod(fields.top8Period),
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     players,
   };

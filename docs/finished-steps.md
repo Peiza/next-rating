@@ -96,7 +96,8 @@ manual per-page fallback.
      (Polish 2). When the data is more than 7 days old, a clear notice with a
      button opens the player's pdga.com ratings details page to refresh.
    - Store locally only: the language override, the theme choice, the
-     players list order and the players' data. Each player (each favorite)
+     players list order, which Rating tab cards are open, the Top 8 period
+     and the players' data. Each player (each favorite)
      keeps its own PDGA number, last import (show its timestamp) and manual
      rounds. When the storage format changes, existing data is migrated,
      never silently dropped. On iOS, home screen web apps do not share
@@ -259,7 +260,35 @@ manual per-page fallback.
    Equal ratings list the newer round first. The panel comes after
    Statistics, in the app's own themes, with the round label as "RD 1". Its
    open state and period, and Statistics' open state, live in main.ts: they
-   survive a re-render and last until the page reloads.
+   survive a re-render and last until the page reloads. (The Rating tab
+   design pass below stores them and replaces the switch with a select.)
+
+## Rating tab design pass
+Built after the Top 8 panel (docs/plan-design-pass.md):
+- One card pattern for every section of the Rating tab: a frame around a
+  header and its content, the header a disclosure button inside an h2 with
+  the title and an arrow that turns when the card opens. The content is
+  built only while open, and starts with a one-line explanation. Focus stays
+  on the header when a card opens, so no phone keyboard pops up.
+- Order: the summary (name, predicted rating, change, official rating, next
+  update, data age), then Why it changed, Add a round, Reach a target
+  rating, Top 8, Statistics, Rounds. Rounds is open by default, the others
+  closed. Which cards are open is stored with the settings (`cards`), the
+  same for every player, and survives launches from the home screen icon.
+- Why it changed shows its largest effect in the header while closed, as
+  "907 no longer counts twice, +0.7" (the difference line when that is
+  largest). Opened, the top 5 and "Show all" for the rest.
+- "Updated 3 days ago · How to refresh" is a small `<details>` with one line
+  about the round trip and the exact import time; the Refresh button stays
+  visible under it. Data older than 7 days turns the block into a warning
+  that opens by itself, replacing the separate stale notice.
+- The Top 8 period is one select: each calendar year with a rated round the
+  Top 8 can take (newest first, the current year as default), the rating
+  window with its length and dates in the option, and a custom range with
+  from and to dates (both inclusive, stored only when from ≤ to). The
+  period is stored with the settings (`top8Period`); the current year is
+  stored without a year, so it follows New Year. The band line that
+  repeated the period is gone.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
@@ -294,3 +323,4 @@ Built in this order:
   Undo for deleting a manual round (done)
 - Top 8 panel (Architecture 10, docs/plan-top8.md), with Statistics kept
   open through a re-render (done)
+- Rating tab design pass (docs/plan-design-pass.md) (done)

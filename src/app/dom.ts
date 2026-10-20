@@ -31,6 +31,17 @@ export function disclosure(state: Disclosure | undefined): Props {
 }
 
 /**
+ * A translated message with nodes, such as links, in place of its {name}
+ * placeholders. The rest stays text, so the message can never become markup.
+ */
+export function textWithNodes(text: string, nodes: Readonly<Record<string, Node>>): (Node | string)[] {
+  return text
+    .split(/\{(\w+)\}/)
+    .map((part, i) => (i % 2 === 1 ? (Object.hasOwn(nodes, part) ? nodes[part]! : `{${part}}`) : part))
+    .filter((part) => part !== '');
+}
+
+/**
  * Creates an element. Props starting with "on" add event listeners; true
  * adds an empty attribute; false, null and undefined leave it out.
  */

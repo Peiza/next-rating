@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { eventForPlayer, type StoredImport } from '../../src/app/import';
 import {
   createStore,
+  DEFAULT_CARDS,
+  DEFAULT_TOP_PERIOD,
   EMPTY_DATA,
   MAX_EVENT_NAME,
   MAX_FAVORITES,
@@ -10,6 +12,7 @@ import {
   STORAGE_KEY,
   V1_KEY,
   validateData,
+  validateTopPeriod,
   type StoredPlayer,
 } from '../../src/app/storage';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
@@ -73,7 +76,7 @@ describe('store', () => {
 
   it('keeps data across page loads', () => {
     const storage = new MemoryStorage();
-    const data = { language: 'sv', theme: 'dark' as const, playerOrder: 'updated' as const, me: 100001, players: [player(100001, { import: IMPORT })] };
+    const data = { ...EMPTY_DATA, language: 'sv', theme: 'dark' as const, playerOrder: 'updated' as const, me: 100001, players: [player(100001, { import: IMPORT })] };
     createStore(storage).update(data);
     expect(createStore(storage).get()).toEqual(data);
   });
@@ -179,7 +182,7 @@ describe('migration from v1', () => {
   it('makes the default player a favorite and "me", with its import', () => {
     const { data, complete } = migrateV1({ pdgaNumber: 100001, language: 'sv', theme: 'dark', lastImport: IMPORT });
     expect(complete).toBe(true);
-    expect(data).toEqual({ language: 'sv', theme: 'dark', playerOrder: 'name', me: 100001, players: [player(100001, { import: MIGRATED })] });
+    expect(data).toEqual({ ...EMPTY_DATA, language: 'sv', theme: 'dark', me: 100001, players: [player(100001, { import: MIGRATED })] });
   });
 
   it('keeps a default player without an import', () => {
@@ -213,6 +216,7 @@ describe('migration from v1', () => {
     const lastImport = JSON.parse(LIVE_V1).lastImport;
     const store = createStore(storage);
     expect(store.get()).toEqual({
+      ...EMPTY_DATA,
       language: null,
       theme: null,
       playerOrder: 'name',
@@ -305,5 +309,53 @@ describe('manual rounds', () => {
     const storage = new MemoryStorage();
     createStore(storage).update({ players: [player(100001, { manualRounds: [round] })] });
     expect(createStore(storage).get().players[0]!.manualRounds).toEqual([round]);
+  });
+});
+
+describe('Rating tab settings', () => {
+  it('start with only Rounds open and the current year for the Top 8', () => {
+    expect(DEFAULT_CARDS).toEqual({ why: false, manual: false, target: false, top8: false, stats: false, rounds: true });
+    expect(DEFAULT_TOP_PERIOD).toEqual({ kind: 'year', year: null });
+    expect(validateData({}).cards).toEqual(DEFAULT_CARDS);
+    expect(validateData({}).top8Period).toEqual(DEFAULT_TOP_PERIOD);
+  });
+
+  it('keep each card on its own, so one bad value costs only that card', () => {
+    const cards = validateData({ cards: { why: true, rounds: false, stats: 'yes', extra: true } }).cards;
+    expect(cards).toEqual({ ...DEFAULT_CARDS, why: true, rounds: false });
+    expect(validateData({ cards: [true] }).cards).toEqual(DEFAULT_CARDS);
+  });
+
+  it('read each kind of Top 8 period and fall back to the current year', () => {
+    expect(validateTopPeriod({ kind: 'year', year: null })).toEqual({ kind: 'year', year: null });
+    expect(validateTopPeriod({ kind: 'year', year: 2025 })).toEqual({ kind: 'year', year: 2025 });
+    expect(validateTopPeriod({ kind: 'window', extra: 1 })).toEqual({ kind: 'window' });
+    expect(validateTopPeriod({ kind: 'custom', from: '2025-03-01', to: '2025-03-01' })).toEqual({
+      kind: 'custom',
+      from: '2025-03-01',
+      to: '2025-03-01',
+    });
+    for (const bad of [
+      { kind: 'year', year: 2025.5 },
+      { kind: 'year', year: '2025' },
+      { kind: 'year' },
+      { kind: 'custom', from: '2025-04-01', to: '2025-03-01' },
+      { kind: 'custom', from: '2025-02-30', to: '2025-03-01' },
+      { kind: 'month' },
+      'window',
+      null,
+    ]) {
+      expect(validateTopPeriod(bad)).toEqual(DEFAULT_TOP_PERIOD);
+    }
+  });
+
+  it('survive a round trip through storage, and load as defaults from data saved before they existed', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({ language: 'sv', theme: null, playerOrder: 'name', me: null, players: [] }));
+    expect(createStore(storage).get()).toEqual({ ...EMPTY_DATA, language: 'sv' });
+    createStore(storage).update({ cards: { ...DEFAULT_CARDS, top8: true }, top8Period: { kind: 'window' } });
+    const data = createStore(storage).get();
+    expect(data.cards.top8).toBe(true);
+    expect(data.top8Period).toEqual({ kind: 'window' });
   });
 });

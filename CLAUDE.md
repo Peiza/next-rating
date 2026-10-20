@@ -65,7 +65,8 @@ Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
 3 bookmarklet, 4 web app (import, results, theme, manual entry, data age,
 local storage, offline PWA), 5 favorites, 6 change explanation, 7 polish
 after favorites, 8 deadline-aware prediction, 9 target calculator, 10 Top 8
-panel.
+panel; then the Rating tab design pass (one card pattern, remembered open
+cards and Top 8 period).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -152,15 +153,18 @@ PDGA numbers, event ids, event names or results); fixture-specific expected
 values live in the git-ignored tests/fixtures/expected.json.
 
 ## Process
-Start with a plan for my approval. Changes reach main through pull requests
+Start with a plan for my approval. Ask questions as plain text in the reply:
+numbered questions, each with lettered options and your recommendation, so I
+can copy them. Don't use interactive question boxes. Changes reach main through pull requests
 that I merge; the workflow builds and tests every pull request and deploys
 every merge, so each version can be tested live on my phone. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
-calculator and the Top 8 panel (docs/finished-steps.md). Build the rest in
-this order, committing after each working step:
+calculator, the Top 8 panel and the Rating tab design pass
+(docs/finished-steps.md). Build the rest in this order, committing after
+each working step:
 - Setup page: complete the minimal one with the full step-by-step
   installation
 

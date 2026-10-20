@@ -5,11 +5,12 @@ import { formatDayMonth, formatRating } from '../format';
 import { readTarget, type TargetAnswer, type TargetDraft, type TargetField, type TargetQuery } from '../target';
 
 /*
- * The target calculator on the Rating tab: a "Reach a target rating" button
- * opens a short form with the target first and Calculate last, near the
- * thumb. The answer shows in the status line under it.
+ * The target calculator, the content of the "Reach a target rating" card on
+ * the Rating tab: a short form with the target first and Calculate last,
+ * near the thumb. The answer shows in the status line under it.
  */
 
+/** The card's header button (cardToggleId('target')). */
 export const TARGET_TOGGLE_ID = 'target-toggle';
 export const TARGET_RATING_ID = 'target-rating';
 export const TARGET_STATUS_ID = 'target-status';
@@ -19,11 +20,9 @@ const COUNT_ID = 'target-count';
 const HINT_ID = 'target-hint';
 
 export interface TargetProps {
-  open: boolean;
   draft: TargetDraft;
   /** The answer to the last calculation, or null before one. */
   answer: TargetAnswer | null;
-  onToggle: () => void;
   onDraft: (field: TargetField, value: string) => void;
   onCalculate: (query: TargetQuery) => void;
 }
@@ -64,7 +63,8 @@ function field(id: string, label: MessageKey, input: HTMLInputElement): HTMLElem
   return el('div', { class: 'field' }, el('label', { for: id, class: 'label' }, t(label)), input);
 }
 
-function calculatorForm(props: TargetProps): HTMLFormElement {
+/** The card's content. */
+export function targetCalculator(props: TargetProps): HTMLFormElement {
   const { draft, answer } = props;
   const input = (name: TargetField, maxlength: number) =>
     el('input', {
@@ -106,25 +106,5 @@ function calculatorForm(props: TargetProps): HTMLFormElement {
     el('p', { id: HINT_ID, class: 'hint hint-tight' }, t('target.assumes')),
     el('button', { id: 'target-calculate', class: 'button button-primary button-block', type: 'submit' }, t('target.calculate')),
     status,
-  );
-}
-
-export function targetCalculator(props: TargetProps): HTMLElement {
-  return el(
-    'section',
-    { id: 'target', class: 'target', 'aria-label': t('target.title') },
-    el(
-      'button',
-      {
-        id: TARGET_TOGGLE_ID,
-        class: 'button button-block',
-        type: 'button',
-        'aria-expanded': props.open ? 'true' : 'false',
-        'aria-controls': PANEL_ID,
-        onclick: props.onToggle,
-      },
-      t('target.toggle'),
-    ),
-    props.open && calculatorForm(props),
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { topRounds } from '../../src/engine/top8';
+import { isTopRound, topRounds } from '../../src/engine/top8';
 import type { RoundInput } from '../../src/engine/types';
 
 let nextId = 0;
@@ -76,5 +76,15 @@ describe('topRounds', () => {
   it('counts short rounds fully, with no hole weighting', () => {
     const result = topRounds([round(1000, '2026-05-01', { holes: 9 }), round(900, '2026-05-02')], FROM, TO);
     expect(result).toMatchObject({ sum: 1900, average: 950 });
+  });
+});
+
+describe('isTopRound', () => {
+  it('takes rated official and unofficial rounds only', () => {
+    expect(isTopRound(round(950, '2026-02-01'))).toBe(true);
+    expect(isTopRound(round(950, '2026-02-01', { source: 'unofficial' }))).toBe(true);
+    expect(isTopRound(round(950, '2026-02-01', { source: 'manual' }))).toBe(false);
+    expect(isTopRound(round(950, '2026-02-01', { dnf: true }))).toBe(false);
+    expect(isTopRound(round(null, '2026-02-01'))).toBe(false);
   });
 });

@@ -27,6 +27,7 @@ import {
   createStore,
   MAX_FAVORITES,
   STORAGE_KEY,
+  type CardName,
   type PlayerOrder,
   type StoredManualRound,
   type StoredPlayer,
@@ -59,9 +60,9 @@ import {
   topBar,
   WIDE_QUERY,
 } from './views/players';
+import { cardToggleId } from './views/card';
 import { ratingView } from './views/rating';
-import { TARGET_RATING_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID } from './views/target';
-import { TOP8_PERIODS } from './views/top8';
+import { TARGET_STATUS_ID } from './views/target';
 import { settingsView, themeId } from './views/settings';
 import { isOlderVersion, SETUP_ID, setupView } from './views/setup';
 import { startView } from './views/start';
@@ -103,8 +104,11 @@ let menuOpen = false;
 let editingPlayers = false;
 let confirmRemove: number | null = null;
 let addFlash: PdgaFlash = null;
-/** Manual entry: open or not, and what has been typed, so a re-render keeps it. */
-let manualOpen = false;
+/*
+ * Which Rating tab cards are open, and the Top 8 period, are stored with the
+ * settings, the same for every player. What has been typed into a card stays
+ * in memory, so a re-render keeps it.
+ */
 let manualDraft: ManualDraft = emptyDraft(today());
 let manualFlash: ManualFlash = null;
 let confirmClear = false;
@@ -113,22 +117,16 @@ let confirmClear = false;
  * it lasts through re-renders until the next change to the manual rounds.
  */
 let manualUndo: { round: StoredManualRound; index: number } | null = null;
-/** Target calculator: open or not, what has been typed (filled in when first shown) and the last calculation. */
-let targetOpen = false;
+/** Target calculator: what has been typed (filled in when first shown) and the last calculation. */
 let targetDraft: TargetDraft | null = null;
 let targetQuery: TargetQuery | null = null;
 /** The last answer and what it came from, so a re-render does not run the search again. */
 let targetMemo: { key: string; answer: TargetAnswer } | null = null;
+/** "How to refresh" opened or closed by hand; null follows the data age (open when it is old). */
+let refreshOpen: boolean | null = null;
 /**
- * The Statistics and Top 8 panels: open or not, so a re-render keeps them,
- * and the Top 8 period. They last until the page reloads, for every player.
- */
-let statsOpen = false;
-let top8Open = false;
-let top8Period: TopPeriod = 'year';
-/**
- * The player the manual entry and target calculator state belongs to;
- * another player starts with them closed and empty.
+ * The player the manual entry and target calculator drafts belong to;
+ * another player starts with them empty.
  */
 let manualPlayer: number | null = selected;
 /** A new version of the app is installed and waits for a reload. */
@@ -265,13 +263,18 @@ function addFromPanel(pdgaNumber: number): void {
   selectPlayer(pdgaNumber);
 }
 
-function toggleManual(): void {
-  manualOpen = !manualOpen;
-  confirmClear = false;
-  manualUndo = null;
-  // A form opened on a later day starts on that day.
-  if (manualOpen && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
-  render(manualOpen ? MANUAL_RATING_ID : MANUAL_TOGGLE_ID);
+/** Opens or closes a Rating tab card and remembers it. Focus stays on its header, so no keyboard pops up. */
+function toggleCard(name: CardName): void {
+  const { cards } = store.get();
+  const open = !cards[name];
+  store.update({ cards: { ...cards, [name]: open } });
+  if (name === 'manual') {
+    confirmClear = false;
+    manualUndo = null;
+    // A form opened on a later day starts on that day.
+    if (open && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
+  }
+  render(cardToggleId(name));
 }
 
 /** Adds a round and keeps the form open for the next one, with the date and event kept. */
@@ -329,14 +332,10 @@ function clearManual(): void {
   render(MANUAL_TOGGLE_ID);
 }
 
-function setTop8Period(period: TopPeriod): void {
-  top8Period = period;
-  render(TOP8_PERIODS.find((segment) => segment.value === period)!.id);
-}
-
-function toggleTarget(): void {
-  targetOpen = !targetOpen;
-  render(targetOpen ? TARGET_RATING_ID : TARGET_TOGGLE_ID);
+/** Stores the Top 8 period with the settings; focus stays on the control that changed it. */
+function setTop8Period(top8Period: TopPeriod): void {
+  store.update({ top8Period });
+  render();
 }
 
 /** Focus goes to the answer, so a phone keyboard closes and a screen reader reads it. */
@@ -378,6 +377,8 @@ function saveImport(parts: ImportParts, owner: number | null = null): Routed {
   const routed = routeImport(data, parts, new Date().toISOString(), owner, selected);
   if (routed.data !== data) store.update({ players: routed.data.players });
   if (routed.owner !== null && routed.players.length > 0) selected = routed.owner;
+  // Fresh data: "How to refresh" follows the data age again.
+  refreshOpen = null;
   return routed;
 }
 
@@ -486,11 +487,10 @@ function currentView(): HTMLElement {
   const player = findPlayer(data, selected);
   if (manualPlayer !== selected) {
     manualPlayer = selected;
-    manualOpen = false;
+    refreshOpen = null;
     manualDraft = emptyDraft(today());
     confirmClear = false;
     manualUndo = null;
-    targetOpen = false;
     targetDraft = null;
     targetQuery = null;
   }
@@ -500,40 +500,35 @@ function currentView(): HTMLElement {
     targetDraft ??= emptyTargetDraft(model.prediction.rating);
     return ratingView({
       model,
+      cards: data.cards,
+      onToggleCard: toggleCard,
+      refresh: {
+        open: refreshOpen ?? model.stale,
+        onToggle: (open) => {
+          refreshOpen = open;
+        },
+      },
       target: {
-        open: targetOpen,
         draft: targetDraft,
         answer: targetAnswer(player, model, today(now)),
-        onToggle: toggleTarget,
         onDraft: (field, value) => {
           targetDraft = { ...targetDraft!, [field]: value };
         },
         onCalculate: calculate,
       },
-      stats: {
-        open: statsOpen,
-        onToggle: (open) => {
-          statsOpen = open;
-        },
-      },
       top8: {
-        open: top8Open,
-        top: topEight(model, top8Period, today(now)),
-        onToggle: (open) => {
-          top8Open = open;
-        },
+        top: topEight(model, data.top8Period, today(now)),
+        today: today(now),
         onPeriod: setTop8Period,
       },
       manual: {
         rounds: player.manualRounds,
-        open: manualOpen,
         draft: manualDraft,
         flash: manualFlash,
         confirmClear,
         undo: manualUndo && { rating: manualUndo.round.rating, date: manualUndo.round.date },
         player: playerLabel(player),
         today: today(now),
-        onToggle: toggleManual,
         onDraft: (field, value) => {
           manualDraft = { ...manualDraft, [field]: value };
         },
