@@ -1017,6 +1017,13 @@ describe('bookmarklet setup', () => {
     vi.unstubAllGlobals();
   });
 
+  it('explains X-tier events: what PDGA leaves out, the mark on unofficial rounds and leaving an event out', () => {
+    const xTier = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
+    for (const part of ['X-tier events', '5.10', 'mulligans', 'Not counted by PDGA', 'X-tier: may not count', 'one tap', 'Top 8 still counts']) {
+      expect(xTier).toContain(part);
+    }
+  });
+
   it('goes back', () => {
     const onBack = vi.fn();
     setupView({ ...setupProps(CODE), onBack }).querySelector<HTMLButtonElement>('#setup-back')!.click();
@@ -1279,7 +1286,7 @@ describe('how it works', () => {
     const headings = [...view.querySelectorAll('h2')];
     expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
     expect(headings.map((h2) => h2.getAttribute('tabindex'))).toEqual(Array(GUIDE_SECTIONS.length).fill('-1'));
-    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'why', 'target', 'top8']);
+    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'target', 'top8']);
   });
 
   it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
@@ -1343,5 +1350,16 @@ describe('how it works', () => {
     expect(links[1]!.getAttribute('aria-label')).toBe('How it works: Top 8');
     for (const link of links) link.click();
     expect(onGuide.mock.calls.map(([section]) => section)).toEqual(['why', 'top8', 'rules', 'rules']);
+  });
+
+  it('opens at X-tier events from the unofficial events in the Rounds card', () => {
+    const stored: StoredImport = { at: '2026-10-01T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [rawEvent()] };
+    const onGuide = vi.fn();
+    const props = { model: buildModel(stored, 100001, NOW), cards: ALL_OPEN, onLeaveOut: vi.fn(), favorite: true, now: NOW, onAddFavorite: vi.fn() };
+    const link = ratingView({ ...props, onGuide }).querySelector<HTMLButtonElement>('#event-choices #xtier-guide')!;
+    expect(link.getAttribute('aria-label')).toBe('How it works: X-tier events');
+    link.click();
+    expect(onGuide).toHaveBeenCalledWith('xtier');
+    expect(ratingView(props).querySelector('#xtier-guide')).toBeNull();
   });
 });

@@ -294,11 +294,16 @@
   "guide.rules.verified": "These rules are checked against the official ratings, and the rounds PDGA counted, of real players. Two things are not yet checked against a real player: the weighting of rounds shorter than 18 holes, and how PDGA judges two low rounds in the same window.",
   "guide.rules.decimals": "The calculated official rating next to the official one, such as 977.65, comes from the whole round ratings shown on pdga.com. PDGA's own calculation may use decimals that the pages do not show, so its unrounded value can differ a little.",
   "guide.rounds.title": "Official, unofficial and manual rounds",
-  "guide.rounds.official": "Official rounds come from the player's ratings details on pdga.com. They always count in the next update.",
+  "guide.rounds.official": "Official rounds come from the player's ratings details on pdga.com. The report deadline does not apply to them.",
   "guide.rounds.unofficial": "Unofficial rounds come from event results that are not rated officially yet. PDGA shows unofficial round ratings there, and they can still change a little when the event becomes official.",
   "guide.rounds.manual": "Manual rounds are the ones you add yourself under Add a round, for example a round you expect to play at an upcoming event. They stay on this device.",
   "guide.rounds.deadline": "Ratings are updated on the second Tuesday of each month and count events reported by the Sunday before ({rule}). Unofficial and manual rounds from events after that deadline count in the following update, and the round list says so.",
   "guide.rounds.ruleLink": "when ratings are updated, on pdga.com",
+  "guide.xtier.title": "X-tier events",
+  "guide.xtier.rule": "X-tier events are PDGA events outside the usual tiers. Under section 5.10 of PDGA's Competition Manual, X-tier events with non-standard rules, such as mulligans, can still produce round ratings, but those ratings do not count in player ratings. Other X-tier events, such as ones with restricted eligibility or charity payouts, are rated and count like any other event.",
+  "guide.xtier.official": "For official rounds the app follows PDGA's own flags: a round PDGA did not evaluate although it is dated inside the window PDGA used never counts, also after new rounds move the window. The round list shows it as \"Not counted by PDGA\".",
+  "guide.xtier.unofficial": "For unofficial rounds there is no way to know yet. Rounds from an X-tier event count, marked \"X-tier: may not count\"; the tier comes from the player's profile page on pdga.com. Under Rounds you can leave out any unofficial event with one tap, and Why it changed then says what counting it would give. The choice is stored for each player on this device.",
+  "guide.xtier.top8": "The Top 8 still counts these rounds, since they are rated rounds.",
   "guide.why.title": "Why it changed",
   "guide.why.compare": "Why it changed compares the last official update with the prediction. It starts from the rounds PDGA counted and lists what differs: new rounds, and rounds that left the window, started or stopped counting twice, or were dropped or brought back.",
   "guide.why.net": "Each line shows how many points it moves the unrounded prediction. The net total at the top says what the lines add up to and what that rounds to. Many lines can cancel out: a new round can move the window so that old rounds leave it and others start or stop counting twice, while the rounded rating stays the same.",
@@ -308,5 +313,5 @@
   "guide.target.answers": "It also says when the target is already reached and what keeps it there, or when even rounds rated 1150 would not reach it. On the Monday and Tuesday of update week, rounds played that day count in the following update, and the answer is for that one.",
   "guide.top8.title": "Top 8 and the Global Masters Series",
   "guide.top8.idea": "The Top 8 card follows the idea of PDGA's {gms}: the 8 highest rated rounds of a period, with their sum, average and highest rating. Here it works for any player, and for a calendar year, the rating window or dates you choose.",
-  "guide.top8.rounds": "Official and unofficial rounds count, also rounds the prediction drops, with no hole weighting. Manual and DNF rounds do not count."
+  "guide.top8.rounds": "Official and unofficial rounds count, also rounds the prediction drops or leaves out, with no hole weighting. Manual and DNF rounds do not count."
 }

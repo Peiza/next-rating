@@ -294,11 +294,16 @@
   "guide.rules.verified": "Reglerna är kontrollerade mot riktiga spelares officiella ratingar och de rundor PDGA räknat. Två saker är ännu inte kontrollerade mot en riktig spelare: viktningen av rundor kortare än 18 hål, och hur PDGA bedömer två låga rundor i samma period.",
   "guide.rules.decimals": "Den beräknade officiella ratingen bredvid den officiella, till exempel 977,65, kommer från de hela rundratingar som visas på pdga.com. PDGA:s egen beräkning kan använda decimaler som sidorna inte visar, så deras oavrundade värde kan skilja sig lite.",
   "guide.rounds.title": "Officiella, inofficiella och manuella rundor",
-  "guide.rounds.official": "Officiella rundor kommer från spelarens ratingdetaljer på pdga.com. De räknas alltid i nästa uppdatering.",
+  "guide.rounds.official": "Officiella rundor kommer från spelarens ratingdetaljer på pdga.com. Rapportstoppet gäller inte dem.",
   "guide.rounds.unofficial": "Inofficiella rundor kommer från tävlingsresultat som inte är officiellt ratade än. PDGA visar inofficiella rundratingar där, och de kan ändras lite när tävlingen blir officiell.",
   "guide.rounds.manual": "Manuella rundor är de du lägger till själv under Lägg till en runda, till exempel en runda du räknar med att spela på en kommande tävling. De stannar på den här enheten.",
   "guide.rounds.deadline": "Ratingen uppdateras andra tisdagen varje månad och räknar tävlingar som rapporterats senast söndagen före ({rule}). Inofficiella och manuella rundor från tävlingar efter den gränsen räknas i uppdateringen därefter, och rundlistan säger det.",
   "guide.rounds.ruleLink": "när ratingen uppdateras, på pdga.com",
+  "guide.xtier.title": "X-tier-tävlingar",
+  "guide.xtier.rule": "X-tier är PDGA-tävlingar utanför de vanliga nivåerna. Enligt avsnitt 5.10 i PDGA:s Competition Manual kan X-tier-tävlingar med avvikande regler, till exempel mulligans, ge rundrating, men de räknas inte in i spelarnas rating. Andra X-tier-tävlingar, till exempel med begränsat deltagande eller prispengar till välgörenhet, ratas och räknas som vilken tävling som helst.",
+  "guide.xtier.official": "För officiella rundor följer appen PDGA:s egna markeringar: en runda som PDGA inte utvärderade fast den ligger inom PDGA:s period räknas aldrig, inte heller när nya rundor flyttar perioden. Rundlistan visar den som \"Räknas inte av PDGA\".",
+  "guide.xtier.unofficial": "För inofficiella rundor går det inte att veta än. Rundor från en X-tier-tävling räknas, markerade \"X-tier: räknas kanske inte\"; nivån hämtas från spelarens profilsida på pdga.com. Under Rundor kan du lämna utanför vilken inofficiell tävling som helst med ett tryck, och Därför ändras den visar då vad den skulle ge om den räknades. Valet sparas för varje spelare på den här enheten.",
+  "guide.xtier.top8": "Topp 8 räknar ändå de här rundorna, eftersom de är ratade rundor.",
   "guide.why.title": "Därför ändras den",
   "guide.why.compare": "Därför ändras den jämför den senaste officiella uppdateringen med den beräknade ratingen. Den utgår från rundorna PDGA räknade och listar det som skiljer: nya rundor, och rundor som lämnat perioden, börjat eller slutat räknas dubbelt, eller strukits eller kommit tillbaka.",
   "guide.why.net": "Varje rad visar hur många poäng den flyttar den oavrundade beräkningen. Nettot överst säger vad raderna blir tillsammans och vad det blir avrundat. Många rader kan ta ut varandra: en ny runda kan flytta perioden så att gamla rundor lämnar den och andra börjar eller slutar räknas dubbelt, medan den avrundade ratingen är densamma.",
@@ -308,5 +313,5 @@
   "guide.target.answers": "Den säger också när målet redan är nått och vad som håller det kvar, eller när inte ens rundor ratade 1150 skulle räcka. På måndagen och tisdagen i uppdateringsveckan räknas rundor spelade den dagen i uppdateringen därefter, och svaret gäller den.",
   "guide.top8.title": "Topp 8 och Global Masters Series",
   "guide.top8.idea": "Topp 8 följer idén i PDGA:s {gms}: de 8 högst ratade rundorna under en period, med summa, snitt och högsta rating. Här fungerar det för vilken spelare som helst, och för ett kalenderår, ratingperioden eller datum du väljer.",
-  "guide.top8.rounds": "Officiella och inofficiella rundor räknas, även rundor som stryks i beräkningen, utan viktning för antal hål. Manuella rundor och DNF-rundor räknas inte."
+  "guide.top8.rounds": "Officiella och inofficiella rundor räknas, även rundor som stryks eller lämnas utanför i beräkningen, utan viktning för antal hål. Manuella rundor och DNF-rundor räknas inte."
 }

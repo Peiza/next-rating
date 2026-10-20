@@ -411,13 +411,34 @@ function statsList(stats: RatingStats, exact: number | null): HTMLElement {
  * The unofficial events, each with a Count checkbox: one tap leaves an event
  * out of the prediction, such as an X-tier event that may not count.
  */
-function eventChoices({ unofficialEvents }: Model, onLeaveOut: RatingProps['onLeaveOut']): HTMLElement | false {
+function eventChoices(
+  { unofficialEvents }: Model,
+  onLeaveOut: RatingProps['onLeaveOut'],
+  onGuide: RatingProps['onGuide'],
+): HTMLElement | false {
   if (!onLeaveOut || unofficialEvents.length === 0) return false;
   return el(
     'fieldset',
     { id: 'event-choices', class: 'event-choices' },
     el('legend', {}, t('rounds.events.legend')),
-    el('p', { class: 'hint' }, t('rounds.events.hint')),
+    el(
+      'p',
+      { class: 'hint' },
+      t('rounds.events.hint'),
+      onGuide && ' ',
+      onGuide &&
+        el(
+          'button',
+          {
+            id: 'xtier-guide',
+            class: 'link-button',
+            type: 'button',
+            'aria-label': t('guide.linkFor', { topic: t('guide.xtier.title') }),
+            onclick: () => onGuide('xtier'),
+          },
+          t('guide.link'),
+        ),
+    ),
     ...unofficialEvents.map((event, i) => {
       const id = `count-event-${i}`;
       const meta = [formatDate(event.date), event.xTier ? t('round.xTier') : ''].filter(Boolean).join(' · ');
@@ -439,9 +460,9 @@ function eventChoices({ unofficialEvents }: Model, onLeaveOut: RatingProps['onLe
 }
 
 /** Every round, newest first, after the unofficial events to choose from and the events that have no rated round for the player yet. */
-function roundsBody(model: Model, onLeaveOut: RatingProps['onLeaveOut']): Child[] {
+function roundsBody(model: Model, onLeaveOut: RatingProps['onLeaveOut'], onGuide: RatingProps['onGuide']): Child[] {
   return [
-    eventChoices(model, onLeaveOut),
+    eventChoices(model, onLeaveOut, onGuide),
     model.eventsWithoutRounds.length > 0 &&
       el(
         'p',
@@ -543,7 +564,7 @@ export function ratingView(props: RatingProps): HTMLElement {
       statsList(model.prediction.stats, model.prediction.exact),
     ]),
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
-      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props.onLeaveOut)),
+      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props.onLeaveOut, onGuide)),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }
