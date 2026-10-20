@@ -82,11 +82,37 @@ describe('settings view', () => {
     flash: null,
     language: null,
     preferred: ['sv-SE'],
+    theme: null,
     persistent: true,
     onSavePdgaNumber: () => {},
     onLanguage: () => {},
+    onTheme: () => {},
     onOpenSetup: () => {},
   };
+
+  it('offers Device, Light and Dark themes, with Device by default', () => {
+    const view = settingsView(props);
+    expect(view.querySelector('.segmented legend')!.textContent).toBe('Theme');
+    const radios = [...view.querySelectorAll<HTMLInputElement>('input[name="theme"]')];
+    expect(radios.map((radio) => view.querySelector(`label[for="${radio.id}"]`)!.textContent)).toEqual([
+      'Device',
+      'Light',
+      'Dark',
+    ]);
+    expect(radios.map((radio) => radio.checked)).toEqual([true, false, false]);
+    const dark = settingsView({ ...props, theme: 'dark' });
+    expect(dark.querySelector<HTMLInputElement>('#theme-dark')!.checked).toBe(true);
+  });
+
+  it('changes the theme', () => {
+    const onTheme = vi.fn();
+    const view = document.body.appendChild(settingsView({ ...props, theme: 'light', onTheme }));
+    view.querySelector<HTMLInputElement>('#theme-dark')!.click();
+    expect(onTheme).toHaveBeenLastCalledWith('dark');
+    view.querySelector<HTMLInputElement>('#theme-device')!.click();
+    expect(onTheme).toHaveBeenLastCalledWith(null);
+    view.remove();
+  });
 
   it('offers the device setting and every language', () => {
     const options = [...settingsView(props).querySelectorAll('#language option')];
@@ -151,9 +177,23 @@ describe('rating view', () => {
   it('shows the prediction, the change and the official rating', () => {
     const view = ratingPage();
     expect(view.querySelector('#predicted')!.textContent).toBe('962');
-    expect(view.querySelector('.change')!.textContent).toBe('+12 vs official rating');
+    expect(view.querySelector('.change')!.textContent).toBe('↑+12 vs official rating');
     expect(view.querySelector('.official')!.textContent).toContain('950');
     expect(view.textContent).toContain('Last import:');
+  });
+
+  it.each([
+    ['950', 'up', '↑', '+12'],
+    ['970', 'down', '↓', '−8'],
+    ['962', 'none', '→', '0'],
+  ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
+    const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
+    const line = ratingView({ model, defaultPdgaNumber: 100001, onMakeDefault: vi.fn() }).querySelector('.change')!;
+    expect(line.classList.contains(`change-${direction}`)).toBe(true);
+    const icon = line.querySelector('.change-arrow')!;
+    expect(icon.textContent).toBe(arrow);
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    expect(line.textContent).toBe(`${arrow}${sign} vs official rating`);
   });
 
   it('lists rounds newest first with a text label and a symbol for each status', () => {
@@ -177,7 +217,10 @@ describe('rating view', () => {
   it('has a stats panel', () => {
     const stats = ratingPage().querySelector('details#stats')!;
     expect(stats.querySelector('summary')!.textContent).toBe('Statistics');
-    expect(stats.querySelectorAll('dt').length).toBe(stats.querySelectorAll('dd').length);
+    const rows = [...stats.querySelectorAll('dl > div.stat')];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(stats.querySelectorAll('dt').length).toBe(rows.length);
+    for (const row of rows) expect([...row.children].map((child) => child.tagName)).toEqual(['DT', 'DD']);
   });
 
   it('offers to make the imported player the default player', () => {
@@ -276,11 +319,32 @@ describe('import view', () => {
     pendingDetails: null,
     pdgaNumber: 100001,
     message: null,
+    touch: false,
     onPaste: () => {},
     onAddEvent: () => {},
     onImportDetails: () => {},
     onCancel: () => {},
+    onOpenSetup: () => {},
   };
+
+  it('offers the bookmarklet above the paste field on touch devices only', () => {
+    expect(importView(props).querySelector('#paste-touch')).toBeNull();
+    const onOpenSetup = vi.fn();
+    const view = importView({ ...props, touch: true, onOpenSetup });
+    const hint = view.querySelector('#paste-touch')!;
+    expect(hint.textContent).toMatch(/On a phone, use the bookmarklet/);
+    expect(hint.compareDocumentPosition(view.querySelector('#paste-target')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(view.querySelector('#paste-target')!.getAttribute('aria-describedby')).toContain('paste-touch');
+    view.querySelector<HTMLButtonElement>('#paste-setup')!.click();
+    expect(onOpenSetup).toHaveBeenCalled();
+  });
+
+  it('explains how to paste when nothing was recognised', () => {
+    const view = importView({ ...props, message: { key: 'paste.none', error: true } });
+    const text = view.querySelector('#paste-status')!.textContent;
+    expect(text).toMatch(/select the whole pdga\.com page \(Ctrl\+A/);
+    expect(text).toMatch(/On a phone, use the bookmarklet/);
+  });
 
   function submitOwner(view: HTMLElement, value?: string) {
     const input = view.querySelector<HTMLInputElement>('#paste-owner')!;

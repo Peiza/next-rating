@@ -52,8 +52,14 @@ describe('store', () => {
 
   it('keeps data across page loads', () => {
     const storage = new MemoryStorage();
-    createStore(storage).update({ pdgaNumber: 100001, language: 'sv' });
-    expect(createStore(storage).get()).toEqual({ pdgaNumber: 100001, language: 'sv', lastImport: null });
+    createStore(storage).update({ pdgaNumber: 100001, language: 'sv', theme: 'dark' });
+    expect(createStore(storage).get()).toEqual({ pdgaNumber: 100001, language: 'sv', theme: 'dark', lastImport: null });
+  });
+
+  it('loads data saved before the theme setting existed', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({ pdgaNumber: 100001, language: 'sv', lastImport: IMPORT }));
+    expect(createStore(storage).get()).toEqual({ pdgaNumber: 100001, language: 'sv', theme: null, lastImport: IMPORT });
   });
 
   it('keeps the last import across page loads', () => {
@@ -92,6 +98,8 @@ describe('validateData', () => {
     expect(validateData({ pdgaNumber: 100001, language: '<b>' })).toEqual({ ...EMPTY_DATA, pdgaNumber: 100001 });
     expect(validateData({ pdgaNumber: -5, language: 'sv' })).toEqual({ ...EMPTY_DATA, language: 'sv' });
     expect(validateData({ pdgaNumber: 1.5 })).toEqual(EMPTY_DATA);
+    expect(validateData({ theme: 'light' })).toEqual({ ...EMPTY_DATA, theme: 'light' });
+    expect(validateData({ theme: 'sepia' })).toEqual(EMPTY_DATA);
     expect(validateData({ pdgaNumber: '100001' })).toEqual(EMPTY_DATA);
   });
 

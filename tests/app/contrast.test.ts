@@ -14,11 +14,27 @@ function tokens(block: string): Map<string, string> {
   return new Map([...block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})\s*;/gi)].map((m) => [m[1]!, m[2]!.toLowerCase()]));
 }
 
-const light = tokens(/^:root\s*\{([^}]*)\}/m.exec(css)![1]!);
-const dark = new Map([
-  ...light,
-  ...tokens(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(css)![1]!),
-]);
+function block(selector: RegExp): string {
+  const match = selector.exec(css);
+  if (!match) throw new Error(`no ${selector} block in styles.css`);
+  return match[1]!;
+}
+
+const light = tokens(block(/^:root\s*\{([^}]*)\}/m));
+const deviceDark = tokens(
+  block(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root:not\(\[data-theme='light'\]\)\s*\{([^}]*)\}/),
+);
+const dark = new Map([...light, ...deviceDark]);
+
+describe('theme override', () => {
+  it('uses the same dark colours as the device setting', () => {
+    expect(tokens(block(/^:root\[data-theme='dark'\]\s*\{([^}]*)\}/m))).toEqual(deviceDark);
+  });
+
+  it('keeps the default colours for light', () => {
+    expect(tokens(block(/^:root\[data-theme='light'\]\s*\{([^}]*)\}/m)).size).toBe(0);
+  });
+});
 
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => {

@@ -27,6 +27,17 @@ const SOURCE: Record<ListedResult['round']['source'], MessageKey> = {
 
 const DASH = '–';
 
+/** The arrow and the sign carry the direction, so it never depends on colour alone. */
+function change(value: number): HTMLElement {
+  const [direction, arrow] = value > 0 ? ['up', '↑'] : value < 0 ? ['down', '↓'] : ['none', '→'];
+  return el(
+    'p',
+    { class: `change change-${direction}` },
+    el('span', { class: 'change-arrow', 'aria-hidden': 'true' }, arrow),
+    t('rating.change', { change: formatChange(value) }),
+  );
+}
+
 function summary({ model, defaultPdgaNumber, onMakeDefault }: RatingProps): HTMLElement {
   const { player, prediction } = model;
   const official = player?.currentRating ?? null;
@@ -44,8 +55,7 @@ function summary({ model, defaultPdgaNumber, onMakeDefault }: RatingProps): HTML
     prediction.rating !== null
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
-    prediction.change !== null &&
-      el('p', { class: 'change' }, t('rating.change', { change: formatChange(prediction.change) })),
+    prediction.change !== null && change(prediction.change),
     official !== null &&
       el(
         'p',
@@ -130,7 +140,7 @@ function statsPanel(stats: RatingStats, exact: number | null): HTMLElement {
     'details',
     { id: 'stats', class: 'stats' },
     el('summary', {}, t('stats.title')),
-    el('dl', {}, ...rows.flatMap(([key, value]) => [el('dt', {}, t(key)), el('dd', {}, value)])),
+    el('dl', {}, ...rows.map(([key, value]) => el('div', { class: 'stat' }, el('dt', {}, t(key)), el('dd', {}, value)))),
   );
 }
 
