@@ -31,7 +31,7 @@ function flagOf(row: Element, name: string): string {
 
 /**
  * Reads the ratings details table. Columns are found by header text, so it
- * also works on a pasted table that lost its id. Round numbers and hole
+ * also works on a table cut out of its page. Round numbers and hole
  * counts come from the layout tooltips when the page has them.
  */
 export function extractRatingsDetails(root: ParentNode): RawDetailsRow[] {

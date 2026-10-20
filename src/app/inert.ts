@@ -1,5 +1,5 @@
 /**
- * Parses untrusted HTML, pasted or handed off by the bookmarklet, into an
+ * Parses untrusted HTML, handed off by the bookmarklet, into an
  * inert document: its scripts never run, nothing in it is loaded, and it is
  * never inserted into the page. It is only read through the extractors,
  * which use textContent.

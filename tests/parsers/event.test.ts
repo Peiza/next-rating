@@ -97,7 +97,7 @@ describe('event results', () => {
     ]);
   });
 
-  it('reads a pasted results table without the rest of the page', () => {
+  it('reads a results table without the rest of the page', () => {
     const fragment = parseHtml(eventDivision('MPO', [''], [eventRow()]).replace(/<\/?details[^>]*>/g, ''));
     const results = parseEvent(fragment);
     expect(results).toMatchObject({ eventId: null, name: '', date: null, official: null });

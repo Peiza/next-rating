@@ -93,20 +93,20 @@ describe('applyImport', () => {
     expect(next.events).toEqual([own(updated)]);
   });
 
-  it('tells pasted events without an id apart by name and date', () => {
-    const pasted = (name: string, date: string) => rawEvent({ eventId: '', name, date });
-    let stored = applyImport(null, { events: [pasted('', '6-Sep-2026'), pasted('Cup', '6-Sep-2026')] }, FIRST, PLAYER)!;
+  it('tells events without an id apart by name and date', () => {
+    const noId = (name: string, date: string) => rawEvent({ eventId: '', name, date });
+    let stored = applyImport(null, { events: [noId('', '6-Sep-2026'), noId('Cup', '6-Sep-2026')] }, FIRST, PLAYER)!;
     expect(stored.events).toHaveLength(2);
-    stored = applyImport(stored, { events: [pasted('', '6-Sep-2026')] }, LATER, PLAYER)!;
+    stored = applyImport(stored, { events: [noId('', '6-Sep-2026')] }, LATER, PLAYER)!;
     expect(stored.events.map((event) => event.name)).toEqual(['Cup', '']);
   });
 
-  it('merges a pasted ratings details table without a player header', () => {
-    const pasted = [rawDetailsRow({ eventId: '', rating: '940' })];
+  it('merges a ratings details table without a player header', () => {
+    const table = [rawDetailsRow({ eventId: '', rating: '940' })];
     const stored = fullImport();
-    expect(applyImport(stored, { details: pasted }, LATER, PLAYER)).toEqual({ ...stored, at: LATER, detailsAt: LATER, details: pasted });
-    const fresh = applyImport(null, { details: pasted }, LATER, 100003)!;
-    expect(fresh).toEqual({ at: LATER, detailsAt: LATER, details: pasted, events: [] });
+    expect(applyImport(stored, { details: table }, LATER, PLAYER)).toEqual({ ...stored, at: LATER, detailsAt: LATER, details: table });
+    const fresh = applyImport(null, { details: table }, LATER, 100003)!;
+    expect(fresh).toEqual({ at: LATER, detailsAt: LATER, details: table, events: [] });
     expect(validateStoredImport(fresh)).toEqual(fresh);
   });
 

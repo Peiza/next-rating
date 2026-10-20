@@ -8,6 +8,7 @@ import {
   removePlayer,
   routeImport,
   setMe,
+  sortFavorites,
 } from '../../src/app/players';
 import { EMPTY_DATA, MAX_FAVORITES, type AppData, type StoredPlayer } from '../../src/app/storage';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
@@ -36,6 +37,37 @@ describe('selection', () => {
   it('names a player from the last import', () => {
     expect(playerName(player(100001, { import: IMPORT }))).toBe('Test Player');
     expect(playerName(player(100001))).toBe('');
+  });
+});
+
+describe('sortFavorites', () => {
+  const named = (pdgaNumber: number, name: string, at = AT) =>
+    player(pdgaNumber, { import: { ...IMPORT, at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }) } });
+  const players = [
+    named(100001, 'Örjan Ek', '2026-10-03T10:00:00.000Z'),
+    player(100009),
+    named(100002, 'Zoe Ash', '2026-10-01T10:00:00.000Z'),
+    named(100003, 'adam Berg', '2026-10-02T10:00:00.000Z'),
+    named(100004, 'Me Myself', '2026-09-01T10:00:00.000Z'),
+  ];
+  const numbers = (sorted: StoredPlayer[]) => sorted.map((one) => one.pdgaNumber);
+
+  it('puts "me" first, then the others A to Z in the locale\'s alphabet, unnamed last', () => {
+    expect(numbers(sortFavorites(players, 100004, 'name', 'sv'))).toEqual([100004, 100003, 100002, 100001, 100009]);
+  });
+
+  it('follows the alphabet of the locale', () => {
+    // In English, Ö sorts as O, before Z.
+    expect(numbers(sortFavorites(players, null, 'name', 'en'))).toEqual([100003, 100004, 100001, 100002, 100009]);
+  });
+
+  it('puts "me" first, then the newest import, never imported last', () => {
+    expect(numbers(sortFavorites(players, 100004, 'updated', 'sv'))).toEqual([100004, 100001, 100003, 100002, 100009]);
+  });
+
+  it('does not change the list it is given', () => {
+    sortFavorites(players, 100004, 'name', 'sv');
+    expect(numbers(players)).toEqual([100001, 100009, 100002, 100003, 100004]);
   });
 });
 

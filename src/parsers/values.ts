@@ -2,7 +2,7 @@ import { isPlainDate, type PlainDate } from '../engine/dates';
 
 /*
  * Helpers for the normalize layer, which validates untrusted raw records
- * from bookmarklet hand-offs, pasted content and stored data.
+ * from bookmarklet hand-offs and stored data.
  */
 
 export type ParseErrorCode = 'malformed' | 'too-large';
@@ -24,8 +24,8 @@ export const LIMITS = {
   rows: 5000,
   divisions: 100,
   roundsPerRow: 30,
-  /** Characters of pasted text. */
-  paste: 2_000_000,
+  /** Characters of one page's HTML in a hand-off. */
+  html: 2_000_000,
 } as const;
 
 export const RANGES = {

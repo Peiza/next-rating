@@ -4,6 +4,8 @@ import type { DetailsRound, EventResults } from './types';
 
 /** A round with what the round list shows. The engine ignores the extra fields. */
 export type ListedRound = RoundInput & {
+  /** The pdga.com event id, which the round list links to; null when unknown. */
+  eventId: number | null;
   eventName: string;
   /** Round label as pdga.com shows it, such as "2" or "Finals". */
   roundLabel: string;
@@ -37,6 +39,7 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
         ...(round.holes !== null && { holes: round.holes }),
         source: 'official',
         pdga: { evaluated: round.evaluated, included: round.included },
+        eventId: round.eventId,
         eventName: round.eventName,
         roundLabel: round.roundLabel,
       };
@@ -47,13 +50,9 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
 /**
  * One player's rounds from an event results page. Rounds without a rating
  * yet are left out; DNF rounds are kept so they show in the round list.
- * `date` overrides the event date, which pasted results do not include.
  */
-export function eventToRounds(
-  results: EventResults,
-  pdgaNumber: number,
-  date: PlainDate | null = results.date,
-): ListedRound[] {
+export function eventToRounds(results: EventResults, pdgaNumber: number): ListedRound[] {
+  const { date } = results;
   if (date === null) return [];
   const eventKey = eventKeyOf(results.eventId, results.name, date);
   const rounds: ListedRound[] = [];
@@ -71,6 +70,7 @@ export function eventToRounds(
           ...(holes !== null && { holes }),
           ...(round.dnf && { dnf: true }),
           source: 'unofficial',
+          eventId: results.eventId,
           eventName: results.name,
           roundLabel: String(i + 1),
         });

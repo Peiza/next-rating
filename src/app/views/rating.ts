@@ -1,15 +1,32 @@
-import type { ChangeKind, RatingStats, RoundStatus } from '../../engine';
+import { nextRatingUpdate, type ChangeKind, type RatingStats, type RoundStatus } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
+import type { ListedRound } from '../../parsers';
 import { el } from '../dom';
-import { formatAverage, formatChange, formatDate, formatDateTime, formatEffect, formatRating } from '../format';
+import {
+  formatAge,
+  formatAverage,
+  formatChange,
+  formatDate,
+  formatDateTime,
+  formatDayMonth,
+  formatEffect,
+  formatRating,
+  today,
+} from '../format';
 import type { ListedChange, ListedResult, Model } from '../model';
+import { detailsUrl, eventUrl } from './pdga';
 
 export interface RatingProps {
   model: Model;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
+  /** For the data age and the next update. */
+  now: Date;
   onAddFavorite: (pdgaNumber: number) => void;
 }
+
+/** Where PDGA publishes when ratings are updated and which events an update counts. */
+const UPDATES_URL = 'https://www.pdga.com/faq/ratings/when-updated';
 
 /** Every status has a symbol and a text label, so it never depends on colour alone. */
 const STATUS: Record<RoundStatus, { symbol: string; label: MessageKey }> = {
@@ -43,23 +60,33 @@ function change(value: number): HTMLElement {
   );
 }
 
-function summary({ model, favorite, onAddFavorite }: RatingProps): HTMLElement {
+/** When the next update comes and which events it counts, linked to PDGA's page with the rule. */
+function nextUpdate(now: Date): HTMLElement {
+  const { update, deadline } = nextRatingUpdate(today(now));
+  return el(
+    'p',
+    { id: 'next-update', class: 'next-update' },
+    el(
+      'a',
+      { href: UPDATES_URL, rel: 'noreferrer' },
+      t('rating.nextUpdate', { update: formatDayMonth(update), deadline: formatDayMonth(deadline) }),
+    ),
+  );
+}
+
+function summary({ model, favorite, now, onAddFavorite }: RatingProps): HTMLElement {
   const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
   return el(
     'div',
     { class: 'summary' },
-    el(
-      'p',
-      { class: 'player' },
-      player?.name
-        ? t('rating.player', { name: player.name, number: pdgaNumber })
-        : t('rating.playerNumber', { number: pdgaNumber }),
-    ),
+    el('p', { id: 'updated', class: 'updated' }, t('rating.updated', { age: formatAge(model.importedAt, now) })),
+    prediction.rating !== null && el('p', { class: 'visually-hidden' }, t('rating.title')),
     prediction.rating !== null
       ? el('p', { id: 'predicted', class: 'predicted' }, formatRating(prediction.rating))
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
     prediction.change !== null && change(prediction.change),
+    nextUpdate(now),
     official !== null &&
       el(
         'p',
@@ -69,6 +96,11 @@ function summary({ model, favorite, onAddFavorite }: RatingProps): HTMLElement {
           : t('rating.officialNoDate', { rating: formatRating(official) }),
       ),
     el('p', { class: 'hint' }, t('rating.lastImport', { time: formatDateTime(model.importedAt) })),
+    el(
+      'a',
+      { id: 'refresh', class: 'button button-block', href: detailsUrl(pdgaNumber), rel: 'noreferrer' },
+      t('rating.refresh'),
+    ),
     !favorite &&
       el(
         'button',
@@ -82,9 +114,19 @@ function roundLabel(label: string): string {
   return /^\d+$/.test(label) ? t('round.number', { number: label }) : label;
 }
 
+/** The event name, linked to its pdga.com page when the id is known, then the round. */
+function roundEvent(round: ListedRound): HTMLElement | false {
+  const label = round.roundLabel && roundLabel(round.roundLabel);
+  if (!round.eventName && !label) return false;
+  const name =
+    round.eventName && round.eventId !== null
+      ? el('a', { href: eventUrl(round.eventId), rel: 'noreferrer' }, round.eventName)
+      : round.eventName;
+  return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
+}
+
 function roundItem({ round, result }: ListedResult): HTMLElement {
   const status = STATUS[result.status];
-  const event = [round.eventName, round.roundLabel && roundLabel(round.roundLabel)].filter(Boolean).join(', ');
   const details = [
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
@@ -104,7 +146,7 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
         ` ${t(status.label)}`,
       ),
     ),
-    event && el('p', { class: 'round-event' }, event),
+    roundEvent(round),
     el('p', { class: 'round-meta' }, details.join(' · ')),
   );
 }
@@ -242,7 +284,13 @@ export function ratingView(props: RatingProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
-    el('h1', { id: 'view-title' }, t('rating.title')),
+    el(
+      'h1',
+      { id: 'view-title' },
+      model.player?.name
+        ? t('rating.player', { name: model.player.name, number: model.pdgaNumber })
+        : t('rating.playerNumber', { number: model.pdgaNumber }),
+    ),
     summary(props),
     whyChanged(model),
     model.eventsWithoutRounds.length > 0 &&

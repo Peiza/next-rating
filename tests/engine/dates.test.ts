@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareDates, daysInMonth, isPlainDate, subtractMonths } from '../../src/engine/dates';
+import { compareDates, daysInMonth, isPlainDate, nextRatingUpdate, subtractMonths } from '../../src/engine/dates';
 
 describe('isPlainDate', () => {
   it('accepts valid calendar dates', () => {
@@ -39,6 +39,36 @@ describe('subtractMonths', () => {
 
   it('rejects an invalid date', () => {
     expect(() => subtractMonths('2026-02-30', 1)).toThrow(RangeError);
+  });
+});
+
+describe('nextRatingUpdate', () => {
+  it("is this month's second Tuesday until it has passed, with the Sunday before as deadline", () => {
+    // November 2026 starts on a Sunday, so its Tuesdays are the 3rd and the 10th.
+    expect(nextRatingUpdate('2026-11-01')).toEqual({ update: '2026-11-10', deadline: '2026-11-08' });
+    expect(nextRatingUpdate('2026-11-09')).toEqual({ update: '2026-11-10', deadline: '2026-11-08' });
+  });
+
+  it('counts the update day itself', () => {
+    expect(nextRatingUpdate('2026-11-10').update).toBe('2026-11-10');
+  });
+
+  it('moves to next month once the update has passed', () => {
+    expect(nextRatingUpdate('2026-10-20')).toEqual({ update: '2026-11-10', deadline: '2026-11-08' });
+    expect(nextRatingUpdate('2026-11-11').update).toBe('2026-12-08');
+  });
+
+  it('crosses into the next year', () => {
+    expect(nextRatingUpdate('2026-12-09')).toEqual({ update: '2027-01-12', deadline: '2027-01-10' });
+  });
+
+  it('handles a month that starts on a Tuesday', () => {
+    // September 2026 starts on a Tuesday.
+    expect(nextRatingUpdate('2026-09-01')).toEqual({ update: '2026-09-08', deadline: '2026-09-06' });
+  });
+
+  it('rejects an invalid date', () => {
+    expect(() => nextRatingUpdate('2026-02-30')).toThrow(RangeError);
   });
 });
 

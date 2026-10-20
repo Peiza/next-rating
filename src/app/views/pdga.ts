@@ -19,6 +19,24 @@ export function detailsUrl(pdgaNumber: number): string {
   return `https://www.pdga.com/player/${pdgaNumber}/details`;
 }
 
+export function eventUrl(eventId: number): string {
+  return `https://www.pdga.com/tour/event/${eventId}`;
+}
+
+/**
+ * pdga.com's player search for a typed name, or null without one. One word
+ * is searched as the last name; with more, the first word is the first name
+ * and the rest the last name. pdga.com matches parts of names.
+ */
+export function playerSearchUrl(text: string): string | null {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+  const params = new URLSearchParams();
+  if (words.length > 1) params.set('FirstName', words.shift()!);
+  params.set('LastName', words.join(' '));
+  return `https://www.pdga.com/players?${params}`;
+}
+
 /** Reads a typed PDGA number. Spaces and "#" are ignored, so a number copied from pdga.com works. */
 export function readPdgaNumber(text: string): { empty: boolean; pdgaNumber: number | null } {
   const digits = text.replace(/[\s#]/g, '');
@@ -105,8 +123,7 @@ export function detailsLink(pdgaNumber: number | null): HTMLElement {
       id: 'details-link',
       class: 'button button-primary button-block',
       href: detailsUrl(pdgaNumber),
-      target: '_blank',
-      rel: 'noopener noreferrer',
+      rel: 'noreferrer',
     },
     t('pdga.openDetails'),
   );

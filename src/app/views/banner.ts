@@ -36,7 +36,7 @@ export function bannerView(banner: Banner, onClose: () => void, onOpenSetup: () 
         'ul',
         { class: 'links' },
         ...failed.map((url) =>
-          el('li', {}, el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, pageLabel(url))),
+          el('li', {}, el('a', { href: url, rel: 'noreferrer' }, pageLabel(url))),
         ),
       ),
     banner.storageFull && el('p', {}, t('import.storageFull')),

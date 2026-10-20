@@ -38,6 +38,36 @@ export function compareDates(a: PlainDate, b: PlainDate): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/** The day of the month of the second Tuesday. */
+function secondTuesday(year: number, month: number): number {
+  const weekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  return 1 + ((2 - weekday + 7) % 7) + 7;
+}
+
+export interface RatingUpdate {
+  /** The day PDGA publishes the update: the second Tuesday of the month. */
+  update: PlainDate;
+  /** The event report deadline for that update: the Sunday before it. */
+  deadline: PlainDate;
+}
+
+/**
+ * The next ratings update on or after `today`, and its report deadline, as
+ * PDGA publishes them (https://www.pdga.com/faq/ratings/when-updated). The
+ * second Tuesday is never before the 8th, so the deadline is in the same month.
+ */
+export function nextRatingUpdate(today: PlainDate): RatingUpdate {
+  const parts = splitDate(today);
+  if (!parts) throw new RangeError(`Invalid date: ${today}`);
+  let [year, month] = parts;
+  let day = secondTuesday(year, month);
+  if (parts[2] > day) {
+    [year, month] = month === 12 ? [year + 1, 1] : [year, month + 1];
+    day = secondTuesday(year, month);
+  }
+  return { update: formatDate(year, month, day), deadline: formatDate(year, month, day - 2) };
+}
+
 /**
  * Moves a date back by whole calendar months. A day that does not exist in
  * the target month is clamped to its last day, so 2026-03-31 minus one month

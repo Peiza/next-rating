@@ -4,7 +4,6 @@ import { el } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
 import { bannerView } from '../../src/app/views/banner';
-import { importView, type ImportProps } from '../../src/app/views/import';
 import { ratingView } from '../../src/app/views/rating';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { isOlderVersion, setupView } from '../../src/app/views/setup';
@@ -17,8 +16,11 @@ import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw'
 
 afterEach(() => setLanguage('en'));
 
+/** Three days after the imports below. */
+const NOW = new Date('2026-10-04T10:00:00.000Z');
+
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
-  return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenImport: vi.fn(), onOpenSetup: vi.fn() });
+  return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenSetup: vi.fn() });
 }
 
 function submit(form: HTMLFormElement) {
@@ -37,7 +39,9 @@ describe('getting-started view', () => {
   it("links to the player's ratings details", () => {
     const link = startPage(100001).querySelector<HTMLAnchorElement>('#details-link')!;
     expect(link.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
-    expect(link.rel).toBe('noopener noreferrer');
+    // Same tab, so the bookmarklet brings the user back here; still no Referer to pdga.com.
+    expect(link.hasAttribute('target')).toBe(false);
+    expect(link.rel).toBe('noreferrer');
   });
 
   it('ends with the unofficial notice', () => {
@@ -142,18 +146,17 @@ describe('settings view', () => {
   });
 });
 
-describe('getting-started bookmarklet and paste steps', () => {
-  it('installs the bookmarklet before opening pdga.com, and opens the Import tab', () => {
-    const onOpenImport = vi.fn();
+describe('getting-started bookmarklet steps', () => {
+  it('installs the bookmarklet before opening pdga.com, and offers nothing to paste', () => {
     const onOpenSetup = vi.fn();
-    const view = startView({ pdgaNumber: null, player: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenImport, onOpenSetup });
+    const view = startView({ pdgaNumber: null, player: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenSetup });
     const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
+    expect(steps).toHaveLength(3);
     expect(steps[1]).toMatch(/Install the bookmarklet/);
     expect(steps[2]).toMatch(/run the bookmarklet there/);
     view.querySelector<HTMLButtonElement>('#open-setup')!.click();
     expect(onOpenSetup).toHaveBeenCalled();
-    view.querySelector<HTMLButtonElement>('#open-import')!.click();
-    expect(onOpenImport).toHaveBeenCalled();
+    expect(view.querySelector('#open-import')).toBeNull();
   });
 });
 
@@ -170,8 +173,38 @@ describe('rating view', () => {
   };
 
   function ratingPage(favorite = true, onAddFavorite = vi.fn()) {
-    return ratingView({ model: buildModel(stored, 100001), favorite, onAddFavorite });
+    return ratingView({ model: buildModel(stored, 100001), favorite, now: NOW, onAddFavorite });
   }
+
+  it('names the player once, in the heading, with the data age on the line below', () => {
+    const view = ratingPage();
+    expect(view.querySelector('h1')!.textContent).toBe('Test Player #100001');
+    expect(view.querySelector('h1')!.nextElementSibling!.firstElementChild!.textContent).toBe('Updated 3 days ago');
+    expect(view.textContent!.split('Test Player #100001')).toHaveLength(2);
+    // The exact time stays further down.
+    expect(view.querySelector('.summary .hint')!.textContent).toMatch(/^Last import: /);
+  });
+
+  it('gives the predicted number a label for screen readers', () => {
+    const label = ratingPage().querySelector('#predicted')!.previousElementSibling!;
+    expect(label.className).toBe('visually-hidden');
+    expect(label.textContent).toBe('Predicted rating');
+  });
+
+  it('shows the next update and its report deadline, linked to the rule on pdga.com', () => {
+    // On 4 Oct 2026 the next update is Tuesday 13 Oct, for events reported by Sunday 11 Oct.
+    const link = ratingPage().querySelector<HTMLAnchorElement>('#next-update a')!;
+    expect(link.textContent).toMatch(/^Next ratings update: \D*13\D* \(events reported by \D*11\D*\)$/);
+    expect(link.getAttribute('href')).toBe('https://www.pdga.com/faq/ratings/when-updated');
+    expect(link.hasAttribute('target')).toBe(false);
+  });
+
+  it("refreshes from the player's ratings details on pdga.com, in the same tab", () => {
+    const refresh = ratingPage().querySelector<HTMLAnchorElement>('#refresh')!;
+    expect(refresh.textContent).toBe('Refresh on pdga.com');
+    expect(refresh.getAttribute('href')).toBe('https://www.pdga.com/player/100001/details');
+    expect(refresh.hasAttribute('target')).toBe(false);
+  });
 
   it('shows the prediction, the change and the official rating', () => {
     const view = ratingPage();
@@ -187,7 +220,7 @@ describe('rating view', () => {
     ['962', 'none', '→', '0'],
   ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
     const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001);
-    const line = ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.change')!;
+    const line = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.change')!;
     expect(line.classList.contains(`change-${direction}`)).toBe(true);
     const icon = line.querySelector('.change-arrow')!;
     expect(icon.textContent).toBe(arrow);
@@ -211,6 +244,24 @@ describe('rating view', () => {
     expect(rounds[1]!.textContent).toContain('Unofficial');
     expect(rounds[0]!.textContent).not.toContain('holes');
     expect(rounds[3]!.querySelector('.round-event')!.textContent).toBe('Example Open, Finals');
+  });
+
+  it("links each round's event name to its pdga.com page, in the same tab", () => {
+    const rounds = [...ratingPage().querySelectorAll('.round')];
+    const official = rounds[3]!.querySelector<HTMLAnchorElement>('.round-event a')!;
+    expect(official.textContent).toBe('Example Open');
+    expect(official.getAttribute('href')).toBe('https://www.pdga.com/tour/event/900001');
+    expect(official.hasAttribute('target')).toBe(false);
+    expect(official.rel).toBe('noreferrer');
+    const unofficial = rounds[1]!.querySelector<HTMLAnchorElement>('.round-event a')!;
+    expect(unofficial.getAttribute('href')).toBe('https://www.pdga.com/tour/event/900002');
+  });
+
+  it('shows the event name without a link when its id is unknown', () => {
+    const model = buildModel({ ...stored, details: [rawDetailsRow({ eventId: '' })], events: [] }, 100001);
+    const event = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.round-event')!;
+    expect(event.querySelector('a')).toBeNull();
+    expect(event.textContent).toBe('Example Open, Round 1');
   });
 
   it('has a stats panel', () => {
@@ -240,7 +291,7 @@ describe('rating view', () => {
 
     function why(extra: Partial<StoredImport> = {}): HTMLElement | null {
       const model = buildModel({ ...stored, player: reproduced, ...extra }, 100001);
-      return ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('#why');
+      return ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#why');
     }
 
     it('follows the summary with the new rounds, largest effect first', () => {
@@ -315,7 +366,7 @@ describe('rating view', () => {
 
   it('names the player by number before a player header is imported', () => {
     const model = buildModel({ ...stored, player: undefined }, 100001);
-    expect(ratingView({ model, favorite: true, onAddFavorite: vi.fn() }).querySelector('.player')!.textContent).toBe('#100001');
+    expect(ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('h1')!.textContent).toBe('#100001');
   });
 
   it('ends with the unofficial notice', () => {
@@ -331,6 +382,7 @@ describe('import banner', () => {
     const links = [...banner.querySelectorAll('a')];
     expect(links.map((link) => link.getAttribute('href'))).toEqual(failed);
     expect(links.map((link) => link.textContent)).toEqual(['Ratings details on pdga.com', 'Event 900003 on pdga.com']);
+    expect(links.some((link) => link.hasAttribute('target'))).toBe(false);
     expect(banner.textContent).toContain('run the bookmarklet on each of them');
   });
 
@@ -401,108 +453,6 @@ describe('bookmarklet setup', () => {
   });
 });
 
-describe('import view', () => {
-  const props: ImportProps = {
-    pendingEvent: null,
-    pendingDetails: null,
-    pdgaNumber: 100001,
-    message: null,
-    touch: false,
-    onPaste: () => {},
-    onAddEvent: () => {},
-    onImportDetails: () => {},
-    onCancel: () => {},
-    onOpenSetup: () => {},
-  };
-
-  it('offers the bookmarklet above the paste field on touch devices only', () => {
-    expect(importView(props).querySelector('#paste-touch')).toBeNull();
-    const onOpenSetup = vi.fn();
-    const view = importView({ ...props, touch: true, onOpenSetup });
-    const hint = view.querySelector('#paste-touch')!;
-    expect(hint.textContent).toMatch(/On a phone, use the bookmarklet/);
-    expect(hint.compareDocumentPosition(view.querySelector('#paste-target')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(view.querySelector('#paste-target')!.getAttribute('aria-describedby')).toContain('paste-touch');
-    view.querySelector<HTMLButtonElement>('#paste-setup')!.click();
-    expect(onOpenSetup).toHaveBeenCalled();
-  });
-
-  it('explains how to paste when nothing was recognised', () => {
-    const view = importView({ ...props, message: { key: 'paste.none', error: true } });
-    const text = view.querySelector('#paste-status')!.textContent;
-    expect(text).toMatch(/select the whole pdga\.com page \(Ctrl\+A/);
-    expect(text).toMatch(/On a phone, use the bookmarklet/);
-  });
-
-  function submitOwner(view: HTMLElement, value?: string) {
-    const input = view.querySelector<HTMLInputElement>('#paste-owner')!;
-    if (value !== undefined) input.value = value;
-    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    return input;
-  }
-
-  it('asks whose rounds a pasted table holds, starting from the default player', () => {
-    const onImportDetails = vi.fn();
-    const view = importView({ ...props, pendingDetails: 12, onImportDetails });
-    expect(view.textContent).toContain('Found 12 rounds');
-    const input = submitOwner(view);
-    expect(input.value).toBe('100001');
-    expect(onImportDetails).toHaveBeenCalledWith(100001);
-  });
-
-  it('takes another player for a pasted table', () => {
-    const onImportDetails = vi.fn();
-    submitOwner(importView({ ...props, pendingDetails: 12, onImportDetails }), '#100002');
-    expect(onImportDetails).toHaveBeenCalledWith(100002);
-  });
-
-  it('needs a number for a pasted table when there is no default player', () => {
-    const onImportDetails = vi.fn();
-    const view = importView({ ...props, pdgaNumber: null, pendingDetails: 1, onImportDetails });
-    document.body.replaceChildren(view);
-    const input = submitOwner(view);
-    expect(input.value).toBe('');
-    expect(onImportDetails).not.toHaveBeenCalled();
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(view.querySelector('#paste-status')!.textContent).toBe('Enter the PDGA number of the player.');
-    submitOwner(view, '100003');
-    expect(onImportDetails).toHaveBeenCalledWith(100003);
-  });
-
-  it('reads both clipboard forms on paste', () => {
-    const onPaste = vi.fn();
-    const target = importView({ ...props, onPaste }).querySelector('#paste-target')!;
-    const event = new Event('paste', { cancelable: true });
-    const clipboard = { 'text/html': '<table></table>', 'text/plain': 'a\tb' } as Record<string, string>;
-    Object.defineProperty(event, 'clipboardData', { value: { getData: (type: string) => clipboard[type] ?? '' } });
-    target.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(true);
-    expect(onPaste).toHaveBeenCalledWith('<table></table>', 'a\tb');
-  });
-
-  it('asks for the date of pasted event results', () => {
-    const onAddEvent = vi.fn();
-    const view = importView({ ...props, pendingEvent: rawEvent({ eventId: '', name: '' }), onAddEvent });
-    const date = view.querySelector<HTMLInputElement>('#paste-date')!;
-    expect(date.type).toBe('date');
-    expect(date.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    date.value = '2026-09-07';
-    view.querySelector<HTMLInputElement>('#paste-name')!.value = '  Example   Cup ';
-    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    expect(onAddEvent).toHaveBeenCalledWith('2026-09-07', 'Example Cup');
-  });
-
-  it('refuses an empty date', () => {
-    const onAddEvent = vi.fn();
-    const view = importView({ ...props, pendingEvent: rawEvent(), onAddEvent });
-    document.body.replaceChildren(view);
-    view.querySelector<HTMLInputElement>('#paste-date')!.value = '';
-    view.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    expect(onAddEvent).not.toHaveBeenCalled();
-    expect(view.querySelector('#paste-status')!.textContent).toBe('Pick a date.');
-  });
-});
-
 describe('el', () => {
   it('adds text as text, never as markup', () => {
     const node = el('p', {}, '<img src=x onerror=alert(1)>');
@@ -536,7 +486,10 @@ describe('players panel', () => {
       editing: false,
       confirmRemove: null,
       flash: null,
+      order: 'name',
       now: new Date('2026-10-20T10:00:00.000Z'),
+      onOrder: vi.fn(),
+      onSearch: vi.fn(),
       onSelect: vi.fn(),
       onClose: vi.fn(),
       onToggleEdit: vi.fn(),
@@ -568,6 +521,7 @@ describe('players panel', () => {
       'https://www.pdga.com/player/100003/details',
     ]);
     expect(links[0]!.getAttribute('aria-label')).toBe('Ratings details for Test Player #100001 on pdga.com');
+    expect(links.some((link) => link.hasAttribute('target'))).toBe(false);
   });
 
   it('selects a player', () => {
@@ -619,6 +573,57 @@ describe('players panel', () => {
     expect(onAdd).toHaveBeenCalledWith(100004);
   });
 
+  describe('order', () => {
+    const named = (pdgaNumber: number, name: string, at: string): StoredPlayer => ({
+      pdgaNumber,
+      favorite: true,
+      import: { at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }), events: [] },
+    });
+    const many = [
+      named(100004, 'Zoe Ash', '2026-10-19T10:00:00.000Z'),
+      ...players,
+      named(100005, 'Adam Berg', '2026-10-01T10:00:00.000Z'),
+    ];
+    const listed = (view: HTMLElement) =>
+      [...view.querySelectorAll('.player-list')[0]!.querySelectorAll('.player-select')].map((button) => button.id);
+
+    it('lists "me" first, then A to Z, and switches to last updated', () => {
+      const onOrder = vi.fn();
+      const view = document.body.appendChild(panel({ players: many, onOrder }));
+      expect(listed(view)).toEqual(['player-100001', 'player-100005', 'player-100004', 'player-100002']);
+      expect(view.querySelector('.segmented legend')!.textContent).toBe('Order');
+      expect(view.querySelector<HTMLInputElement>('#order-name')!.checked).toBe(true);
+      view.querySelector<HTMLInputElement>('#order-updated')!.click();
+      expect(onOrder).toHaveBeenCalledWith('updated');
+      view.remove();
+      expect(listed(panel({ players: many, order: 'updated' }))).toEqual([
+        'player-100001',
+        'player-100004',
+        'player-100005',
+        'player-100002',
+      ]);
+    });
+
+    it('offers no switch with fewer than two players after "me"', () => {
+      expect(panel().querySelector('#order-name')).toBeNull();
+    });
+  });
+
+  it('searches pdga.com by name and requires one', () => {
+    const onSearch = vi.fn();
+    const view = panel({ onSearch });
+    const input = view.querySelector<HTMLInputElement>('#player-search')!;
+    expect(input.type).toBe('search');
+    expect(view.querySelector(`label[for="player-search"]`)!.textContent).toBe('Find a player on pdga.com by name');
+    submit(input.form!);
+    expect(onSearch).not.toHaveBeenCalled();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(view.querySelector('#player-search-status')!.textContent).toBe('Enter a first or last name.');
+    input.value = ' Anna  Svensson ';
+    submit(input.form!);
+    expect(onSearch).toHaveBeenCalledWith('https://www.pdga.com/players?FirstName=Anna&LastName=Svensson');
+  });
+
   it('suggests how to add players while there are no favorites', () => {
     const view = panel({ players: [], me: null, selected: null });
     expect(view.querySelector('.hint')!.textContent).toMatch(/No favorites yet/);
@@ -635,14 +640,15 @@ describe('players panel', () => {
 describe('top bar', () => {
   it('has a menu button that controls the players panel', () => {
     const onToggle = vi.fn();
-    const bar = topBar('Test Player #100001', false, onToggle);
+    const bar = topBar(false, onToggle);
     const button = bar.querySelector<HTMLButtonElement>('#players-menu')!;
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-controls')).toBe('favorites');
-    expect(bar.textContent).toContain('Test Player #100001');
+    // The heading names the player, so the bar holds only the button.
+    expect(bar.children).toHaveLength(1);
     button.click();
     expect(onToggle).toHaveBeenCalled();
-    expect(topBar(null, true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
+    expect(topBar(true, vi.fn()).querySelector('#players-menu')!.getAttribute('aria-expanded')).toBe('true');
   });
 });
 
@@ -653,12 +659,11 @@ describe('getting-started view for a player without data', () => {
       player: { pdgaNumber: 100002, label: '#100002' },
       flash: null,
       onSavePdgaNumber: vi.fn(),
-      onOpenImport: vi.fn(),
       onOpenSetup: vi.fn(),
     });
     expect(view.querySelector('h1')!.textContent).toBe('#100002');
     expect(view.querySelector('#pdga-number')).toBeNull();
-    expect(view.querySelectorAll('.step')).toHaveLength(3);
+    expect(view.querySelectorAll('.step')).toHaveLength(2);
     expect(view.textContent).toContain('Open the ratings details of #100002 on pdga.com');
     expect(view.querySelector<HTMLAnchorElement>('#details-link')!.getAttribute('href')).toBe(
       'https://www.pdga.com/player/100002/details',

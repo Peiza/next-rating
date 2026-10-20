@@ -5,6 +5,9 @@ CLAUDE.md so that it keeps the rules and the open work. The rules below still
 apply. The plans for each step are in the other files in docs/. Section
 numbers match the Architecture list in CLAUDE.md.
 
+Paste import, mentioned in 2, 4 and 5 below, was removed by Polish after
+favorites, point 8: bookmarklet hand-offs are the only import.
+
 ## Background
 I had a Google Sheets + Apps Script tool (legacy/rating-calculator.gs) that fetched
 my PDGA ratings history from pdga.com/player/<number>/details and predicted my next
@@ -117,6 +120,48 @@ manual per-page fallback.
    - Each effect is the round's weight change times its distance from the
      official unrounded average, over the new total weight, so the effects
      add up exactly to the unrounded change (docs/plan-change-explanation.md).
+7. Polish after favorites:
+   1. Links to pdga.com (ratings details, events, player search) open in the
+      same tab, not a new one. The bookmarklet brings the user back to the
+      app in that same tab, so repeated imports don't pile up tabs.
+   2. Main page header: show the data age as relative time ("58 minutes
+      ago") right after the player's name and number; keep the exact import
+      date further down.
+   3. Main page: a "Refresh on pdga.com" button that opens the shown player's
+      ratings details page, like the link in the players list.
+   4. Players list: "me" always first; the others sorted A to Z by default,
+      with a switch for "last updated".
+   5. Round list: each official or unofficial round's event name links to its
+      pdga.com event page. A plain link; the app loads nothing itself.
+   6. Player search by name: one name field in the players panel that opens
+      pdga.com's player search in this format:
+      https://www.pdga.com/players?FirstName=Anna&LastName=Svensson. With one
+      word, search it as the last name; with two or more words, the first
+      word is the first name and the rest the last name. The search matches
+      parts of names, so partial names work. The user picks the player there
+      and runs the bookmarklet.
+   7. Text size: on laptop-sized screens the text is too large; scale the
+      type down from tablet width and up.
+   8. Remove paste import completely: the Import tab, the phone hint and the
+      tab-separated parsing. It doesn't work from a computer either, because
+      of how pdga.com marks up the table headers. The page parsers stay,
+      since bookmarklet hand-offs use them. This replaces the paste import
+      text in 2, 4 and 5 above, in Hard constraints and in Security, which
+      is removed when this is built.
+   9. Next to the prediction, show the expected date of the next ratings
+      update and its event report deadline: updates come on the second
+      Tuesday of each month, and the deadline is the Sunday before, for
+      example "Next ratings update: 10 Nov (events reported by 8 Nov)". Link
+      to https://www.pdga.com/faq/ratings/when-updated, where PDGA publishes
+      the rule.
+   10. Main page: the player's name shows twice at the top, in the top bar
+       and under the heading. Keep it once, and use the freed line for the
+       data age from point 2.
+   Built as: the Rating tab's heading names the player, and the phone top
+   bar keeps only the menu button (it is hidden on wide screens, so the name
+   could not stay there). The players list order is stored with the other
+   settings, and the next update date comes from `nextRatingUpdate` in
+   src/engine/dates.ts.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
@@ -143,3 +188,4 @@ Built in this order:
   are stored per player from the start) (done)
 - Change explanation: why the prediction differs from the official rating
   (docs/plan-change-explanation.md) (done)
+- Polish after favorites (Architecture 7) (done)

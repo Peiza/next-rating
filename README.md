@@ -10,7 +10,7 @@ App: https://peiza.github.io/next-rating/
 
 ## How it works
 
-- Your rounds are read from pdga.com in your own browser, or pasted by you.
+- Your rounds are read from pdga.com in your own browser, by a bookmarklet.
   The app has no server: nothing you enter or import leaves your browser.
 - The prediction follows the rating rules in the
   [PDGA ratings guide](https://www.pdga.com/ratings/guide): a 12-month window

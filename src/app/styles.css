@@ -88,6 +88,16 @@ html {
   text-size-adjust: 100%;
 }
 
+/*
+ * 15px from tablet width up, where 17px reads too large on a laptop. Before
+ * the rule below, so iPhone and iPad keep following Dynamic Type.
+ */
+@media (min-width: 48rem) {
+  html {
+    font-size: 93.75%;
+  }
+}
+
 /* On iPhone, follow the Dynamic Type text size. */
 @supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html {
@@ -264,11 +274,6 @@ a {
   cursor: not-allowed;
 }
 
-a.button[target='_blank']::after {
-  content: '\2197' / '';
-  margin-left: 0.4em;
-}
-
 .status {
   min-height: 1.45em;
   margin: 0.5rem 0 0;
@@ -364,11 +369,6 @@ a.button[target='_blank']::after {
   outline-offset: -5px;
 }
 
-.paste {
-  min-height: 9rem;
-  resize: vertical;
-}
-
 /* Import messages */
 
 .banner {
@@ -409,9 +409,24 @@ a.button[target='_blank']::after {
 
 /* Results */
 
-.player {
+.updated {
   margin-bottom: 0.25rem;
+  color: var(--text-muted);
   font-weight: 700;
+}
+
+/* Read out, not shown: the heading names the player, so the number needs its label. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.next-update {
+  margin: 0.25rem 0 0.5rem;
 }
 
 .predicted {
@@ -614,11 +629,6 @@ a.button[target='_blank']::after {
   padding: 0.75rem var(--gutter) 0;
   padding-left: max(var(--gutter), env(safe-area-inset-left));
   padding-right: max(var(--gutter), env(safe-area-inset-right));
-}
-
-.topbar-player {
-  min-width: 0;
-  font-weight: 700;
 }
 
 .favorites {

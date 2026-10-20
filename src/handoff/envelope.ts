@@ -5,7 +5,7 @@ import { LIMITS, ParseError, asList, asRecord } from '../parsers/values';
  * The hand-off from the bookmarklet: one versioned envelope with a status
  * code, so the app shows every message in the user's language, and the HTML
  * of the pdga.com pages it read. The bookmarklet does not parse anything:
- * the app parses the HTML the same way as pasted content (src/app/handoff.ts),
+ * the app parses the HTML (src/app/handoff.ts),
  * so a change in pdga.com's markup is fixed by deploying the app.
  */
 
@@ -66,7 +66,7 @@ function pages(value: unknown): HandoffPage[] {
     const { url, html } = page;
     if (typeof url !== 'string' || !PDGA_PAGE.test(url)) throw new ParseError('malformed', 'page is not a pdga.com page');
     if (typeof html !== 'string') throw new ParseError('malformed', 'page HTML is not text');
-    if (html.length > LIMITS.paste) throw new ParseError('too-large', 'page HTML is too large');
+    if (html.length > LIMITS.html) throw new ParseError('too-large', 'page HTML is too large');
     return { url, html };
   });
 }

@@ -6,7 +6,7 @@ import { BOOKMARKLET_VERSION } from './version';
 /*
  * What the bookmarklet sends from pdga.com, read in the user's own browser
  * session. It parses nothing: it sends the HTML of the page parts the app's
- * extractors read, and the app parses them like pasted content, so a markup
+ * extractors read, and the app parses them, so a markup
  * change on pdga.com is fixed by deploying the app. The bookmarklet only
  * decides which pages to fetch: on a player page it fetches the other player
  * page, then recent events that the ratings details do not include yet,
