@@ -486,9 +486,9 @@ describe('el', () => {
 describe('players panel', () => {
   const imported: StoredImport = { at: '2026-10-17T10:00:00.000Z', player: rawPlayer(), events: [] };
   const players: StoredPlayer[] = [
-    { pdgaNumber: 100001, favorite: true, import: imported },
-    { pdgaNumber: 100002, favorite: true, import: null },
-    { pdgaNumber: 100003, favorite: false, import: null },
+    { pdgaNumber: 100001, favorite: true, import: imported, manualRounds: [] },
+    { pdgaNumber: 100002, favorite: true, import: null, manualRounds: [] },
+    { pdgaNumber: 100003, favorite: false, import: null, manualRounds: [] },
   ];
 
   function panel(extra: Partial<PlayersProps> = {}): HTMLElement {
@@ -591,6 +591,7 @@ describe('players panel', () => {
       pdgaNumber,
       favorite: true,
       import: { at, player: rawPlayer({ pdgaNumber: String(pdgaNumber), name }), events: [] },
+      manualRounds: [],
     });
     const many = [
       named(100004, 'Zoe Ash', '2026-10-19T10:00:00.000Z'),

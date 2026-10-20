@@ -13,10 +13,13 @@ import {
   formatRating,
 } from '../format';
 import type { ListedChange, ListedResult, Model } from '../model';
+import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 
 export interface RatingProps {
   model: Model;
+  /** Quick manual entry, under the prediction. */
+  manual?: ManualProps;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
   /** For the data age and the next update. */
@@ -294,6 +297,7 @@ export function ratingView(props: RatingProps): HTMLElement {
         : t('rating.playerNumber', { number: model.pdgaNumber }),
     ),
     summary(props),
+    props.manual && manualEntry(props.manual),
     whyChanged(model),
     model.eventsWithoutRounds.length > 0 &&
       el(

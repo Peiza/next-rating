@@ -1,7 +1,14 @@
 import type { ImportParts } from '../handoff';
 import { normalizePlayer } from '../parsers';
 import { applyImport, hasPlayerRow, playerNumber } from './import';
-import { MAX_FAVORITES, type AppData, type PlayerOrder, type StoredPlayer } from './storage';
+import {
+  MAX_FAVORITES,
+  MAX_MANUAL_ROUNDS,
+  type AppData,
+  type PlayerOrder,
+  type StoredManualRound,
+  type StoredPlayer,
+} from './storage';
 
 /*
  * The stored players: favorites, "me" (the favorite the app opens on) and at
@@ -61,7 +68,12 @@ export function addFavorite(data: AppData, pdgaNumber: number): AppData {
   const existing = findPlayer(data, pdgaNumber);
   if (existing?.favorite) return data;
   if (favoriteCount(data) >= MAX_FAVORITES) return data;
-  const player: StoredPlayer = { pdgaNumber, favorite: true, import: existing?.import ?? null };
+  const player: StoredPlayer = {
+    pdgaNumber,
+    favorite: true,
+    import: existing?.import ?? null,
+    manualRounds: existing?.manualRounds ?? [],
+  };
   // Favorites keep the order they were added in, ahead of the unsaved player.
   const others = data.players.filter((other) => other.pdgaNumber !== pdgaNumber);
   return { ...data, players: [...others.filter((other) => other.favorite), player, ...others.filter((other) => !other.favorite)] };
@@ -81,6 +93,49 @@ export function setMe(data: AppData, pdgaNumber: number | null): AppData {
   if (pdgaNumber === null) return { ...data, me: null };
   const next = addFavorite(data, pdgaNumber);
   return findPlayer(next, pdgaNumber)?.favorite ? { ...next, me: pdgaNumber } : data;
+}
+
+/** A manual round as typed in, before it gets an id. */
+export type ManualRoundInput = Omit<StoredManualRound, 'id'>;
+
+export interface AddedRound {
+  data: AppData;
+  /** Why the round was not added; the data then comes back unchanged. */
+  error: 'favorites-full' | 'rounds-full' | null;
+  /** True when adding the round saved the unsaved player as a favorite. */
+  savedFavorite: boolean;
+}
+
+function replacePlayer(data: AppData, player: StoredPlayer): AppData {
+  return { ...data, players: data.players.map((other) => (other.pdgaNumber === player.pdgaNumber ? player : other)) };
+}
+
+/**
+ * Adds a manual round to a stored player. The unsaved player is saved as a
+ * favorite first, since the next import of another player would replace it
+ * and its rounds.
+ */
+export function addManualRound(data: AppData, pdgaNumber: number, round: ManualRoundInput): AddedRound {
+  const existing = findPlayer(data, pdgaNumber);
+  if (!existing) return { data, error: null, savedFavorite: false };
+  if (existing.manualRounds.length >= MAX_MANUAL_ROUNDS) return { data, error: 'rounds-full', savedFavorite: false };
+  const saved = existing.favorite ? data : addFavorite(data, pdgaNumber);
+  if (saved === data && !existing.favorite) return { data, error: 'favorites-full', savedFavorite: false };
+  const player = findPlayer(saved, pdgaNumber)!;
+  const highest = Math.max(0, ...player.manualRounds.map(({ id }) => Number(id.slice(1))));
+  const manualRounds = [...player.manualRounds, { id: `m${highest + 1}`, ...round }];
+  return { data: replacePlayer(saved, { ...player, manualRounds }), error: null, savedFavorite: !existing.favorite };
+}
+
+export function removeManualRound(data: AppData, pdgaNumber: number, id: string): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  if (!player) return data;
+  return replacePlayer(data, { ...player, manualRounds: player.manualRounds.filter((round) => round.id !== id) });
+}
+
+export function clearManualRounds(data: AppData, pdgaNumber: number): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  return player ? replacePlayer(data, { ...player, manualRounds: [] }) : data;
 }
 
 export interface Routed {
@@ -124,7 +179,12 @@ export function routeImport(
     const before = existing?.import ?? null;
     const next = applyImport(before, parts, at, pdgaNumber);
     if (next === before) return { data, owner: pdgaNumber, players: [], noPlayer: false };
-    const player: StoredPlayer = { pdgaNumber, favorite: existing?.favorite ?? false, import: next };
+    const player: StoredPlayer = {
+      pdgaNumber,
+      favorite: existing?.favorite ?? false,
+      import: next,
+      manualRounds: existing?.manualRounds ?? [],
+    };
     return { data: withImport(data, player), owner: pdgaNumber, players: [pdgaNumber], noPlayer: false };
   }
 

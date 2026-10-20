@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
-import { buildModel } from '../../src/app/model';
+import { buildModel, manualToRounds } from '../../src/app/model';
+import type { StoredManualRound } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
 
@@ -156,5 +157,46 @@ describe('buildModel', () => {
     const model = buildModel(stored({ details }), 100001, NOW, [manual]);
     expect(model.rows[0]!.round).toBe(manual);
     expect(model.prediction.stats.totalRounds).toBe(4);
+  });
+});
+
+describe('manualToRounds', () => {
+  const manual = (id: string, eventName: string, date = '2026-09-20', holes: number | null = null): StoredManualRound => ({
+    id,
+    rating: 1000,
+    date,
+    eventName,
+    holes,
+  });
+
+  it('groups rounds with the same event name and date into one event, apart from imported events', () => {
+    const rounds = manualToRounds([
+      manual('m1', 'Club night'),
+      manual('m2', 'club night'),
+      manual('m3', 'Club night', '2026-09-21'),
+      manual('m4', ''),
+      manual('m5', ''),
+    ]);
+    const keys = rounds.map(({ eventKey }) => eventKey);
+    expect(keys[0]).toBe(keys[1]);
+    expect(new Set(keys).size).toBe(4);
+    expect(keys.every((key) => key.startsWith('m:'))).toBe(true);
+    expect(rounds[0]).toMatchObject({ id: 'm:m1', source: 'manual', eventId: null, eventName: 'Club night', roundLabel: '' });
+  });
+
+  it('weighs a short round by its holes', () => {
+    const [nine] = manualToRounds([manual('m1', '', '2026-09-20', 9)]);
+    expect(nine!.holes).toBe(9);
+    const model = buildModel(stored({ details }), 100001, NOW, [nine!]);
+    expect(model.prediction.rounds.find(({ id }) => id === 'm:m1')!.weight).toBe(0.5);
+  });
+
+  it('counts a round dated ahead by the report deadline, and moves a later one to the following update', () => {
+    // On 1 Oct 2026 the next update is 13 Oct, for events reported by 11 Oct.
+    const rounds = manualToRounds([manual('m1', '', '2026-10-10'), manual('m2', '', '2026-10-12')]);
+    const model = buildModel(stored({ player: rawPlayer(), details }), 100001, NOW, rounds);
+    const status = (id: string) => model.prediction.rounds.find((round) => round.id === id)!.status;
+    expect(status('m:m1')).toBe('included');
+    expect(status('m:m2')).toBe('after-deadline');
   });
 });

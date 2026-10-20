@@ -2,15 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { eventForPlayer, type StoredImport } from '../../src/app/import';
 import {
   addFavorite,
+  addManualRound,
+  clearManualRounds,
   findPlayer,
   initialSelection,
   playerName,
+  removeManualRound,
   removePlayer,
   routeImport,
   setMe,
   sortFavorites,
 } from '../../src/app/players';
-import { EMPTY_DATA, MAX_FAVORITES, type AppData, type StoredPlayer } from '../../src/app/storage';
+import { EMPTY_DATA, MAX_FAVORITES, MAX_MANUAL_ROUNDS, type AppData, type StoredPlayer } from '../../src/app/storage';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
 
 const AT = '2026-10-01T10:00:00.000Z';
@@ -19,7 +22,7 @@ const LATER = '2026-10-02T18:30:00.000Z';
 const IMPORT: StoredImport = { at: AT, player: rawPlayer(), details: [rawDetailsRow()], events: [] };
 
 function player(pdgaNumber: number, extra: Partial<StoredPlayer> = {}): StoredPlayer {
-  return { pdgaNumber, favorite: true, import: null, ...extra };
+  return { pdgaNumber, favorite: true, import: null, manualRounds: [], ...extra };
 }
 
 function data(players: StoredPlayer[], me: number | null = null): AppData {
@@ -162,5 +165,54 @@ describe('routeImport', () => {
         noPlayer: true,
       });
     });
+  });
+});
+
+describe('manual rounds', () => {
+  const round = { rating: 985, date: '2026-10-16', eventName: '', holes: null };
+  const roundsOf = (next: AppData, pdgaNumber: number) => findPlayer(next, pdgaNumber)!.manualRounds;
+
+  it('adds rounds with ids that stay unique after a delete', () => {
+    let next = addManualRound(data([player(100001)]), 100001, round).data;
+    next = addManualRound(next, 100001, { ...round, rating: 950 }).data;
+    expect(roundsOf(next, 100001).map(({ id, rating }) => [id, rating])).toEqual([
+      ['m1', 985],
+      ['m2', 950],
+    ]);
+    next = removeManualRound(next, 100001, 'm1');
+    next = addManualRound(next, 100001, round).data;
+    expect(roundsOf(next, 100001).map(({ id }) => id)).toEqual(['m2', 'm3']);
+  });
+
+  it('saves the unsaved player as a favorite, so its rounds are kept', () => {
+    const added = addManualRound(data([player(100001), player(100009, { favorite: false, import: IMPORT })]), 100009, round);
+    expect(added.error).toBeNull();
+    expect(added.savedFavorite).toBe(true);
+    expect(findPlayer(added.data, 100009)).toMatchObject({ favorite: true, import: IMPORT });
+    expect(roundsOf(added.data, 100009)).toHaveLength(1);
+  });
+
+  it('leaves the data unchanged when the favorites or the rounds are full', () => {
+    const favorites = Array.from({ length: MAX_FAVORITES }, (_, i) => player(100001 + i));
+    const full = data([...favorites, player(200000, { favorite: false })]);
+    expect(addManualRound(full, 200000, round)).toEqual({ data: full, error: 'favorites-full', savedFavorite: false });
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 1}` }));
+    const busy = data([player(100001, { manualRounds: many })]);
+    expect(addManualRound(busy, 100001, round)).toEqual({ data: busy, error: 'rounds-full', savedFavorite: false });
+  });
+
+  it('clears one player only', () => {
+    const rounds = [{ ...round, id: 'm1' }];
+    const next = clearManualRounds(data([player(100001, { manualRounds: rounds }), player(100002, { manualRounds: rounds })]), 100001);
+    expect(roundsOf(next, 100001)).toEqual([]);
+    expect(roundsOf(next, 100002)).toEqual(rounds);
+  });
+
+  it('keeps them when the player is saved as a favorite or gets an import', () => {
+    const rounds = [{ ...round, id: 'm1' }];
+    const saved = addFavorite(data([player(100001, { favorite: false, manualRounds: rounds })]), 100001);
+    expect(roundsOf(saved, 100001)).toEqual(rounds);
+    const routed = routeImport(saved, { player: rawPlayer(), details: [rawDetailsRow()] }, LATER, null, 100001);
+    expect(roundsOf(routed.data, 100001)).toEqual(rounds);
   });
 });
