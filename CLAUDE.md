@@ -56,9 +56,11 @@ single build-time setting.
   changes. Ship English and Swedish. Pick the language from the device
   settings, allow a manual override, and set <html lang> to the active
   language. Missing keys fall back to English.
-- Dates and numbers follow the user's locale through Intl (a Swedish phone
-  shows 2026-08-06 and 976,45). Ratings never get a thousands separator
-  (a 1024 round shows as 1024).
+- Dates and numbers are formatted through Intl. Dates follow the app's
+  language with the device's region (an English app on a Swedish phone shows
+  2026-08-06 and Aug); numbers follow the device locale (976,45 on a Swedish
+  phone). Ratings never get a thousands separator (a 1024 round shows as
+  1024).
 
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
