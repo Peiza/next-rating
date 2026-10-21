@@ -81,8 +81,10 @@ export function formatMonth(date: PlainDate, locale = dateLocale()): string {
 /**
  * A point in time, such as an import timestamp, in the device's time zone.
  * Year first and Day first go with a 24-hour clock ("2026-10-21 14:50");
- * Month first and Automatic keep the locale's clock, so US English keeps
- * "2:50 PM". The `h23` cycle, as `hour12: false` reads "24:05" in some engines.
+ * Month first and Automatic keep the clock of the device's region
+ * (dateLocale), so the English app shows "2:50 PM" on a US phone and "14:50"
+ * on a Swedish one. The `h23` cycle, as `hour12: false` reads "24:05" in some
+ * engines.
  */
 export function formatDateTime(timestamp: string, locale = dateLocale(), order = dateOrder): string {
   if (order) {
