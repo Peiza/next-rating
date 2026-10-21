@@ -1035,14 +1035,29 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.chart-table th,
 .chart-table .chart-date,
 .chart-table .chart-number {
   white-space: nowrap;
 }
 
-/* A long event name wraps anywhere rather than widening its column. */
+/*
+ * Words wrap whole: body's overflow-wrap: anywhere would let the table
+ * squeeze this column until words break. A word breaks only when it is wider
+ * than the whole cell.
+ */
 .chart-table .chart-event {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+.chart-round-name,
+.chart-round-status {
+  display: block;
+}
+
+.chart-round-status {
+  font-size: 0.85em;
+  color: var(--text-muted);
 }
 
 .top8-figures {

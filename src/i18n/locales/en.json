@@ -239,7 +239,6 @@
   "chart.history": "Ratings history on pdga.com",
   "chart.column.date": "Date",
   "chart.column.rating": "Rating",
-  "chart.column.status": "Status",
   "chart.column.round": "Round",
   "chart.teaser.one": "1 round · {period}",
   "chart.teaser.other": "{count} rounds · {period}",

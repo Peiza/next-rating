@@ -239,7 +239,6 @@
   "chart.history": "Ratinghistorik på pdga.com",
   "chart.column.date": "Datum",
   "chart.column.rating": "Rating",
-  "chart.column.status": "Status",
   "chart.column.round": "Runda",
   "chart.teaser.one": "1 runda · {period}",
   "chart.teaser.other": "{count} rundor · {period}",

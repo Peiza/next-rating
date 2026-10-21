@@ -327,14 +327,20 @@ describe('chart panel', () => {
     const table = panel().querySelector('details.chart-table')!;
     expect(table.hasAttribute('open')).toBe(false);
     expect(table.querySelector('summary')!.textContent).toBe('Show as table');
-    expect([...table.querySelectorAll('th')].map((th) => th.textContent)).toEqual(['Date', 'Rating', 'Status', 'Round']);
-    const rows = [...table.querySelectorAll('tbody tr')].map((row) => [...row.children].slice(1).map((cell) => cell.textContent));
+    expect([...table.querySelectorAll('th')].map((th) => th.textContent)).toEqual(['Date', 'Rating', 'Round']);
+    // The round cell: the event, then the status and the source on a line of their own.
+    const rows = [...table.querySelectorAll('tbody tr')].map((row) => [
+      row.querySelector('.chart-number')!.textContent,
+      ...[...row.querySelectorAll('.chart-event > span')].map((span) => span.textContent),
+    ]);
     expect(rows).toHaveLength(13);
-    expect(rows[0]).toEqual(['990', 'Counts in the following update', 'Planned Open · Your own']);
-    expect(rows.at(-1)).toEqual(['700', 'Dropped', 'Event 0 · Round 1 · Official']);
+    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Your own']);
+    expect(rows.at(-1)).toEqual(['700', 'Event 0 · Round 1', 'Dropped · Official']);
+    expect(rows.some(([, , status]) => status === 'Counts twice · Official')).toBe(true);
     // The date and the rating keep to one line; the event name wraps.
     const cells = [...table.querySelector('tbody tr')!.children].map((cell) => cell.className);
-    expect(cells).toEqual(['chart-date', 'chart-number', '', 'chart-event']);
+    expect(cells).toEqual(['chart-date', 'chart-number', 'chart-event']);
+    expect([...table.querySelectorAll('tbody tr:first-child .chart-event > span')].map((span) => span.className)).toEqual(['chart-round-name', 'chart-round-status']);
   });
 
   it('offers Full screen as a small button in the chart corner when it can open', () => {

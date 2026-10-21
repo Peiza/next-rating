@@ -545,7 +545,11 @@ function legend(chart: ChartData): HTMLElement {
   );
 }
 
-/** The same rounds as a table, newest first like the round list. Event names wrap; dates and ratings keep to one line. */
+/**
+ * The same rounds as a table, newest first like the round list. The round
+ * cell names the event, and under it, smaller, the status and the source, so
+ * three columns fit a phone. Words wrap whole; dates and ratings keep to one line.
+ */
 function table(chart: ChartData): HTMLElement {
   const head = (key: MessageKey) => el('th', { scope: 'col' }, t(key));
   return el(
@@ -555,20 +559,25 @@ function table(chart: ChartData): HTMLElement {
     el(
       'table',
       {},
-      el('thead', {}, el('tr', {}, head('chart.column.date'), head('chart.column.rating'), head('chart.column.status'), head('chart.column.round'))),
+      el('thead', {}, el('tr', {}, head('chart.column.date'), head('chart.column.rating'), head('chart.column.round'))),
       el(
         'tbody',
         {},
         ...[...chart.points].reverse().map((point) => {
           const { round, result } = point.row;
-          const name = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), t(KINDS[point.kind]), tierNote(round)];
+          const name = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)];
+          const status = [t(`round.status.${result.status}`), t(KINDS[point.kind])];
           return el(
             'tr',
             {},
             el('td', { class: 'chart-date' }, formatDate(point.date)),
             el('td', { class: 'chart-number' }, formatRating(point.rating)),
-            el('td', {}, t(`round.status.${result.status}`)),
-            el('td', { class: 'chart-event' }, name.filter(Boolean).join(' · ')),
+            el(
+              'td',
+              { class: 'chart-event' },
+              el('span', { class: 'chart-round-name' }, name.filter(Boolean).join(' · ')),
+              el('span', { class: 'chart-round-status' }, status.join(' · ')),
+            ),
           );
         }),
       ),
