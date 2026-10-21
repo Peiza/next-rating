@@ -48,7 +48,7 @@ const PARTS: Record<ContentKind, [main: string, parts: string]> = {
  */
 const PLAYER_PAGE = /^\/player\/\d+\/[a-z]{1,20}(\/\d{4})?$/;
 
-/** The kinds of pages, by path: the player page groups, the season and the event. */
+/** A player's profile, details, history and season pages, and an event, by path. */
 const KIND = /^\/(?:player\/\d+(?:\/(details|history)|\/(stats)\/\d{4})?|tour\/(event)\/\d+)\/?$/;
 
 /**
@@ -57,11 +57,12 @@ const KIND = /^\/(?:player\/\d+(?:\/(details|history)|\/(stats)\/\d{4})?|tour\/(
  * without detectPage's canonical link, and stays smaller.
  */
 export function pageKind(path: string): PageKind {
-  const match = KIND.exec(path);
-  if (!match) return 'unknown';
-  const [, player, season, event] = match;
-  return (player ?? (season ? 'season' : (event ?? 'profile'))) as PageKind;
+  const [found, player, season, event] = KIND.exec(path) ?? [];
+  return (found ? (player ?? (season ? 'season' : (event ?? 'profile'))) : 'unknown') as PageKind;
 }
+
+/** Cloudflare's challenge: a kind of page, a status and the value of its cf-mitigated header. */
+const CHALLENGE = 'challenge';
 
 /** A Cloudflare challenge, recognised by its own markers as in detectPage. A document's title comes trimmed. */
 export function isChallenge(doc: Document): boolean {
@@ -153,15 +154,17 @@ export function previousSeasonPath(profile: Document, pdgaNumber: string, now: D
  * change, it removes nothing.
  */
 export function keepPlayerRows(doc: Document, pdgaNumber: string): void {
-  if (!doc.querySelector('td.pdga-number')) return;
+  const cell = 'td.pdga-number';
+  if (!doc.querySelector(cell)) return;
   for (const row of doc.querySelectorAll('tr')) {
-    if (row.querySelector('td') && row.querySelector('td.pdga-number')?.textContent?.trim() !== pdgaNumber) row.remove();
+    if (row.querySelector('td') && row.querySelector(cell)?.textContent?.trim() !== pdgaNumber) row.remove();
   }
 }
 
 export async function collect(doc: Document, url: string, deps: CollectDeps): Promise<Envelope> {
   const path = new URL(url).pathname.replace(/\/$/, '');
-  const page = isChallenge(doc) ? 'challenge' : pageKind(path);
+  const page = isChallenge(doc) ? CHALLENGE : pageKind(path);
+  const onDetails = page === 'details';
   // Only on a player's pages, the only ones it fetches from.
   const pdgaNumber = /^\/player\/(\d+)/.exec(path)?.[1] ?? '';
   let status: HandoffStatus = 'ok';
@@ -187,8 +190,8 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
       try {
         const response = await deps.fetch(path);
         const fetched = deps.parse(await response.text());
-        if (response.headers.get('cf-mitigated') === 'challenge' || isChallenge(fetched)) {
-          status = 'challenge';
+        if (response.headers.get('cf-mitigated') === CHALLENGE || isChallenge(fetched)) {
+          status = CHALLENGE;
         } else if (response.ok && (!response.redirected || pageKind(new URL(response.url).pathname) === kind)) {
           // The path was built for this kind, so only a redirect can lead elsewhere.
           if (kind === 'event') keepPlayerRows(fetched, pdgaNumber);
@@ -206,15 +209,14 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
   }
 
   try {
-    if (page === 'challenge') {
-      status = 'challenge';
+    if (page === CHALLENGE) {
+      status = CHALLENGE;
       failed.push(PDGA_ORIGIN + path);
-    } else if (page === 'event' || (page !== 'details' && PLAYER_PAGE.test(path))) {
+    } else if (page === 'event' || (!onDetails && PLAYER_PAGE.test(path))) {
       keep(path, doc, page);
-    } else if (page !== 'details' && page !== 'profile') {
+    } else if (!onDetails && page !== 'profile') {
       status = 'unsupported-page';
     } else {
-      const onDetails = page === 'details';
       keep(path, doc, page);
       planned = 3;
       deps.progress(done, planned);
