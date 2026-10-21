@@ -129,11 +129,12 @@ prediction's window is shaded, with lines across it for the official rating
 are today's values, so a period that does not reach the window has none; a
 link under the chart opens the player's ratings history on pdga.com for the
 official rating over time. Tap a point, or use the arrow keys, to see its
-event, date and rating above the chart; on a computer, holding the pointer
+rating, date, event and status above the chart; on a computer, holding the pointer
 over a point shows them in a tooltip. The same rounds are also available as
 a table. The chart is drawn at the card's width, and the button in its top
-right corner shows it full screen, on its own with the tapped round in a
-corner label (in landscape on Android; on iPhone, turn the phone). The
+right corner shows it full screen, on its own with the tapped round on a
+line above it, and on a larger screen with the period and the x-axis too
+(in landscape on Android; on iPhone, turn the phone with rotation lock off). The
 period is the last 24 months by default (ending at a planned manual round
 when that is later than today), or a year, the rating window or a
 custom range, picked like the Top 8's and remembered. The x-axis follows
