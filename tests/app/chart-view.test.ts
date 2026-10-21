@@ -28,10 +28,14 @@ const stored: StoredImport = {
   events: [rawEvent({ eventId: '900013', date: '12-Oct-2026' })],
 };
 const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null }]);
+// The official rating equals the prediction here. In `differs` it is older, and a round of your own before the deadline moves the prediction.
 const model = buildModel(stored, 100001, NOW, own);
+const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null }]);
+const differs = buildModel({ ...stored, player: rawPlayer({ currentRating: '950' }) }, 100001, NOW, [...own, ...early]);
+const moved = String(differs.prediction.rating);
 
-function panel(period: ChartPeriod = { kind: 'recent' }, extra: Partial<ChartProps> = {}): HTMLElement {
-  const props: ChartProps = { chart: chartData(model, period, TODAY), today: TODAY, onPeriod: vi.fn(), ...extra };
+function panel(period: ChartPeriod = { kind: 'recent' }, extra: Partial<ChartProps> = {}, from = model): HTMLElement {
+  const props: ChartProps = { chart: chartData(from, period, TODAY), pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), ...extra };
   const root = document.createElement('div');
   root.append(...chartPanel(props));
   return document.body.appendChild(root);
@@ -89,12 +93,42 @@ describe('chart panel', () => {
     expect(svg.querySelectorAll('.chart-counts .chart-ring, .chart-counts .chart-cross')).toHaveLength(0);
   });
 
-  it('shades the window and draws the official and predicted ratings with their values', () => {
+  it('shades the window and draws the official and predicted ratings across it, with their values', () => {
+    const svg = plot(panel({ kind: 'recent' }, {}, differs));
+    const band = svg.querySelector('rect.chart-band')!;
+    const [start, width] = ['x', 'width'].map((name) => Number(band.getAttribute(name)));
+    const lines = [...svg.querySelectorAll('.chart-line-official, .chart-line-predicted')];
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(Number(line.getAttribute('x1'))).toBeCloseTo(start!);
+      expect(Number(line.getAttribute('x2'))).toBeCloseTo(start! + width!);
+    }
+    const labels = [...svg.querySelectorAll('.chart-line-label')];
+    expect(moved).not.toBe('950');
+    expect(labels.map((label) => label.textContent)).toEqual(['950', moved]);
+    expect(Number(labels[0]!.getAttribute('x'))).toBeCloseTo(start! + width! + 4);
+  });
+
+  it('leaves the lines out of a period outside the window', () => {
+    const svg = plot(panel({ kind: 'year', year: 2023 }));
+    expect(svg.querySelectorAll('.chart-band, .chart-line, .chart-line-label')).toHaveLength(0);
+    expect(svg.getAttribute('aria-label')).toMatch(/^1 round, .+, rated 900\.$/);
+  });
+
+  it('shows the value once when the official rating equals the prediction', () => {
     const svg = plot(panel());
-    expect(svg.querySelectorAll('.chart-band')).toHaveLength(1);
-    expect(svg.querySelectorAll('.chart-line-official, .chart-line-predicted')).toHaveLength(2);
-    const labels = [...svg.querySelectorAll('.chart-line-label')].map((label) => label.textContent);
-    expect(labels).toEqual(['955', String(model.prediction.rating)]);
+    expect(svg.querySelectorAll('.chart-line-official')).toHaveLength(0);
+    expect(svg.querySelectorAll('.chart-line-predicted')).toHaveLength(1);
+    expect([...svg.querySelectorAll('.chart-line-label')].map((label) => label.textContent)).toEqual(['955']);
+  });
+
+  it("links to the player's ratings history on pdga.com, in the same tab", () => {
+    for (const root of [panel(), panel({ kind: 'year', year: 2020 })]) {
+      const link = root.querySelector<HTMLAnchorElement>('.chart-history a')!;
+      expect(link.textContent).toBe('Ratings history on pdga.com');
+      expect(link.getAttribute('href')).toBe('https://www.pdga.com/player/100001/history');
+      expect(link.hasAttribute('target')).toBe(false);
+    }
   });
 
   it('labels the axes with ratings and months', () => {
@@ -108,9 +142,8 @@ describe('chart panel', () => {
   it('sums up the chart for screen readers', () => {
     const svg = plot(panel());
     expect(svg.getAttribute('role')).toBe('img');
-    expect(svg.getAttribute('aria-label')).toMatch(
-      new RegExp(`^13 rounds from .+ to .+, rated 700 to 990\\. Prediction ${model.prediction.rating}\\. Official rating 955\\.$`),
-    );
+    expect(svg.getAttribute('aria-label')).toMatch(/^13 rounds from .+ to .+, rated 700 to 990\. Official rating and prediction 955\.$/);
+    expect(plot(panel({ kind: 'recent' }, {}, differs)).getAttribute('aria-label')).toMatch(new RegExp(`\\. Prediction ${moved}\\. Official rating 950\\.$`));
   });
 
   it('steps through the rounds with the arrow keys, naming each under the chart', () => {
@@ -142,16 +175,12 @@ describe('chart panel', () => {
   });
 
   it('explains only the shapes and marks the period has, then the window and the lines', () => {
-    const items = [...panel({ kind: 'custom', from: '2026-09-02', to: '2026-09-30' }).querySelectorAll('.chart-legend li')];
-    expect(items.map((item) => item.textContent)).toEqual([
-      'Official',
-      'Counts',
-      'Counts twice',
-      'Rating window',
-      `Prediction ${model.prediction.rating}`,
-      'Official rating 955',
-    ]);
+    const legend = (from: typeof model) =>
+      [...panel({ kind: 'custom', from: '2026-09-02', to: '2026-09-30' }, {}, from).querySelectorAll('.chart-legend li')];
+    const items = legend(differs);
+    expect(items.map((item) => item.textContent)).toEqual(['Official', 'Counts', 'Counts twice', 'Rating window', `Prediction ${moved}`, 'Official rating 950']);
     expect(items.every((item) => item.querySelector('svg[aria-hidden="true"]'))).toBe(true);
+    expect(legend(model).at(-1)!.textContent).toBe('Official rating and prediction 955');
   });
 
   it('lists the same rounds as a table, newest first', () => {

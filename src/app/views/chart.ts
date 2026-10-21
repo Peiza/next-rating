@@ -3,6 +3,7 @@ import { t, type MessageKey } from '../../i18n';
 import { dayNumber, type ChartData, type ChartPeriod, type ChartPoint, type MonthTick, type PointKind, type PointMark } from '../chart';
 import { el, svg, type Child } from '../dom';
 import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format';
+import { historyUrl } from './pdga';
 import { periodControls, periodId, periodLabel } from './period';
 import { roundLabel, roundWhere, tierNote } from './round-text';
 
@@ -21,6 +22,8 @@ export const CHART_DETAIL_ID = 'chart-detail';
 
 export interface ChartProps {
   chart: ChartData;
+  /** The shown player, whose ratings history on pdga.com the chart links to. */
+  pdgaNumber: number;
   /** Today, which ends a custom range when one is first picked. */
   today: PlainDate;
   onPeriod: (period: ChartPeriod) => void;
@@ -130,14 +133,17 @@ function xAxis(chart: ChartData, scale: Scale): SVGElement {
 }
 
 /**
- * The official and predicted ratings as lines across the plot, each with its
- * value at the right end. Values too close to read apart are moved apart.
+ * The official and predicted ratings as lines across the window, each with
+ * its value just after the line's end. When they are equal, the prediction's
+ * line alone shows the value. Values too close to read apart are moved apart.
  */
 function ratingLines(chart: ChartData, scale: Scale): SVGElement[] {
+  if (!chart.band) return [];
   const lines = [
-    chart.official !== null && { value: chart.official, kind: 'official' },
+    chart.official !== null && !chart.same && { value: chart.official, kind: 'official' },
     chart.predicted !== null && { value: chart.predicted, kind: 'predicted' },
   ].filter((line): line is { value: number; kind: string } => line !== false);
+  const [x1, x2] = [scale.x(chart.band.from), scale.x(chart.band.to)];
   const labels = lines.map((line) => scale.y(line.value));
   if (labels.length === 2 && Math.abs(labels[0]! - labels[1]!) < LABEL_GAP) {
     const middle = (labels[0]! + labels[1]!) / 2;
@@ -149,14 +155,14 @@ function ratingLines(chart: ChartData, scale: Scale): SVGElement[] {
   return lines.flatMap((line, i) => [
     svg('line', {
       class: `chart-line chart-line-${line.kind}`,
-      x1: MARGIN.left,
-      x2: WIDTH - MARGIN.right,
+      x1,
+      x2,
       y1: scale.y(line.value),
       y2: scale.y(line.value),
     }),
     svg(
       'text',
-      { class: 'chart-line-label', x: WIDTH - MARGIN.right + 4, y: labels[i]!, 'dominant-baseline': 'middle' },
+      { class: 'chart-line-label', x: x2 + 4, y: labels[i]!, 'dominant-baseline': 'middle' },
       formatRating(line.value),
     ),
   ]);
@@ -179,8 +185,9 @@ function summaryText(chart: ChartData): string {
       low: formatRating(Math.min(...ratings)),
       high: formatRating(Math.max(...ratings)),
     }),
-    chart.predicted !== null && t('chart.summaryPredicted', { rating: formatRating(chart.predicted) }),
-    chart.official !== null && t('chart.summaryOfficial', { rating: formatRating(chart.official) }),
+    chart.same && t('chart.summaryBoth', { rating: formatRating(chart.predicted!) }),
+    !chart.same && chart.predicted !== null && t('chart.summaryPredicted', { rating: formatRating(chart.predicted) }),
+    !chart.same && chart.official !== null && t('chart.summaryOfficial', { rating: formatRating(chart.official) }),
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -280,8 +287,9 @@ function legend(chart: ChartData): HTMLElement {
     ...kinds.map((kind) => item(icon(marker(kind, 'counts', 10, 10)), t(KINDS[kind]))),
     ...marks.map((mark) => item(icon(marker('official', mark, 10, 10)), t(MARKS[mark]))),
     chart.band && item(icon(svg('rect', { class: 'chart-band', x: 1, y: 3, width: 18, height: 14 })), t('chart.band')),
-    chart.predicted !== null && item(icon(line('predicted')), t('chart.predicted', { rating: formatRating(chart.predicted) })),
-    chart.official !== null && item(icon(line('official')), t('chart.official', { rating: formatRating(chart.official) })),
+    chart.same && item(icon(line('predicted')), t('chart.both', { rating: formatRating(chart.predicted!) })),
+    !chart.same && chart.predicted !== null && item(icon(line('predicted')), t('chart.predicted', { rating: formatRating(chart.predicted) })),
+    !chart.same && chart.official !== null && item(icon(line('official')), t('chart.official', { rating: formatRating(chart.official) })),
   );
 }
 
@@ -321,9 +329,17 @@ export function chartTeaser(chart: ChartData): string {
   return t('chart.teaser', { count: chart.points.length, period: periodLabel(chart.period, chart.year) });
 }
 
-/** The card's content: the period, the chart with the chosen round under it, the legend and the table. */
-export function chartPanel({ chart, today, onPeriod }: ChartProps): HTMLElement[] {
+/**
+ * The official rating after each past update is on pdga.com, so the chart
+ * links there instead of drawing it. A plain link in the same tab.
+ */
+function historyLink(pdgaNumber: number): HTMLElement {
+  return el('p', { class: 'chart-history' }, el('a', { href: historyUrl(pdgaNumber), rel: 'noreferrer' }, t('chart.history')));
+}
+
+/** The card's content: the period, the chart with the chosen round under it, the legend, the history link and the table. */
+export function chartPanel({ chart, pdgaNumber, today, onPeriod }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
-  if (!chart.y || chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty'))];
-  return [...controls, ...plot(chart, chart.y), legend(chart), table(chart)];
+  if (!chart.y || chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
+  return [...controls, ...plot(chart, chart.y), legend(chart), historyLink(pdgaNumber), table(chart)];
 }

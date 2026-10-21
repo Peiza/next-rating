@@ -19,6 +19,11 @@ export function detailsUrl(pdgaNumber: number): string {
   return `https://www.pdga.com/player/${pdgaNumber}/details`;
 }
 
+/** pdga.com's ratings history: the official rating after each update, as a chart and a table. */
+export function historyUrl(pdgaNumber: number): string {
+  return `https://www.pdga.com/player/${pdgaNumber}/history`;
+}
+
 export function eventUrl(eventId: number): string {
   return `https://www.pdga.com/tour/event/${eventId}`;
 }

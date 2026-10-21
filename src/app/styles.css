@@ -885,6 +885,10 @@ a {
   height: 1.25rem;
 }
 
+.chart-history {
+  margin: 0;
+}
+
 .chart-table summary {
   min-height: 3rem;
   padding: 0.75rem 0;

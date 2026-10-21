@@ -5,7 +5,7 @@ import type { ChartPeriod } from './storage';
 /*
  * What the rating chart shows, without drawing it: the rated rounds in the
  * chosen period as points, the prediction's window, the official and the
- * predicted rating, and the axes' ticks. Pure, so the view only scales and
+ * predicted rating across that window, and the axes' ticks. Pure, so the view only scales and
  * draws.
  */
 
@@ -67,10 +67,16 @@ export interface ChartData {
   points: ChartPoint[];
   /** The prediction's window within the period, shaded; null when they do not meet. */
   band: { from: PlainDate; to: PlainDate } | null;
-  /** The official rating, drawn as a line; null when unknown. */
+  /**
+   * The official rating, drawn as a line across the band; null when unknown
+   * or without a band. Both lines are today's values, so they cover only the
+   * window they come from.
+   */
   official: number | null;
-  /** The predicted rating, drawn as a line; null without one. */
+  /** The predicted rating, drawn like the official one; null without one or without a band. */
   predicted: number | null;
+  /** Both lines are drawn and equal, so the value shows once. */
+  same: boolean;
   /** The y range, from tick to tick; null with nothing to draw. */
   y: { min: number; max: number; ticks: number[] } | null;
   /** Month ticks, or for a range shorter than two months its two ends. */
@@ -203,8 +209,8 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
   const bandTo = window ? earlier(window.end, to) : null;
   const band = bandFrom && bandTo && compareDates(bandFrom, bandTo) <= 0 ? { from: bandFrom, to: bandTo } : null;
 
-  const official = model.player?.currentRating ?? null;
-  const predicted = model.prediction.rating;
+  const official = band ? (model.player?.currentRating ?? null) : null;
+  const predicted = band ? model.prediction.rating : null;
   const values = points.map((point) => point.rating);
   // The lines only matter next to rounds; on an empty period there is nothing to compare them with.
   if (values.length > 0) for (const line of [official, predicted]) if (line !== null) values.push(line);
@@ -221,6 +227,7 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
     band,
     official,
     predicted,
+    same: official !== null && official === predicted,
     y: ratingAxis(values),
     xTicks: monthTicks(from, to),
   };

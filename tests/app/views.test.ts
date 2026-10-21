@@ -626,7 +626,7 @@ describe('rating tab cards', () => {
       onClear: vi.fn(),
     };
     const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
-    const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), pdgaNumber: 100001, today: '2026-10-04', onPeriod: vi.fn() };
     return ratingView({ model, manual, target, top8, chart, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
@@ -677,7 +677,7 @@ describe('rating tab cards', () => {
     expect(intros.map((intro) => intro.className)).toEqual(Array(7).fill('card-intro'));
     expect(intros.map((intro) => intro.textContent)).toEqual([
       'What moved the prediction away from the official rating, largest effect first.',
-      "The player's round ratings over time, newest to the right, with the rating window shaded and lines for the official and the predicted rating.",
+      "The player's round ratings over time, newest to the right, with the rating window shaded and lines across it for the official and the predicted rating.",
       'Add round ratings that are not on pdga.com yet, or rounds you expect to play.',
       'The average round rating your next rounds need to reach a rating at the update they count in.',
       "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",

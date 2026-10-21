@@ -680,6 +680,7 @@ function currentView(): HTMLElement {
       },
       chart: {
         chart: chartData(model, data.chartPeriod, today(now)),
+        pdgaNumber: player.pdgaNumber,
         today: today(now),
         onPeriod: setChartPeriod,
       },
