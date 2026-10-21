@@ -2,6 +2,7 @@ import { isPlainDate, MAX_TARGET_ROUND } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
 import { el } from '../dom';
+import { dateInput } from './date-input';
 import { formatDate, formatDayMonth, formatRating } from '../format';
 import {
   readTarget,
@@ -99,7 +100,8 @@ function leavingList({ query, leaving }: TargetAnswer): HTMLElement[] {
 
 /** One field with its label above it. */
 function field(id: string, label: MessageKey, input: HTMLInputElement): HTMLElement {
-  return el('div', { class: 'field' }, el('label', { for: id, class: 'label' }, t(label)), input);
+  const control = input.type === 'date' ? dateInput(input) : input;
+  return el('div', { class: 'field' }, el('label', { for: id, class: 'label' }, t(label)), control);
 }
 
 /** The card's content. */

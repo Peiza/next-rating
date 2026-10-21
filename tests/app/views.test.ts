@@ -907,6 +907,10 @@ describe('top 8 panel', () => {
     const from = view.querySelector<HTMLInputElement>('#top8-from')!;
     const to = view.querySelector<HTMLInputElement>('#top8-to')!;
     expect([from.type, from.value, to.value]).toEqual(['date', '2026-03-01', '2026-03-04']);
+    for (const field of [from, to]) {
+      expect(field.parentElement!.className).toBe('date-input');
+      expect(field.nextElementSibling!.matches('svg.date-icon[aria-hidden="true"]')).toBe(true);
+    }
     expect(view.querySelectorAll('.top8-row')).toHaveLength(4);
     to.value = '2026-03-02';
     to.dispatchEvent(new Event('change'));

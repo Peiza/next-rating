@@ -2,6 +2,7 @@ import { compareDates, isPlainDate, subtractMonths, type PlainDate } from '../..
 import { t, type MessageKey } from '../../i18n';
 import { parseInteger, RANGES } from '../../parsers/values';
 import { el } from '../dom';
+import { dateInput } from './date-input';
 import { formatDate, formatRating } from '../format';
 import type { ManualRoundInput } from '../players';
 import { MAX_EVENT_NAME, MAX_FAVORITES, MAX_MANUAL_ROUNDS, type StoredManualRound } from '../storage';
@@ -129,7 +130,7 @@ function field(id: string, label: MessageKey, input: HTMLInputElement, hint?: Me
     { class: 'field' },
     el('label', { for: id, class: 'label' }, t(label)),
     hint && el('p', { id: `${id}-hint`, class: 'hint hint-tight' }, t(hint)),
-    input,
+    input.type === 'date' ? dateInput(input) : input,
   );
 }
 

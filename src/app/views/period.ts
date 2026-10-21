@@ -1,6 +1,7 @@
 import { compareDates, isPlainDate, subtractMonths, type PlainDate } from '../../engine';
 import { t } from '../../i18n';
 import { el } from '../dom';
+import { dateInput } from './date-input';
 import { formatDate } from '../format';
 import type { ChartPeriod } from '../storage';
 
@@ -100,8 +101,8 @@ function customRange(id: string, period: { from: PlainDate; to: PlainDate }, onP
   return el(
     'div',
     { class: 'period-range' },
-    el('div', { class: 'field' }, el('label', { for: from.id, class: 'label' }, t('period.from')), from),
-    el('div', { class: 'field' }, el('label', { for: to.id, class: 'label' }, t('period.to')), to),
+    el('div', { class: 'field' }, el('label', { for: from.id, class: 'label' }, t('period.from')), dateInput(from)),
+    el('div', { class: 'field' }, el('label', { for: to.id, class: 'label' }, t('period.to')), dateInput(to)),
     status,
   );
 }
