@@ -367,8 +367,15 @@ a {
   border: none;
 }
 
+/* A floated legend lays out like a block .label, so it lines up with a field's label beside it. */
 .segmented legend {
+  float: left;
+  width: 100%;
   padding: 0;
+}
+
+.segmented legend + * {
+  clear: both;
 }
 
 .segments {
@@ -390,7 +397,8 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 3rem;
+  /* With the 2px border around the segments, as tall as an .input. */
+  min-height: calc(3rem - 4px);
   padding: 0.5rem 0.75rem;
   font-weight: 700;
   text-align: center;
@@ -808,6 +816,44 @@ a {
 
 .period-range .status {
   grid-column: 1 / -1;
+}
+
+/*
+ * The chart's period and x-axis: side by side where both fit, else each
+ * fills its own line. Both are 3rem tall with their labels on one top line.
+ */
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 1.5rem;
+}
+
+.chart-controls > .field {
+  flex: 1 1 14rem;
+}
+
+.chart-controls > .segmented {
+  flex: 1 1 auto;
+}
+
+/*
+ * Each segment as wide as its words, on one line, so "Even spacing" fits
+ * at 320 px. Both keep room for the check mark, so nothing moves on a tap.
+ */
+.chart-controls .segments label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.chart-controls .segments label::before {
+  content: '\2713' / '';
+  margin-right: 0.35em;
+  visibility: hidden;
+}
+
+.chart-controls .segments input:checked + label::before {
+  visibility: visible;
 }
 
 /*
@@ -1630,21 +1676,20 @@ a {
   .chart-full-controls.wide-only {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 0 1.5rem;
   }
 
-  .chart-full-controls > .field {
-    flex: 0 1 20rem;
-    margin-bottom: 0.75rem;
+  .chart-full-controls > .chart-controls {
+    flex: 0 1 36rem;
   }
 
   .chart-full-controls > .period-range {
     flex: 0 1 24rem;
-    margin-bottom: 0.75rem;
   }
 
-  .chart-full-controls > .segmented {
+  .chart-full-controls .chart-controls > *,
+  .chart-full-controls > .period-range {
     margin-bottom: 0.75rem;
   }
 

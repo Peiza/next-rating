@@ -91,6 +91,16 @@ function axisControl(name: string, axis: ChartAxis, onAxis: (axis: ChartAxis) =>
   return segmented('chart.axis', name, options, axis, onAxis);
 }
 
+/**
+ * The period and the x-axis in one row, side by side where both fit, then a
+ * custom range's dates under them. The ids start with `prefix`: "chart" in
+ * the card, "chart-full" full screen. Without `withAxis` only the period shows.
+ */
+function chartControls(prefix: string, { chart, today, onPeriod, axis, onAxis }: ChartProps, withAxis: boolean): HTMLElement[] {
+  const [select, ...range] = periodControls({ id: prefix, ...chart, today, recent: true, onPeriod });
+  return [el('div', { class: 'chart-controls' }, select, withAxis && axisControl(`${prefix}-axis`, axis, onAxis)), ...range];
+}
+
 const MARKS: Record<PointMark, MessageKey> = {
   counts: 'chart.mark.counts',
   twice: 'chart.mark.twice',
@@ -611,13 +621,14 @@ function historyLink(pdgaNumber: number): HTMLElement {
 }
 
 /** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
-export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, table: tableState, onFullScreen }: ChartProps): HTMLElement[] {
-  const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
-  if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
+export function chartPanel(props: ChartProps): HTMLElement[] {
+  const { chart, pdgaNumber, axis, table: tableState, onFullScreen } = props;
+  if (chart.points.length === 0) {
+    return [...chartControls('chart', props, false), el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
+  }
   const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
   return [
-    ...controls,
-    axisControl('chart-axis', axis, onAxis),
+    ...chartControls('chart', props, true),
     ...plot(chart, { ...CARD_PLOT, axis, corner }),
     legend(chart),
     historyLink(pdgaNumber),
@@ -642,7 +653,8 @@ export interface ChartFullProps extends ChartProps {
  * heading is for screen readers. Back, Exit full screen or Escape close it.
  * Its ids differ from the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, today, onPeriod, axis, onAxis, onClose, rotateHint = false }: ChartFullProps): HTMLElement {
+export function chartFullView(props: ChartFullProps): HTMLElement {
+  const { chart, axis, onClose, rotateHint = false } = props;
   const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
@@ -660,12 +672,7 @@ export function chartFullView({ chart, today, onPeriod, axis, onAxis, onClose, r
       },
     },
     el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
-    el(
-      'div',
-      { class: 'chart-full-controls wide-only' },
-      ...periodControls({ id: 'chart-full', ...chart, today, recent: true, onPeriod }),
-      axisControl('chart-full-axis', axis, onAxis),
-    ),
+    el('div', { class: 'chart-full-controls wide-only' }, ...chartControls('chart-full', props, true)),
     ...body,
     rotateHint && el('p', { id: 'chart-rotate-hint', class: 'chart-rotate-hint' }, t('chart.rotateHint')),
   );
