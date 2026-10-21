@@ -1,5 +1,6 @@
 import { t, type MessageKey } from '../../i18n';
 import { el, textWithNodes, type Child } from '../dom';
+import { supportLink } from './support';
 import { GMS_URL } from './top8';
 
 /*
@@ -115,6 +116,7 @@ export function guideView({ onBack }: GuideProps): HTMLElement {
         ...CONTENT[section].body(),
       ),
     ),
+    supportLink(),
     el('button', { id: 'guide-back', class: 'button button-block', type: 'button', onclick: onBack }, t('setup.back')),
   );
 }

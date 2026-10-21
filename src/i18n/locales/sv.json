@@ -77,6 +77,8 @@
   "settings.storageUnavailable": "Den här webbläsaren låter inte appen spara data, så dina inställningar försvinner när du stänger sidan.",
   "settings.about": "Om",
   "settings.version": "Version {version}",
+  "support.text": "Gillar du Next Rating? {link}",
+  "support.link": "Bjud mig på en kaffe på Ko-fi",
   "update.ready": "En ny version av appen finns.",
   "update.reload": "Ladda om",
   "import.close": "Stäng",

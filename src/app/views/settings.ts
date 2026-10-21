@@ -5,6 +5,7 @@ import { formatDate } from '../format';
 import { DATE_ORDERS, type DateOrder, type OpenWith, type Theme } from '../storage';
 import { segmented, type Segment } from './segmented';
 import { bookmarkletStatus } from './setup';
+import { supportLink } from './support';
 
 export interface SettingsProps {
   /** The language override; null follows the device. */
@@ -131,6 +132,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     el('p', {}, t('app.privacy')),
     el('button', { id: 'open-guide', class: 'button button-block', type: 'button', onclick: onOpenGuide }, t('guide.title')),
     el('p', { id: 'version', class: 'hint' }, t('settings.version', { version: __BUILD_ID__ })),
+    supportLink(),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }
