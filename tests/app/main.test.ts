@@ -554,6 +554,32 @@ describe('app start', () => {
     expect(select().value).toBe('window');
   });
 
+  it('remembers the chart period across launches, and draws the chart after Why it changed', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    expect(document.getElementById('chart-toggle')!.getAttribute('aria-expanded')).toBe('false');
+    document.getElementById('chart-toggle')!.click();
+    expect(stored().cards.chart).toBe(true);
+    const select = () => document.querySelector<HTMLSelectElement>('#chart-period')!;
+    expect(select().value).toBe('recent');
+    expect(document.querySelector('#chart-plot')).not.toBeNull();
+    select().focus();
+    select().value = 'window';
+    select().dispatchEvent(new Event('change'));
+    expect(document.activeElement).toBe(select());
+    expect(stored().chartPeriod).toEqual({ kind: 'window' });
+
+    await start('/next-rating/');
+    expect(select().value).toBe('window');
+  });
+
   it('remembers whether the Top 8 counts own rounds across launches', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const date = new Date().toISOString().slice(0, 10);

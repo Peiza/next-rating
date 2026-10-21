@@ -343,7 +343,7 @@ describe('left-out events', () => {
 
 describe('Rating tab settings', () => {
   it('start with only Rounds open and the current year for the Top 8', () => {
-    expect(DEFAULT_CARDS).toEqual({ why: false, manual: false, target: false, top8: false, stats: false, rounds: true });
+    expect(DEFAULT_CARDS).toEqual({ why: false, chart: false, manual: false, target: false, top8: false, stats: false, rounds: true });
     expect(DEFAULT_TOP_PERIOD).toEqual({ kind: 'year', year: null });
     expect(validateData({}).cards).toEqual(DEFAULT_CARDS);
     expect(validateData({}).top8Period).toEqual(DEFAULT_TOP_PERIOD);

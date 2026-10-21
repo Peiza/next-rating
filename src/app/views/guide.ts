@@ -8,7 +8,7 @@ import { GMS_URL } from './top8';
  * explanations on the Rating tab at the matching section.
  */
 
-export const GUIDE_SECTIONS = ['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'target', 'top8'] as const;
+export const GUIDE_SECTIONS = ['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'chart', 'target', 'top8'] as const;
 export type GuideSection = (typeof GUIDE_SECTIONS)[number];
 
 export const GUIDE_ID = 'guide-title';
@@ -86,6 +86,10 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
   why: {
     title: 'guide.why.title',
     body: () => [paragraph('guide.why.compare'), paragraph('guide.why.net'), paragraph('guide.why.difference')],
+  },
+  chart: {
+    title: 'guide.chart.title',
+    body: () => [paragraph('guide.chart.points'), paragraph('guide.chart.lines'), paragraph('guide.chart.read')],
   },
   target: {
     title: 'guide.target.title',

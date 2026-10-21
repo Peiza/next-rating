@@ -27,12 +27,20 @@ export const OPEN_WITH = ['me', 'last'] as const;
 export type OpenWith = (typeof OPEN_WITH)[number];
 
 /** The collapsible cards on the Rating tab, in the order they show. */
-export const CARDS = ['why', 'manual', 'target', 'top8', 'stats', 'rounds'] as const;
+export const CARDS = ['why', 'chart', 'manual', 'target', 'top8', 'stats', 'rounds'] as const;
 export type CardName = (typeof CARDS)[number];
 export type CardState = Readonly<Record<CardName, boolean>>;
 
 /** Only Rounds starts open. */
-export const DEFAULT_CARDS: CardState = { why: false, manual: false, target: false, top8: false, stats: false, rounds: true };
+export const DEFAULT_CARDS: CardState = {
+  why: false,
+  chart: false,
+  manual: false,
+  target: false,
+  top8: false,
+  stats: false,
+  rounds: true,
+};
 
 /**
  * The Top 8 period: a calendar year (null follows today's year, the

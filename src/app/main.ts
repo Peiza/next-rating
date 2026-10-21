@@ -31,6 +31,7 @@ import {
   MAX_FAVORITES,
   STORAGE_KEY,
   type CardName,
+  type ChartPeriod,
   type OpenWith,
   type PlayerOrder,
   type StoredManualRound,
@@ -46,6 +47,7 @@ import {
   type TargetDraft,
   type TargetQuery,
 } from './target';
+import { chartData } from './chart';
 import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
@@ -437,6 +439,12 @@ function setTop8Period(top8Period: TopPeriod): void {
   render();
 }
 
+/** Stores the chart period with the settings; focus stays on the control that changed it. */
+function setChartPeriod(chartPeriod: ChartPeriod): void {
+  store.update({ chartPeriod });
+  render();
+}
+
 /** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
 function setTop8Own(top8Own: boolean): void {
   store.update({ top8Own });
@@ -669,6 +677,11 @@ function currentView(): HTMLElement {
           targetDraft = { ...targetDraft!, [field]: value };
         },
         onCalculate: calculate,
+      },
+      chart: {
+        chart: chartData(model, data.chartPeriod, today(now)),
+        today: today(now),
+        onPeriod: setChartPeriod,
       },
       top8: {
         top: topEight(model, data.top8Period, today(now), data.top8Own),

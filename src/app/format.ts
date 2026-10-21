@@ -34,6 +34,12 @@ export function formatDayMonth(date: PlainDate, locale = deviceLocale()): string
   );
 }
 
+/** A month's short name, "Oct" in English and "okt." in Swedish, for the chart's axis. */
+export function formatMonth(date: PlainDate, locale = deviceLocale()): string {
+  const [year, month] = date.split('-').map(Number) as [number, number];
+  return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
 /** A point in time, such as an import timestamp, in the device's time zone. */
 export function formatDateTime(timestamp: string, locale = deviceLocale()): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));

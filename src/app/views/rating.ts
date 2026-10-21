@@ -20,6 +20,7 @@ import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { eventNote, roundLabel, roundWhere, tierNote } from './round-text';
 import { targetCalculator, type TargetProps } from './target';
+import { chartPanel, chartTeaser, type ChartProps } from './chart';
 import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
 
 export interface RatingProps {
@@ -28,6 +29,8 @@ export interface RatingProps {
   manual?: ManualProps;
   /** The Reach a target rating card's content. */
   target?: TargetProps;
+  /** The Chart card's content. */
+  chart?: ChartProps;
   /** The Top 8 card's content. */
   top8?: Top8Props;
   /** Whether "How to refresh" is open; it follows the data age when left out. */
@@ -491,6 +494,7 @@ function top8Intro(): (Node | string)[] {
 /** The How it works section each card's explanation links to. */
 const CARD_GUIDE: Record<CardName, GuideSection> = {
   why: 'why',
+  chart: 'chart',
   manual: 'rounds',
   target: 'target',
   top8: 'top8',
@@ -527,7 +531,7 @@ function intro(name: CardName, title: MessageKey, text: (Node | string)[], onGui
  * per section, each starting with a one-line explanation.
  */
 export function ratingView(props: RatingProps): HTMLElement {
-  const { model, manual, target, top8, cards = DEFAULT_CARDS, onToggleCard = () => {}, onGuide } = props;
+  const { model, manual, target, top8, chart, cards = DEFAULT_CARDS, onToggleCard = () => {}, onGuide } = props;
   const section = (
     name: CardName,
     title: MessageKey,
@@ -554,6 +558,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     summary(props),
     (hasChanges(model) || unchangedText(model) !== null) &&
       section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes ?? []), whyTeaser(model)),
+    chart && section('chart', 'chart.title', () => [t('chart.intro')], () => chartPanel(chart), chartTeaser(chart.chart)),
     manual &&
       section(
         'manual',

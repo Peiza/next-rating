@@ -6,6 +6,7 @@ import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
 import { ratingView } from '../../src/app/views/rating';
+import { chartData } from '../../src/app/chart';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
@@ -625,12 +626,13 @@ describe('rating tab cards', () => {
       onClear: vi.fn(),
     };
     const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
-    return ratingView({ model, manual, target, top8, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    return ratingView({ model, manual, target, top8, chart, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
   it('follow the summary in a fixed order, then the unofficial notice', () => {
     const view = page();
-    expect([...view.querySelectorAll('.card')].map((card) => card.id)).toEqual(['why', 'manual', 'target', 'top8', 'stats', 'rounds']);
+    expect([...view.querySelectorAll('.card')].map((card) => card.id)).toEqual(['why', 'chart', 'manual', 'target', 'top8', 'stats', 'rounds']);
     expect(view.querySelector('.summary')!.nextElementSibling!.id).toBe('why');
     expect(view.querySelector('#rounds')!.nextElementSibling!.className).toBe('notice');
   });
@@ -640,6 +642,7 @@ describe('rating tab cards', () => {
     const open = [...view.querySelectorAll('.card-toggle')].map((toggle) => [toggle.id, toggle.getAttribute('aria-expanded')]);
     expect(open).toEqual([
       ['why-toggle', 'false'],
+      ['chart-toggle', 'false'],
       ['manual-toggle', 'false'],
       ['target-toggle', 'false'],
       ['top8-toggle', 'false'],
@@ -671,9 +674,10 @@ describe('rating tab cards', () => {
   it('each start with a one-line explanation', () => {
     const view = page(ALL_OPEN);
     const intros = [...view.querySelectorAll('.card-body')].map((body) => body.firstElementChild!);
-    expect(intros.map((intro) => intro.className)).toEqual(Array(6).fill('card-intro'));
+    expect(intros.map((intro) => intro.className)).toEqual(Array(7).fill('card-intro'));
     expect(intros.map((intro) => intro.textContent)).toEqual([
       'What moved the prediction away from the official rating, largest effect first.',
+      "The player's round ratings over time, newest to the right, with the rating window shaded and lines for the official and the predicted rating.",
       'Add round ratings that are not on pdga.com yet, or rounds you expect to play.',
       'The average round rating your next rounds need to reach a rating at the update they count in.',
       "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",
@@ -1385,7 +1389,7 @@ describe('how it works', () => {
     const headings = [...view.querySelectorAll('h2')];
     expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
     expect(headings.map((h2) => h2.getAttribute('tabindex'))).toEqual(Array(GUIDE_SECTIONS.length).fill('-1'));
-    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'target', 'top8']);
+    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'chart', 'target', 'top8']);
   });
 
   it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
