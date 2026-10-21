@@ -89,7 +89,7 @@ describe('isTopRound', () => {
   });
 });
 
-describe('own rounds', () => {
+describe('manual rounds', () => {
   it('counts manual rounds only when asked, never a DNF or unrated one', () => {
     const manual = round(1050, '2026-03-01', { source: 'manual' });
     expect(isTopRound(manual, { own: true })).toBe(true);

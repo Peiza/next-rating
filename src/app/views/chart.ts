@@ -12,11 +12,11 @@ import {
   type PointMark,
   type RatingAxis,
 } from '../chart';
-import { el, present, svg, type Child } from '../dom';
+import { disclosure, el, present, svg, type Child, type Disclosure } from '../dom';
 import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format';
 import { historyUrl } from './pdga';
 import { periodControls, periodId, periodLabel } from './period';
-import { roundLabel, roundWhere, tierNote } from './round-text';
+import { roundLabel, tierNote } from './round-text';
 import { segmented, type Segment } from './segmented';
 
 /*
@@ -42,6 +42,8 @@ export interface ChartProps {
   /** The x-axis, chosen in the card and kept full screen. */
   axis: ChartAxis;
   onAxis: (axis: ChartAxis) => void;
+  /** Whether "Show as table" is open, kept with the settings so a re-render does not close it. */
+  table?: Disclosure;
   /** Opens the full-screen view; without it the card has no Full screen button. */
   onFullScreen?: () => void;
 }
@@ -80,10 +82,14 @@ const KINDS: Record<PointKind, MessageKey> = {
   own: 'chart.kind.own',
 };
 
-const AXIS_OPTIONS: readonly Segment<ChartAxis>[] = [
-  { value: 'time', id: 'chart-axis-time', label: 'chart.axis.time' },
-  { value: 'even', id: 'chart-axis-even', label: 'chart.axis.even' },
-];
+/** The x-axis choice, its radios named after `name`: "chart-axis" in the card, "chart-full-axis" full screen. */
+function axisControl(name: string, axis: ChartAxis, onAxis: (axis: ChartAxis) => void): HTMLElement {
+  const options: Segment<ChartAxis>[] = [
+    { value: 'time', id: `${name}-time`, label: 'chart.axis.time' },
+    { value: 'even', id: `${name}-even`, label: 'chart.axis.even' },
+  ];
+  return segmented('chart.axis', name, options, axis, onAxis);
+}
 
 const MARKS: Record<PointMark, MessageKey> = {
   counts: 'chart.mark.counts',
@@ -236,13 +242,34 @@ function ratingLines(chart: ChartData, layout: Layout): SVGElement[] {
   ]);
 }
 
-/** "985 · Counts twice · Example Open · Round 2 · date · Unofficial". */
-function pointText(point: ChartPoint): string {
-  const { round, result } = point.row;
-  return [formatRating(point.rating), t(`round.status.${result.status}`), roundWhere(round), t(KINDS[point.kind])].filter(Boolean).join(' · ');
+/** "Example Open, round 2", or the round alone; '' for a manual round without a name. */
+function eventAndRound({ eventName, roundLabel: label }: ChartPoint['row']['round']): string {
+  if (!label) return eventName;
+  if (!eventName) return roundLabel(label);
+  return /^\d+$/.test(label)
+    ? t('chart.eventRound', { event: eventName, number: label })
+    : t('chart.eventNamedRound', { event: eventName, round: label });
 }
 
-/** The tooltip's lines: the event and round (or the kind, for an own round without a name), the date, then the rating and status. */
+/**
+ * The chosen round: "**985** · date · Example Open, round 2 · Counts twice ·
+ * Unofficial", leaving out what the round does not have. Each part is a span
+ * after the rating, so full screen only the event name gives way when the
+ * line is too long.
+ */
+function detailParts(point: ChartPoint): (Node | string)[] {
+  const { round, result } = point.row;
+  const event = eventAndRound(round);
+  const status = [t(`round.status.${result.status}`), tierNote(round), t(KINDS[point.kind])].filter(Boolean).join(' · ');
+  return present([
+    el('strong', {}, formatRating(point.rating)),
+    el('span', {}, ` · ${formatDate(point.date)}`),
+    event !== '' && el('span', { class: 'chart-detail-event' }, ` · ${event}`),
+    el('span', {}, ` · ${status}`),
+  ]);
+}
+
+/** The tooltip's lines: the event and round (or the kind, for a manual round without a name), the date, then the rating and status. */
 function tipText(point: ChartPoint): string[] {
   const { round, result } = point.row;
   const event = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)].filter(Boolean).join(' · ');
@@ -295,8 +322,9 @@ export interface PlotOptions {
   detailId: string;
   /**
    * True for the full-screen view: the frame fills the view's height and the
-   * chosen round shows as a label in the chart's corner. Else the card's
-   * height for the width, with the chosen round in a line above the chart.
+   * chosen round shows on one line in a strip above the chart. Else the
+   * card's height for the width, with the chosen round in a line above the
+   * chart that may wrap.
    */
   full: boolean;
   /** The x-axis: by date (the default), or the same width for every round. */
@@ -306,14 +334,11 @@ export interface PlotOptions {
 
 const CARD_PLOT: PlotOptions = { plotId: CHART_PLOT_ID, detailId: CHART_DETAIL_ID, full: false };
 
-/** A label this close to the chosen point moves to the other corner. */
-const LABEL_CLEARANCE = 12;
-
 /**
- * The chart in its frame, with the corner button. In the card, the details
- * line that names the chosen round comes first, above the chart so a finger
- * on the chart does not cover it; full screen, the round shows as a label in
- * the top left corner, or the top right while the point is under it. The
+ * The details line that names the chosen round, then the chart in its frame
+ * with the corner button. The line is above the chart, so a finger on the
+ * chart does not cover it; full screen it is a strip that keeps its height
+ * while empty, so the chart does not move when a round is chosen. The
  * chart is drawn again at the frame's size whenever that changes, keeping
  * the chosen round. A tap picks the nearest point within TAP_RADIUS pixels,
  * and a tap farther from every point clears the chosen round; the arrow keys step through the points, Home and End jump to the first and
@@ -321,7 +346,7 @@ const LABEL_CLEARANCE = 12;
  */
 export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', corner }: PlotOptions = CARD_PLOT): HTMLElement[] {
   const highlight = svg('circle', { class: 'chart-selected', r: 10, cx: -100, cy: -100, visibility: 'hidden' });
-  // The label stays empty, and so hidden, until a round is chosen.
+  // Full screen, the strip stays empty until a round is chosen.
   const detail = full
     ? el('p', { id: detailId, class: 'chart-label', 'aria-live': 'polite' })
     : el('p', { id: detailId, class: 'chart-detail', 'aria-live': 'polite' }, t('chart.hint'));
@@ -337,32 +362,16 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
     highlight.setAttribute('visibility', 'visible');
   };
 
-  /** Full screen, the label moves to the top right while the chosen point is under it in the top left. */
-  const placeLabel = () => {
-    if (!full || chosen < 0) return;
-    detail.classList.remove('chart-label-right');
-    const box = drawing.getBoundingClientRect();
-    if (box.width === 0) return;
-    const scale = box.width / size.width;
-    const { x, y } = placed[chosen]!;
-    const under =
-      x * scale < detail.offsetLeft + detail.offsetWidth + LABEL_CLEARANCE &&
-      y * scale < detail.offsetTop + detail.offsetHeight + LABEL_CLEARANCE;
-    detail.classList.toggle('chart-label-right', under);
-  };
-
   const choose = (index: number) => {
     chosen = index;
     mark();
-    detail.textContent = pointText(placed[index]!.point);
-    placeLabel();
+    detail.replaceChildren(...detailParts(placed[index]!.point));
   };
 
-  /** No round chosen, as before the first tap: the card shows the hint again, and full screen the label hides. */
+  /** No round chosen, as before the first tap: the card shows the hint again, and full screen the strip empties. */
   const clear = () => {
     chosen = -1;
     highlight.setAttribute('visibility', 'hidden');
-    detail.classList.remove('chart-label-right');
     detail.textContent = full ? '' : t('chart.hint');
   };
 
@@ -500,14 +509,12 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
       ]),
     );
     mark();
-    placeLabel();
   };
 
   const frame = el(
     'div',
     { class: full ? 'chart-frame chart-frame-fill' : 'chart-frame' },
     drawing,
-    full && detail,
     tip,
     corner && cornerButton(corner),
   );
@@ -524,7 +531,7 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
     });
     observer.observe(frame);
   }
-  return full ? [frame] : [detail, frame];
+  return [detail, frame];
 }
 
 /** The band's legend names the whole window's dates, which the period select leaves out. */
@@ -555,11 +562,11 @@ function legend(chart: ChartData): HTMLElement {
  * cell names the event, and under it, smaller, the status and the source, so
  * three columns fit a phone. Words wrap whole; dates and ratings keep to one line.
  */
-function table(chart: ChartData): HTMLElement {
+function table(chart: ChartData, state: Disclosure | undefined): HTMLElement {
   const head = (key: MessageKey) => el('th', { scope: 'col' }, t(key));
   return el(
     'details',
-    { class: 'chart-table' },
+    { id: 'chart-table', class: 'chart-table', ...disclosure(state) },
     el('summary', {}, t('chart.table')),
     el(
       'table',
@@ -604,32 +611,38 @@ function historyLink(pdgaNumber: number): HTMLElement {
 }
 
 /** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
-export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, onFullScreen }: ChartProps): HTMLElement[] {
+export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, table: tableState, onFullScreen }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
   if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
   const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
   return [
     ...controls,
-    segmented('chart.axis', 'chart-axis', AXIS_OPTIONS, axis, onAxis),
+    axisControl('chart-axis', axis, onAxis),
     ...plot(chart, { ...CARD_PLOT, axis, corner }),
     legend(chart),
     historyLink(pdgaNumber),
-    table(chart),
+    table(chart, tableState),
   ];
 }
 
 export interface ChartFullProps extends ChartProps {
   onClose: () => void;
+  /**
+   * True where the browser cannot show the page full screen (Safari on
+   * iPhone): a line under the chart says to turn the phone, while upright.
+   */
+  rotateHint?: boolean;
 }
 
 /**
  * The chart alone over the whole page, for a phone turned sideways: only the
- * chart, with the chosen round as a label in its corner and Exit full screen
- * in the other. The period, legend, link and table stay in the card; its
+ * chart, with the chosen round on one line above it and Exit full screen in
+ * its corner. On wide screens, where there is room, the period and the
+ * x-axis show above it too; the legend, link and table stay in the card. Its
  * heading is for screen readers. Back, Exit full screen or Escape close it.
  * Its ids differ from the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, axis, onClose }: ChartFullProps): HTMLElement {
+export function chartFullView({ chart, today, onPeriod, axis, onAxis, onClose, rotateHint = false }: ChartFullProps): HTMLElement {
   const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
@@ -647,6 +660,13 @@ export function chartFullView({ chart, axis, onClose }: ChartFullProps): HTMLEle
       },
     },
     el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
+    el(
+      'div',
+      { class: 'chart-full-controls wide-only' },
+      ...periodControls({ id: 'chart-full', ...chart, today, recent: true, onPeriod }),
+      axisControl('chart-full-axis', axis, onAxis),
+    ),
     ...body,
+    rotateHint && el('p', { id: 'chart-rotate-hint', class: 'chart-rotate-hint' }, t('chart.rotateHint')),
   );
 }

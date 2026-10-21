@@ -5,7 +5,7 @@ import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus,
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { readPages } from './handoff';
-import { today } from './format';
+import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
 import { buildModel, manualToRounds, type Model } from './model';
@@ -33,6 +33,7 @@ import {
   type CardName,
   type ChartAxis,
   type ChartPeriod,
+  type DateOrder,
   type OpenWith,
   type PlayerOrder,
   type StoredManualRound,
@@ -80,7 +81,7 @@ import { CHART_FULL_TITLE_ID, chartFullView, type ChartProps } from './views/cha
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
-import { openWithId, settingsView, themeId } from './views/settings';
+import { DATE_FORMAT_ID, openWithId, settingsView, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startTabId, startView, type StartTab } from './views/start';
 
@@ -173,6 +174,17 @@ function applyLanguage(): void {
  */
 function pageTitle(): string {
   return overlay?.view === 'setup' ? t('setup.bookmarkName') : t('app.name');
+}
+
+/** Dates follow the app's language and the device's region unless Settings fixes their order. */
+function applyDateOrder(): void {
+  setDateOrder(store.get().dateOrder);
+}
+
+function setDateOrderOverride(dateOrder: DateOrder | null): void {
+  store.update({ dateOrder });
+  applyDateOrder();
+  render(DATE_FORMAT_ID);
 }
 
 /** --bg of each theme in styles.css, for the browser's toolbar colour. */
@@ -475,6 +487,11 @@ function setChartAxis(chartAxis: ChartAxis): void {
   render();
 }
 
+/** Stores whether the chart's table is open. The details element opened itself, so nothing is drawn again. */
+function setChartTable(chartTable: boolean): void {
+  if (chartTable !== store.get().chartTable) store.update({ chartTable });
+}
+
 /** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
 function setTop8Own(top8Own: boolean): void {
   store.update({ top8Own });
@@ -695,10 +712,13 @@ function currentView(): HTMLElement {
       language: data.language,
       preferred: preferredLanguages(),
       theme: data.theme,
+      dateOrder: data.dateOrder,
+      today: today(),
       persistent: store.persistent,
       bookmarklet: data.bookmarklet,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
+      onDateOrder: setDateOrderOverride,
       openWith: data.openWith,
       onOpenWith: setOpenWith,
       onOpenSetup: openSetup,
@@ -799,6 +819,7 @@ function chartProps(player: StoredPlayer, model: Model, now: Date): ChartProps {
     onPeriod: setChartPeriod,
     axis: store.get().chartAxis,
     onAxis: setChartAxis,
+    table: { open: store.get().chartTable, onToggle: setChartTable },
     onFullScreen: openChart,
   };
 }
@@ -808,7 +829,11 @@ function chartFull(): HTMLElement | null {
   const player = findPlayer(store.get(), selected);
   if (!player?.import) return null;
   const now = new Date();
-  return chartFullView({ ...chartProps(player, modelOf(player, now), now), onClose: closeOverlay });
+  return chartFullView({
+    ...chartProps(player, modelOf(player, now), now),
+    onClose: closeOverlay,
+    rotateHint: !document.fullscreenEnabled,
+  });
 }
 
 /**
@@ -831,6 +856,32 @@ function barTitle(): string {
   if (overlay?.view === 'guide') return t('guide.title');
   if (overlay?.view === 'setup') return t('setup.title');
   return tab === 'settings' ? t('settings.title') : t('app.name');
+}
+
+/** Touch screens, where focusing a select or a date field opens its picker (iOS opens it again after a choice). */
+const TOUCH_QUERY = '(pointer: coarse)';
+
+function opensPicker(element: HTMLElement): boolean {
+  return element instanceof HTMLSelectElement || (element instanceof HTMLInputElement && element.type === 'date');
+}
+
+/**
+ * Puts focus on the element with this id. On a touch screen a select or date
+ * field gets a stand-in near it that opens no picker, so a screen reader stays
+ * there: its card's header, the full-screen chart's heading, or the view's.
+ */
+function restoreFocus(focusId: string): void {
+  const target = document.getElementById(focusId);
+  if (!target) return;
+  if (!opensPicker(target) || !(window.matchMedia?.(TOUCH_QUERY).matches ?? false)) {
+    target.focus();
+    return;
+  }
+  const standIn =
+    target.closest('.card')?.querySelector<HTMLElement>('.card-toggle') ??
+    target.closest('.chart-full')?.querySelector<HTMLElement>(`#${CHART_FULL_TITLE_ID}`) ??
+    document.getElementById(isWide() ? 'view-title' : TOPBAR_TITLE_ID);
+  standIn?.focus();
 }
 
 /** Rebuilds the page, then puts focus back on the element with the same id. */
@@ -880,7 +931,7 @@ function render(focusId = document.activeElement?.id): void {
   flash = null;
   addFlash = null;
   manualFlash = null;
-  if (focusId) document.getElementById(focusId)?.focus();
+  if (focusId) restoreFocus(focusId);
 }
 
 window.addEventListener('languagechange', () => {
@@ -896,6 +947,7 @@ window.addEventListener('storage', (event) => {
   if (!findPlayer(data, selected)) selected = initialSelection(data);
   applyTheme();
   applyLanguage();
+  applyDateOrder();
   render();
 });
 
@@ -936,6 +988,7 @@ overlay = restored.overlay && { view: restored.overlay, opener: `tab-${tab}` };
 const payload = takeFragment();
 applyTheme();
 applyLanguage();
+applyDateOrder();
 render();
 if (payload !== null) void receiveHandoff(payload);
 registerServiceWorker(() => {

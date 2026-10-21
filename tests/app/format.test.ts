@@ -1,5 +1,17 @@
-import { describe, expect, it } from 'vitest';
-import { dateLocale, formatAge, formatAverage, formatChange, formatDate, formatDayMonth, formatEffect, formatMonth, formatRating } from '../../src/app/format';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  dateLocale,
+  formatAge,
+  formatAverage,
+  formatChange,
+  formatDate,
+  formatDateTime,
+  formatDayMonth,
+  formatEffect,
+  formatMonth,
+  formatRating,
+  setDateOrder,
+} from '../../src/app/format';
 
 describe('formatting', () => {
   it('formats dates in the locale', () => {
@@ -58,6 +70,39 @@ describe('formatting', () => {
     expect(formatEffect(0, 'en-US')).toBe('0.0');
     // Too small to show gets no sign.
     expect(formatEffect(-0.04, 'en-US')).toBe('0.0');
+  });
+});
+
+describe('a date format from Settings', () => {
+  afterEach(() => setDateOrder(null));
+
+  it('puts the year, day or month first, whatever the locale', () => {
+    for (const locale of ['en-US', 'sv-SE']) {
+      expect(formatDate('2026-08-06', locale, 'year')).toBe('2026-08-06');
+      expect(formatDate('2026-08-06', locale, 'day')).toBe('06/08/2026');
+      expect(formatDate('2026-08-06', locale, 'month')).toBe('08/06/2026');
+    }
+  });
+
+  it('applies to every date once set, and Automatic follows the locale again', () => {
+    setDateOrder('day');
+    expect(formatDate('2026-08-06', 'en-US')).toBe('06/08/2026');
+    setDateOrder(null);
+    expect(formatDate('2026-08-06', 'en-US')).toBe('08/06/2026');
+  });
+
+  it('puts the month name first only for Month first, in the language', () => {
+    expect(formatDayMonth('2026-11-10', 'en-US', 'day')).toBe('10 Nov');
+    expect(formatDayMonth('2026-11-10', 'en-US', 'year')).toBe('10 Nov');
+    expect(formatDayMonth('2026-11-10', 'en-GB', 'month')).toBe('Nov 10');
+    expect(formatDayMonth('2026-11-10', 'sv-SE', 'month')).toBe('nov. 10');
+    expect(formatDayMonth('2026-11-10', 'sv-SE', 'day')).toBe('10 nov.');
+  });
+
+  it('formats an import time with the date in that order', () => {
+    const at = new Date(2026, 9, 21, 15, 4).toISOString();
+    expect(formatDateTime(at, 'sv-SE', 'day')).toBe('21/10/2026 15:04');
+    expect(formatDateTime(at, 'sv-SE', 'month')).toBe('10/21/2026 15:04');
   });
 });
 

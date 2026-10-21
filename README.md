@@ -42,6 +42,9 @@ App: https://peiza.github.io/next-rating/
   yet checked against a real player.
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
+  Dates follow the language and the device's region, or a date format
+  picked in Settings (year, day or month first); the browser's own date
+  pickers keep the device's format.
 - It opens on you, or, with "When the app opens: Show the last viewed player"
   in Settings, on the player you looked at last. A bookmarklet import always
   opens the imported player.
@@ -110,8 +113,8 @@ today, or than the newest stored round when that is later.
 The Top 8 card on the Rating tab is laid out like a Global Masters Series
 player card, for any player: the sum, average and highest of the player's 8
 highest rated rounds, then those rounds. Official and unofficial rounds
-count, and your own (manual) rounds when you tick "Include my own rounds";
-they show as "Own". DNF rounds never count. The period is picked from one
+count, and manual rounds when you tick "Include manual rounds"; they show
+as "Manual". DNF rounds never count. The period is picked from one
 list: any calendar year the player has rated rounds in (the current year by
 default), the same window the prediction uses, or a custom range of dates.
 The app remembers the choice.
@@ -121,7 +124,7 @@ The app remembers the choice.
 The Chart card draws the player's round ratings over time, newest to the
 right, as an SVG drawn by the app itself (no chart library). The shape shows
 where a round comes from: a circle for official, a square for unofficial and
-a triangle for your own rounds. The fill shows what the next update does with
+a triangle for manual rounds. The fill shows what the next update does with
 it: filled counts, a ring counts twice, hollow does not count, and a cross
 marks a round that is dropped, left out or not counted by PDGA. The
 prediction's window is shaded, with lines across it for the official rating
@@ -129,13 +132,14 @@ prediction's window is shaded, with lines across it for the official rating
 are today's values, so a period that does not reach the window has none; a
 link under the chart opens the player's ratings history on pdga.com for the
 official rating over time. Tap a point, or use the arrow keys, to see its
-event, date and rating above the chart; on a computer, holding the pointer
+rating, date, event and status above the chart; on a computer, holding the pointer
 over a point shows them in a tooltip. The same rounds are also available as
 a table. The chart is drawn at the card's width, and the button in its top
-right corner shows it full screen, on its own with the tapped round in a
-corner label (in landscape on Android; on iPhone, turn the phone). The
-period is the last 24 months by default (ending at a planned round of your
-own when that is later than today), or a year, the rating window or a
+right corner shows it full screen, on its own with the tapped round on a
+line above it, and on a larger screen with the period and the x-axis too
+(in landscape on Android; on iPhone, turn the phone with rotation lock off). The
+period is the last 24 months by default (ending at a planned manual round
+when that is later than today), or a year, the rating window or a
 custom range, picked like the Top 8's and remembered. The x-axis follows
 time, or with Even spacing gives every round the same width, so a busy
 summer spreads out; that choice is remembered too.

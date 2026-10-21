@@ -13,7 +13,7 @@ Process list in CLAUDE.md.
    with a read-only snapshot in the URL fragment (in a key of its own, since
    #d= is reserved for the bookmarklet hand-off): the name, PDGA number,
    official rating, prediction, update date, snapshot date and the top
-   reasons from Why it changed, and own rounds only when ticked before
+   reasons from Why it changed, and manual rounds only when ticked before
    sharing. The app treats the snapshot as untrusted, like a hand-off:
    strict schema validation, size limits, text only.
 3. Personal bests and milestones: mark the player's highest rated round and

@@ -18,6 +18,10 @@ export const V1_KEY = 'next-rating:v1';
 export const THEMES = ['light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
 
+/** How dates read when Settings overrides the automatic format: 2026-10-21, 21/10/2026 or 10/21/2026. */
+export const DATE_ORDERS = ['year', 'day', 'month'] as const;
+export type DateOrder = (typeof DATE_ORDERS)[number];
+
 /** How the players panel orders favorites after "me": by name, or newest import first. */
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
@@ -104,6 +108,8 @@ export interface AppData {
   language: string | null;
   /** The theme picked in Settings; null follows the device. */
   theme: Theme | null;
+  /** The date format picked in Settings; null follows the app's language and the device's region. */
+  dateOrder: DateOrder | null;
   /** The order picked in the players panel. */
   playerOrder: PlayerOrder;
   /** Which Rating tab cards are open, the same for every player. */
@@ -114,6 +120,8 @@ export interface AppData {
   chartPeriod: ChartPeriod;
   /** The chart's x-axis, the same for every player. */
   chartAxis: ChartAxis;
+  /** Whether the chart's "Show as table" is open, the same for every player. */
+  chartTable: boolean;
   /** Whether the Top 8 counts manual rounds too, the same for every player. */
   top8Own: boolean;
   /** The bookmarklet version of the last hand-off in this browser, or null before one. */
@@ -131,12 +139,14 @@ export interface AppData {
 export const EMPTY_DATA: AppData = {
   language: null,
   theme: null,
+  dateOrder: null,
   playerOrder: 'name',
   cards: DEFAULT_CARDS,
   top8Period: DEFAULT_TOP_PERIOD,
   top8Own: false,
   chartPeriod: DEFAULT_CHART_PERIOD,
   chartAxis: 'time',
+  chartTable: false,
   bookmarklet: null,
   me: null,
   openWith: 'me',
@@ -277,12 +287,14 @@ export function validateData(value: unknown): AppData {
   return {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
+    dateOrder: DATE_ORDERS.find((name) => name === fields.dateOrder) ?? null,
     playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
     cards: validateCards(fields.cards),
     top8Period: validateTopPeriod(fields.top8Period),
     top8Own: fields.top8Own === true,
     chartPeriod: validateChartPeriod(fields.chartPeriod),
     chartAxis: CHART_AXES.find((name) => name === fields.chartAxis) ?? 'time',
+    chartTable: fields.chartTable === true,
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     openWith: OPEN_WITH.find((name) => name === fields.openWith) ?? 'me',

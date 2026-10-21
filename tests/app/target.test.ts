@@ -187,6 +187,13 @@ describe('calculateTarget', () => {
 });
 
 describe('target calculator view', () => {
+  it('shows a calendar icon after the date field', () => {
+    const view = calculator(props());
+    const field = view.querySelector<HTMLInputElement>('#target-date')!;
+    expect(field.parentElement!.className).toBe('date-input');
+    expect(field.nextElementSibling!.matches('svg.date-icon[aria-hidden="true"]')).toBe(true);
+  });
+
   it('is a closed card until opened, and starts with its explanation', () => {
     const model = buildModel(STORED, 100001, NOW);
     const page = (open: boolean) =>

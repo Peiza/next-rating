@@ -28,7 +28,7 @@ const stored: StoredImport = {
   events: [rawEvent({ eventId: '900013', date: '12-Oct-2026' })],
 };
 const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null }]);
-// The official rating equals the prediction here. In `differs` it is older, and a round of your own before the deadline moves the prediction.
+// The official rating equals the prediction here. In `differs` it is older, and a manual round before the deadline moves the prediction.
 const model = buildModel(stored, 100001, NOW, own);
 const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null }]);
 const differs = buildModel({ ...stored, player: rawPlayer({ currentRating: '950' }) }, 100001, NOW, [...own, ...early]);
@@ -172,11 +172,17 @@ describe('chart panel', () => {
     const root = panel();
     expect(detail(root)).toBe('Tap a point, or use the arrow keys, to see its round.');
     key(root, 'ArrowRight');
-    expect(detail(root)).toMatch(/^700 · Dropped · Event 0 · Round 1 · \S+ · Official$/);
+    // The rating in bold, the date, the event and round, then the status and the source.
+    expect(detail(root)).toMatch(/^700 · \S+ · Event 0, round 1 · Dropped · Official$/);
+    const parts = [...root.querySelector('#chart-detail')!.children];
+    expect(parts.map((part) => part.tagName)).toEqual(['STRONG', 'SPAN', 'SPAN', 'SPAN']);
+    expect(parts[0]!.textContent).toBe('700');
+    expect(parts[2]!.className).toBe('chart-detail-event');
     key(root, 'ArrowRight');
-    expect(detail(root)).toMatch(/^951 · Counted · Event 1/);
+    expect(detail(root)).toMatch(/^951 · \S+ · Event 1, round 1 · Counted · Official$/);
     key(root, 'End');
-    expect(detail(root)).toMatch(/^990 · Counts in the following update · Planned Open · \S+ · Your own$/);
+    // A manual round names its event as typed, without a round.
+    expect(detail(root)).toMatch(/^990 · \S+ · Planned Open · Counts in the following update · Manual$/);
     key(root, 'ArrowRight');
     expect(detail(root)).toMatch(/^990/);
     key(root, 'Home');
@@ -334,13 +340,22 @@ describe('chart panel', () => {
       ...[...row.querySelectorAll('.chart-event > span')].map((span) => span.textContent),
     ]);
     expect(rows).toHaveLength(13);
-    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Your own']);
+    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Manual']);
     expect(rows.at(-1)).toEqual(['700', 'Event 0 · Round 1', 'Dropped · Official']);
     expect(rows.some(([, , status]) => status === 'Counts twice · Official')).toBe(true);
     // The date and the rating keep to one line; the event name wraps.
     const cells = [...table.querySelector('tbody tr')!.children].map((cell) => cell.className);
     expect(cells).toEqual(['chart-date', 'chart-number', 'chart-event']);
     expect([...table.querySelectorAll('tbody tr:first-child .chart-event > span')].map((span) => span.className)).toEqual(['chart-round-name', 'chart-round-status']);
+  });
+
+  it('opens the table as kept, and reports when it opens or closes', () => {
+    const onToggle = vi.fn();
+    const table = panel({ kind: 'recent' }, { table: { open: true, onToggle } }).querySelector<HTMLDetailsElement>('#chart-table')!;
+    expect(table.open).toBe(true);
+    table.open = false;
+    table.dispatchEvent(new Event('toggle'));
+    expect(onToggle).toHaveBeenLastCalledWith(false);
   });
 
   it('offers Full screen as a small button in the chart corner when it can open', () => {
@@ -369,8 +384,10 @@ describe('chart panel', () => {
     it('shows only the chart, with Exit full screen in its corner', () => {
       const view = full();
       expect(view.querySelector('h1.visually-hidden')!.textContent).toBe('Chart');
-      expect([...view.querySelectorAll('[id]')].map((node) => node.id)).toEqual(['chart-full-title', 'chart-full-plot', 'chart-full-detail', 'chart-full-close']);
-      expect(view.querySelector('select, .chart-legend, .chart-history, .chart-table')).toBeNull();
+      const ids = (root: Element) => [...root.querySelectorAll('[id]')].map((node) => node.id);
+      const controls = view.querySelector('.chart-full-controls')!;
+      expect(ids(view).filter((id) => !ids(controls).includes(id))).toEqual(['chart-full-title', 'chart-full-detail', 'chart-full-plot', 'chart-full-close']);
+      expect(view.querySelector('.chart-legend, .chart-history, .chart-table')).toBeNull();
       const exit = view.querySelector<HTMLButtonElement>('.chart-frame-fill > #chart-full-close')!;
       expect(exit.getAttribute('aria-label')).toBe('Exit full screen');
       onClose.mockClear();
@@ -384,37 +401,72 @@ describe('chart panel', () => {
       expect(empty.querySelector('#chart-full-close')).not.toBeNull();
     });
 
-    it('names the chosen round in a label in the chart corner, empty until one is chosen', () => {
+    it('shows the period and the x-axis above the chart on wide screens only, with ids of their own', () => {
+      const onPeriod = vi.fn();
+      const onAxis = vi.fn();
+      const view = document.body.appendChild(
+        chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props, onPeriod, onAxis }),
+      );
+      const controls = view.querySelector('.chart-full-controls')!;
+      expect(controls.classList.contains('wide-only')).toBe(true);
+      expect(controls.nextElementSibling!.id).toBe('chart-full-detail');
+      expect([...controls.querySelectorAll('select, input')].map((node) => node.id)).toEqual(['chart-full-period', 'chart-full-axis-time', 'chart-full-axis-even']);
+      expect(controls.querySelector<HTMLSelectElement>('#chart-full-period')!.value).toBe('recent');
+      const select = controls.querySelector<HTMLSelectElement>('#chart-full-period')!;
+      select.value = 'window';
+      select.dispatchEvent(new Event('change'));
+      expect(onPeriod).toHaveBeenLastCalledWith({ kind: 'window' });
+      controls.querySelector<HTMLInputElement>('#chart-full-axis-even')!.click();
+      expect(onAxis).toHaveBeenLastCalledWith('even');
+      // A custom range shows its dates there too, and an empty period keeps the controls.
+      const custom = chartFullView({ chart: chartData(model, { kind: 'custom', from: '2020-01-01', to: '2020-02-01' }, TODAY), ...props });
+      expect(custom.querySelector('.chart-full-controls #chart-full-from')).not.toBeNull();
+      expect(custom.querySelector('.chart-empty')).not.toBeNull();
+    });
+
+    it('says to turn the phone where the browser has no full screen', () => {
+      expect(full().querySelector('#chart-rotate-hint')).toBeNull();
+      const view = chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props, rotateHint: true });
+      const hint = view.querySelector('#chart-rotate-hint')!;
+      expect(hint.textContent).toBe("Turn your phone sideways for a wider chart. If it doesn't turn, switch off rotation lock in Control Center.");
+      expect(view.lastElementChild).toBe(hint);
+    });
+
+    it('names the chosen round on one line in a strip above the chart, kept while empty', () => {
       const view = full();
       expect(label(view).className).toBe('chart-label');
-      expect(label(view).parentElement!.classList.contains('chart-frame-fill')).toBe(true);
+      // Its own strip between the controls and the chart, so it covers no point.
+      expect(label(view).previousElementSibling!.classList.contains('chart-full-controls')).toBe(true);
+      expect(label(view).nextElementSibling!.classList.contains('chart-frame-fill')).toBe(true);
       expect(label(view).getAttribute('aria-live')).toBe('polite');
       expect(label(view).textContent).toBe('');
-      const svg = view.querySelector<SVGSVGElement>('svg')!;
-      svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
-      expect(label(view).textContent).toMatch(/^990 · /);
-      // A tap away from every point empties it again.
+      const svg = view.querySelector<SVGSVGElement>('#chart-full-plot')!;
+      svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+      expect(label(view).textContent).toMatch(/^700 · \S+ · Event 0, round 1 · Dropped · Official$/);
+      // Only the event name gives way when the line is too long.
+      expect([...label(view).children].map((part) => part.className)).toEqual(['', '', 'chart-detail-event', '']);
+      // A tap away from every point empties it again, and the strip stays.
       svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
       svg.dispatchEvent(new MouseEvent('pointerup', { clientX: 150, clientY: 2 }));
       expect(label(view).textContent).toBe('');
-      expect(label(view).classList.contains('chart-label-right')).toBe(false);
+      expect(label(view).isConnected).toBe(true);
     });
 
-    it('moves the label to the right while the chosen point is under it', () => {
-      const chart = chartData(model, { kind: 'custom', from: '2026-09-01', to: '2026-09-30' }, TODAY);
+    it('names a named round as it is, and leaves out the event of a manual round without a name', () => {
+      const finals = buildModel(
+        { ...stored, details: [rawDetailsRow({ eventId: '900200', eventName: 'Cup', roundLabel: 'Finals', date: '1-Sep-2026', rating: '960' })], events: [] },
+        100001,
+        NOW,
+      );
+      const one = document.body.appendChild(chartFullView({ chart: chartData(finals, { kind: 'recent' }, TODAY), ...props }));
+      one.querySelector('#chart-full-plot')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      expect(label(one).textContent).toMatch(/^960 · \S+ · Cup, Finals · /);
+      one.remove();
+      const chart = chartData(differs, { kind: 'custom', from: '2026-10-05', to: '2026-10-05' }, TODAY);
       const view = document.body.appendChild(chartFullView({ chart, ...props }));
-      const svg = view.querySelector<SVGSVGElement>('#chart-full-plot')!;
-      svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
-      // The label covers the top left: the rounds of early September, rated 951 to 959, but not the dropped 700 at the bottom.
-      Object.defineProperty(label(view), 'offsetWidth', { get: () => 150 });
-      Object.defineProperty(label(view), 'offsetHeight', { get: () => 50 });
-      const choose = (name: string) => svg.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
-      choose('Home');
-      expect(label(view).textContent).toMatch(/^700 · /);
-      expect(label(view).classList.contains('chart-label-right')).toBe(false);
-      choose('ArrowRight');
-      expect(label(view).textContent).toMatch(/^951 · /);
-      expect(label(view).classList.contains('chart-label-right')).toBe(true);
+      view.querySelector('#chart-full-plot')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      expect(label(view).textContent).toMatch(/^1000 · \S+ · Counts[^·]* · Manual$/);
+      expect(label(view).querySelector('.chart-detail-event')).toBeNull();
     });
   });
 

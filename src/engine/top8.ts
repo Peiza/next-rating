@@ -17,7 +17,7 @@ export interface TopResult<T extends RoundInput> {
 }
 
 export interface TopOptions {
-  /** Manual rounds count too, as the user's own. */
+  /** Manual rounds count too. */
   own?: boolean;
 }
 

@@ -418,7 +418,7 @@ Built as (docs/plan-target-date.md):
   or "No rounds leave the window by …". The hint follows the date field as
   it changes.
 
-## Phone polish and Top 8 with own rounds
+## Phone polish and Top 8 with manual rounds
 Spec:
 1. Players page: the same space above and below the "Edit list" button, and
    less space between the add-by-number form and the name search.
@@ -429,8 +429,8 @@ Spec:
 3. Top bar on phones: Settings, How it works and the setup page show their
    title on the left of the top bar, next to the Players button, instead of
    a separate heading line below it.
-4. Top 8: a switch "Include my own rounds", off by default and remembered.
-   When it is on, manual rounds count in the Top 8, are marked as my own,
+4. Top 8: a switch "Include manual rounds", off by default and remembered.
+   When it is on, manual rounds count in the Top 8, are marked as manual,
    and their years appear in the year list.
 5. Year boundary: the profile page lists only the current season, so in
    early January the bookmarklet misses a December event that is not rated
@@ -457,8 +457,8 @@ Built as (docs/plan-phone-polish.md):
 - `topRounds` and `isTopRound` take `{ own }`. The checkbox sits under the
   period select, only when the player has a rated manual round. Stored with
   the settings as `top8Own`, the same for every player. A manual round reads
-  "Own" in place of the round label, with its event name or "Own round", no
-  link.
+  "Manual" in place of the round label, with its event name or "Manual
+  round", no link.
 - `previousSeasonPath` in src/bookmarklet/collect.ts: on the device's date
   from 1 January to the second Tuesday of January (inclusive), and only when
   the profile's `.year-link` tabs link to /player/<nr>/stats/<year - 1>.
@@ -492,7 +492,7 @@ Spec (idea 2 of docs/ideas.md), with a small step first:
 3. A Chart card on the Rating tab after Why it changed, closed by default:
    inline SVG drawn by the app's own code, phone first, colours from the
    theme tokens, readable at 320 px. Round ratings over time, newest to the
-   right; official, unofficial and own rounds told apart by shape; rounds
+   right; official, unofficial and manual rounds told apart by shape; rounds
    that count twice, are dropped, excluded or left out marked. The current
    window shaded, with lines for the official rating and the prediction.
    Period: the last 24 months by default, or a year, the rating window or a
@@ -701,6 +701,58 @@ Built as (docs/plan-phone-testing-polish.md):
   legend, shows them in a hint under the select while the window is picked
   (`windowDates` in period.ts).
 
+## Fixes from iPhone testing
+Spec, after testing on an iPhone (and one point from Android):
+1. Date format: an English app on an iPhone showed US dates (10/21/2026).
+   Settings has "Date format": Automatic (the default, as before), Year
+   first (2026-10-21), Day first (21/10/2026) and Month first (10/21/2026),
+   stored with the settings.
+2. On iOS, choosing an option in a select opened it again. Fixed for every
+   select and for the custom range's date fields.
+3. "Show as table" under the chart stays open across views, language
+   changes and launches, like the cards.
+4. iPhone date fields stay inside the margin and show a calendar icon.
+5. Full screen on iPhone: Safari has no real full screen there, so the view
+   says to turn the phone, with rotation lock off.
+6. "Manual rounds" ("manuella rundor") everywhere, also in the Top 8
+   ("Include manual rounds", rows marked "Manual") and the chart legend.
+7. Full screen on wide screens (64rem, the wide layout): the period select
+   and the x-axis choice above the chart. Phones keep the chart only.
+8. Full screen, the chosen round is in a strip of its own above the chart,
+   on one centred line: the rating in bold, the date, the event and round,
+   the status and the source ("1019 · 2026-08-23 · Example Open, round 3 ·
+   Counts twice · Official"). A long event name gets an ellipsis. The card's
+   details line uses the same order.
+
+Built as (docs/plan-iphone-testing.md):
+- `dateOrder` in AppData (null is Automatic). `setDateOrder()` in
+  format.ts; `formatDate` and `formatDateTime` build a fixed order from the
+  date, and `formatDayMonth` puts the month name first only for Month first.
+  Each option shows today as its example. The browsers' own date pickers
+  keep the device's format, which the hint under the select says.
+- `restoreFocus()` in main.ts: on a touch screen (`(pointer: coarse)`) a
+  select or date field is not focused after a render, since iOS then opens
+  its picker. Focus goes to a stand-in that opens none: the card's header,
+  the full-screen chart's heading, or the view's heading.
+- `chartTable` in AppData; the table's `<details>` uses `disclosure()` and
+  stores its state without a render.
+- `dateInput()` (views/date-input.ts) wraps the three date fields with an
+  inline SVG icon (the CSP blocks `data:` images). The icon and
+  `appearance: none` apply only in iOS Safari
+  (`@supports (-webkit-touch-callout: none)`).
+- `rotateHint` on `chartFullView`, from `!document.fullscreenEnabled`; the
+  line hides in landscape.
+- Stored names stay (`top8Own`, `top8-own`, PointKind `'own'`); only the
+  texts changed. The Top 8 label column widens while a manual row shows
+  (`:has(.top8-row-own)`).
+- `.chart-full-controls.wide-only` holds `periodControls` with id
+  `chart-full` and `axisControl('chart-full-axis')`.
+- `plot()` returns the details line before the frame in both views; the
+  corner label and its placement (`placeLabel`) are gone. `detailParts()`
+  builds the parts as spans after a `<strong>` rating. Full screen, the strip
+  is a flex row where only `.chart-detail-event` shrinks, with
+  `white-space: pre` so each part keeps its leading space.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -741,7 +793,7 @@ Built in this order:
   top bar and closed-card header feedback (done)
 - Target date: a date in the target calculator (docs/plan-target-date.md)
   (done)
-- Phone polish and Top 8 with own rounds (docs/plan-phone-polish.md) (done)
+- Phone polish and Top 8 with manual rounds (docs/plan-phone-polish.md) (done)
 - Rating chart, with notes for leagues and late reports and Open with the
   last viewed player (docs/plan-chart.md) (done)
 - Chart follow-up: lines across the window, the ratings history link,
@@ -754,3 +806,6 @@ Built in this order:
 - Polish from phone testing: the bookmark name, the Android and iPhone
   steps, the chart label and table, dates in the app's language and the
   window option (docs/plan-phone-testing-polish.md) (done)
+- Fixes from iPhone testing: the date format, selects on iOS, the chart
+  table, date fields, the full-screen hint, controls and round strip, and
+  manual rounds (docs/plan-iphone-testing.md) (done)

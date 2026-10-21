@@ -299,6 +299,36 @@ describe('app start', () => {
     meta.remove();
   });
 
+  it('applies the date format from Settings and keeps it after a reload', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    document.getElementById('tab-settings')!.click();
+    const select = () => document.querySelector<HTMLSelectElement>('#date-format')!;
+    expect(select().value).toBe('');
+    select().focus();
+    select().value = 'day';
+    select().dispatchEvent(new Event('change'));
+    expect(stored().dateOrder).toBe('day');
+    expect(document.activeElement).toBe(select());
+    document.getElementById('tab-rating')!.click();
+    expect(document.getElementById('refresh-help')!.textContent).toContain('01/10/2026');
+
+    await start('/next-rating/');
+    expect(document.getElementById('refresh-help')!.textContent).toContain('01/10/2026');
+    document.getElementById('tab-settings')!.click();
+    select().value = 'year';
+    select().dispatchEvent(new Event('change'));
+    document.getElementById('tab-rating')!.click();
+    expect(document.getElementById('refresh-help')!.textContent).toContain('2026-10-01');
+  });
+
   it('keeps each player apart and opens on "me" after a reload', async () => {
     await start('/next-rating/');
     (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';
@@ -632,6 +662,81 @@ describe('app start', () => {
     expect(select().value).toBe('window');
   });
 
+  it('keeps the chart table open across views, a language change and launches', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { chart: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const table = () => document.querySelector<HTMLDetailsElement>('#chart-table')!;
+    expect(table().open).toBe(false);
+    table().open = true;
+    table().dispatchEvent(new Event('toggle'));
+    expect(stored().chartTable).toBe(true);
+
+    document.getElementById('tab-settings')!.click();
+    const language = document.querySelector<HTMLSelectElement>('#language')!;
+    language.value = 'sv';
+    language.dispatchEvent(new Event('change'));
+    document.getElementById('tab-rating')!.click();
+    expect(table().open).toBe(true);
+
+    await start('/next-rating/');
+    expect(table().open).toBe(true);
+    table().open = false;
+    table().dispatchEvent(new Event('toggle'));
+    expect(stored().chartTable).toBe(false);
+  });
+
+  it('on a touch screen, puts focus near a select after a choice instead of on it, so iOS does not open it again', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { chart: true, top8: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    const choose = (id: string, value: string) => {
+      const select = document.querySelector<HTMLSelectElement>(`#${id}`)!;
+      select.focus();
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+    };
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(pointer: coarse)' }));
+    try {
+      await start('/next-rating/');
+      choose('chart-period', 'window');
+      expect(document.activeElement?.id).toBe('chart-toggle');
+      choose('top8-period', 'custom');
+      expect(document.activeElement?.id).toBe('top8-toggle');
+      // A custom range's dates open a picker too.
+      const from = document.querySelector<HTMLInputElement>('#top8-from')!;
+      from.focus();
+      from.value = '2026-01-01';
+      from.dispatchEvent(new Event('change'));
+      expect(stored().top8Period).toMatchObject({ kind: 'custom', from: '2026-01-01' });
+      expect(document.activeElement?.id).toBe('top8-toggle');
+      document.getElementById('tab-settings')!.click();
+      choose('language', 'sv');
+      expect(document.activeElement?.id).toBe('topbar-title');
+      choose('date-format', 'year');
+      expect(document.activeElement?.id).toBe('topbar-title');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    // With a mouse or keyboard, focus stays on the select.
+    await start('/next-rating/');
+    choose('chart-period', 'recent');
+    expect(document.activeElement?.id).toBe('chart-period');
+  });
+
   it('opens the chart full screen as a history entry, which Close or back closes', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(
@@ -658,8 +763,17 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('chart-full-title');
     expect(document.querySelector('[role="dialog"]')!.getAttribute('aria-labelledby')).toBe('chart-full-title');
     expect(document.getElementById('chart-full-plot')).not.toBeNull();
-    // The chart is all the page shows, so no ids repeat, and the period is chosen in the card.
-    expect(document.querySelector('.tabbar, #chart-plot, select')).toBeNull();
+    // The chart is all the page shows, so no ids repeat; only wide screens show its own period select.
+    expect(document.querySelector('.tabbar, #chart-plot, #chart-period')).toBeNull();
+    expect(document.querySelector('select')!.closest('.chart-full-controls.wide-only')).not.toBeNull();
+    // A period picked there is the card's too, and the chart stays full screen with focus on the select.
+    const fullPeriod = document.querySelector<HTMLSelectElement>('#chart-full-period')!;
+    fullPeriod.focus();
+    fullPeriod.value = 'window';
+    fullPeriod.dispatchEvent(new Event('change'));
+    expect(stored().chartPeriod).toEqual({ kind: 'window' });
+    expect(document.activeElement?.id).toBe('chart-full-period');
+    expect(document.getElementById('chart-full-plot')).not.toBeNull();
 
     await clickBack('chart-full-close');
     expect(document.getElementById('chart-full-plot')).toBeNull();
@@ -735,7 +849,7 @@ describe('app start', () => {
     }
   });
 
-  it('remembers whether the Top 8 counts own rounds across launches', async () => {
+  it('remembers whether the Top 8 counts manual rounds across launches', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const date = new Date().toISOString().slice(0, 10);
     localStorage.setItem(

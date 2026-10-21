@@ -58,9 +58,10 @@ single build-time setting.
   language. Missing keys fall back to English.
 - Dates and numbers are formatted through Intl. Dates follow the app's
   language with the device's region (an English app on a Swedish phone shows
-  2026-08-06 and Aug); numbers follow the device locale (976,45 on a Swedish
-  phone). Ratings never get a thousands separator (a 1024 round shows as
-  1024).
+  2026-08-06 and Aug), unless Settings picks a date format (Year first
+  2026-10-21, Day first 21/10/2026, Month first 10/21/2026); numbers follow
+  the device locale (976,45 on a Swedish phone). Ratings never get a
+  thousands separator (a 1024 round shows as 1024).
 
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,
@@ -73,7 +74,7 @@ works, X-tier events (rounds PDGA leaves out; unofficial X-tier events
 marked, any unofficial event can be left out), a date in the target
 calculator (the update for that date and the rounds that leave the window),
 phone polish (the back gesture closes the players panel, setup and How
-it works; view titles in the phone top bar; Top 8 with own rounds; the
+it works; view titles in the phone top bar; Top 8 with manual rounds; the
 previous season in January), the rating chart (with notes for leagues
 and late reports, and the last viewed player when the app opens), the
 chart follow-up (lines across the window only, a link to the ratings
@@ -89,7 +90,12 @@ get that name; steps for the tested Android browsers and for Safari, the
 only iPhone browser that works; a larger full-screen round label; a tap
 away from every point clears the chosen round; a three-column chart table;
 dates in the app's language; a shorter window option, with its dates in
-the chart legend and under the Top 8 select).
+the chart legend and under the Top 8 select), and the fixes from iPhone
+testing (a date format setting; no reopened selects on iOS; a remembered
+chart table; date fields with a calendar icon on iPhone; a hint to turn
+the iPhone in full screen; "manual rounds" everywhere; the period and
+x-axis above the full-screen chart on wide screens; the chosen round on
+one line above the full-screen chart).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -198,7 +204,8 @@ web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
-polish and the polish from phone testing (docs/finished-steps.md). Nothing else is planned: the
+polish, the polish from phone testing and the fixes from iPhone testing
+(docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 

@@ -359,7 +359,7 @@ describe('Rating tab settings', () => {
     for (const bad of ['100001', 1.5, -1, null]) expect(validateData({ lastViewed: bad, players }).lastViewed).toBeNull();
   });
 
-  it('count own rounds in the Top 8 only for a stored true', () => {
+  it('count manual rounds in the Top 8 only for a stored true', () => {
     expect(validateData({ top8Own: true }).top8Own).toBe(true);
     for (const bad of [false, 'true', 1, null]) expect(validateData({ top8Own: bad }).top8Own).toBe(false);
   });
@@ -409,6 +409,18 @@ describe('Rating tab settings', () => {
     }
   });
 
+  it('format dates automatically unless a date order is stored', () => {
+    expect(validateData({}).dateOrder).toBeNull();
+    for (const order of ['year', 'day', 'month'] as const) expect(validateData({ dateOrder: order }).dateOrder).toBe(order);
+    for (const bad of ['Day', 'iso', 1, true, {}]) expect(validateData({ dateOrder: bad }).dateOrder).toBeNull();
+  });
+
+  it('keep the chart table closed unless open is stored', () => {
+    expect(validateData({}).chartTable).toBe(false);
+    expect(validateData({ chartTable: true }).chartTable).toBe(true);
+    for (const bad of ['true', 1, null]) expect(validateData({ chartTable: bad }).chartTable).toBe(false);
+  });
+
   it('draw the chart by date unless even spacing is stored', () => {
     expect(validateData({}).chartAxis).toBe('time');
     expect(validateData({ chartAxis: 'even' }).chartAxis).toBe('even');
@@ -425,8 +437,12 @@ describe('Rating tab settings', () => {
       top8Own: true,
       chartPeriod: { kind: 'year', year: 2025 },
       chartAxis: 'even',
+      dateOrder: 'day',
+      chartTable: true,
     });
     const data = createStore(storage).get();
+    expect(data.dateOrder).toBe('day');
+    expect(data.chartTable).toBe(true);
     expect(data.chartAxis).toBe('even');
     expect(data.cards.top8).toBe(true);
     expect(data.top8Period).toEqual({ kind: 'window' });

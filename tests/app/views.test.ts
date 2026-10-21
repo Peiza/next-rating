@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el, textWithNodes } from '../../src/app/dom';
+import { formatDate } from '../../src/app/format';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
@@ -138,11 +139,14 @@ describe('settings view', () => {
     language: null,
     preferred: ['sv-SE'],
     theme: null,
+    dateOrder: null,
+    today: '2026-10-21',
     openWith: 'me',
     persistent: true,
     bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
+    onDateOrder: () => {},
     onOpenWith: () => {},
     onOpenSetup: () => {},
     onOpenGuide: () => {},
@@ -192,6 +196,32 @@ describe('settings view', () => {
     expect(options.map((option) => option.getAttribute('value'))).toEqual(['', 'en', 'sv']);
     expect(options[0]!.textContent).toContain('Svenska');
     expect(options[2]!.getAttribute('lang')).toBe('sv');
+  });
+
+  it('offers Automatic and each date order, with today as the example', () => {
+    const options = [...settingsView(props).querySelectorAll<HTMLOptionElement>('#date-format option')];
+    expect(options.map((option) => option.value)).toEqual(['', 'year', 'day', 'month']);
+    expect(options.map((option) => option.textContent)).toEqual([
+      `Automatic (${formatDate('2026-10-21', undefined, null)})`,
+      'Year first (2026-10-21)',
+      'Day first (21/10/2026)',
+      'Month first (10/21/2026)',
+    ]);
+    expect(options[0]!.selected).toBe(true);
+    const picked = settingsView({ ...props, dateOrder: 'day' });
+    expect(picked.querySelector<HTMLSelectElement>('#date-format')!.value).toBe('day');
+    expect(picked.querySelector('#date-format-hint')!.textContent).toContain('Date pickers');
+  });
+
+  it('changes the date format', () => {
+    const onDateOrder = vi.fn();
+    const select = settingsView({ ...props, onDateOrder }).querySelector<HTMLSelectElement>('#date-format')!;
+    select.value = 'month';
+    select.dispatchEvent(new Event('change'));
+    expect(onDateOrder).toHaveBeenLastCalledWith('month');
+    select.value = '';
+    select.dispatchEvent(new Event('change'));
+    expect(onDateOrder).toHaveBeenLastCalledWith(null);
   });
 
   it('shows the build id', () => {
@@ -781,7 +811,7 @@ describe('top 8 panel', () => {
     return ratingView({ model, top8, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
-  it('offers the own rounds switch only with a manual round, and marks own rounds when they count', () => {
+  it('offers the manual rounds switch only with a manual round, and marks manual rounds when they count', () => {
     expect(page().querySelector('#top8-own')).toBeNull();
     const manual = manualToRounds([
       { id: 'a', rating: 1060, date: '2026-09-01', eventName: 'Practice league', holes: null },
@@ -801,7 +831,7 @@ describe('top 8 panel', () => {
     const off = view(false);
     const box = off.querySelector<HTMLInputElement>('#top8-own')!;
     expect(box.checked).toBe(false);
-    expect(off.querySelector('label[for="top8-own"]')!.textContent).toBe('Include my own rounds');
+    expect(off.querySelector('label[for="top8-own"]')!.textContent).toBe('Include manual rounds');
     expect(off.querySelector('.top8-row-own')).toBeNull();
     box.checked = true;
     box.dispatchEvent(new Event('change'));
@@ -810,7 +840,7 @@ describe('top 8 panel', () => {
     const on = view(true);
     expect(on.querySelector<HTMLInputElement>('#top8-own')!.checked).toBe(true);
     const own = [...on.querySelectorAll('.top8-row-own')];
-    expect(own.map((row) => row.textContent)).toEqual(['OwnPractice league1060', 'OwnOwn round1055']);
+    expect(own.map((row) => row.textContent)).toEqual(['ManualPractice league1060', 'ManualManual round1055']);
     expect(own[0]!.querySelector('a')).toBeNull();
   });
 
@@ -877,6 +907,10 @@ describe('top 8 panel', () => {
     const from = view.querySelector<HTMLInputElement>('#top8-from')!;
     const to = view.querySelector<HTMLInputElement>('#top8-to')!;
     expect([from.type, from.value, to.value]).toEqual(['date', '2026-03-01', '2026-03-04']);
+    for (const field of [from, to]) {
+      expect(field.parentElement!.className).toBe('date-input');
+      expect(field.nextElementSibling!.matches('svg.date-icon[aria-hidden="true"]')).toBe(true);
+    }
     expect(view.querySelectorAll('.top8-row')).toHaveLength(4);
     to.value = '2026-03-02';
     to.dispatchEvent(new Event('change'));
@@ -1502,9 +1536,12 @@ describe('how it works', () => {
       language: null,
       preferred: ['en'],
       theme: null,
+      dateOrder: null,
+      today: '2026-10-21',
       persistent: true,
       bookmarklet: null,
       onLanguage: vi.fn(),
+      onDateOrder: vi.fn(),
       openWith: 'me',
       onTheme: vi.fn(),
       onOpenWith: vi.fn(),

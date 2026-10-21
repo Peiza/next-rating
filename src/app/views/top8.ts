@@ -24,7 +24,7 @@ export interface Top8Props {
   /** Today, which ends a custom range when one is first picked. */
   today: PlainDate;
   onPeriod: (period: TopPeriod) => void;
-  /** Counts the user's own (manual) rounds in the Top 8, or stops counting them. */
+  /** Counts manual rounds in the Top 8, or stops counting them. */
   onOwn: (own: boolean) => void;
 }
 
@@ -48,7 +48,7 @@ function roundLabel(label: string): string {
   return /^\d+$/.test(label) ? t('top8.round', { number: label }) : label;
 }
 
-/** A round; the user's own reads "Own" where a round number would be, with its event name if it has one. */
+/** A round; a manual one reads "Manual" where a round number would be, with its event name if it has one. */
 function row(round: ListedRound): HTMLElement {
   const own = round.source === 'manual';
   const name = own
@@ -106,7 +106,7 @@ export function top8Teaser(top: TopEight): string {
 
 /**
  * The card's content: the period (with its dates for a custom range), the
- * switch for the user's own rounds, then the GMS-style card.
+ * switch for manual rounds, then the GMS-style card.
  */
 export function top8Panel(props: Top8Props): HTMLElement[] {
   const { top, today, onPeriod } = props;

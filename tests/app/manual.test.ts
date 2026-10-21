@@ -114,6 +114,13 @@ function ratingPage(manual: ManualProps, open = false): HTMLElement {
 }
 
 describe('manual entry view', () => {
+  it('shows a calendar icon after the date field', () => {
+    const view = entry(props());
+    const field = view.querySelector<HTMLInputElement>('#manual-date')!;
+    expect(field.parentElement!.className).toBe('date-input');
+    expect(field.nextElementSibling!.matches('svg.date-icon[aria-hidden="true"]')).toBe(true);
+  });
+
   it('is a closed card until opened, with the count of manual rounds in its header', () => {
     const view = ratingPage(props({ rounds: ROUNDS }));
     const toggle = view.querySelector<HTMLButtonElement>('#manual-toggle')!;
