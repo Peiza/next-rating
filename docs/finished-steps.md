@@ -586,6 +586,44 @@ Built as (docs/plan-chart-follow-up.md):
   back never goes back twice. A fresh load on the entry shows the chart
   without full screen, or the Rating tab when there is no player to chart.
 
+## Chart polish
+Spec, after testing the chart follow-up on the phone:
+1. Full screen shows only the chart, without the period select. The tapped
+   round's details show as a small label inside the chart, in a corner.
+2. The Full screen button moves into the chart as a small, discreet icon in
+   the top right corner, always visible so it can be found on a touch
+   screen.
+3. On a computer, hovering over a point shows its event, date, rating and
+   status in a small tooltip by the pointer after about 100 ms. Touch keeps
+   the tap.
+4. An x-axis choice: "Time" as before, or "Even spacing", where every round
+   gets the same width and the month labels follow, so a busy summer spreads
+   out. Remembered with the settings.
+5. Table: the event column wraps, so the rating and the date stay on one
+   line.
+
+Built as (docs/plan-chart-polish.md):
+- The corner button (`.chart-corner`) is an 18 px icon at the top of a
+  clear 36 px tap area in the frame's top right corner; the plot's top
+  margin is 26 px, so it covers no point or line value. Full screen it is
+  Exit full screen (`chart-full-close`); back and Escape close too.
+- Full screen has no title bar, Close or period select; its `h1` is
+  visually hidden. The chosen round is a polite live label (`.chart-label`)
+  in the top left, empty and hidden until a round is chosen, moving to the
+  top right while the chosen point is under it. The card keeps its details
+  line above the chart.
+- The tooltip (`.chart-tip`, `aria-hidden`) follows a mouse or pen within
+  the tap radius, after `HOVER_DELAY` (100 ms) on the same point, placed
+  through CSSOM, which the CSP allows (it blocks only style attributes).
+  It hides on leaving the point or the chart and on a redraw.
+- `chartAxis` ('time' | 'even') is stored next to `chartPeriod`, the same
+  for every player, chosen with a segmented control under the period
+  select. `xScale` in src/app/chart.ts places rounds, range ends and ticks.
+  With even spacing a range starts in the gap before its first round and
+  ends after its last, and a tick marks each month with a round, at least
+  about 52 px apart, with the year on the first label and where it changes.
+- In the table, dates and ratings do not wrap and event names wrap anywhere.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -632,3 +670,5 @@ Built in this order:
 - Chart follow-up: lines across the window, the ratings history link,
   measured size, full screen and the details above the chart
   (docs/plan-chart-follow-up.md) (done)
+- Chart polish: only the chart full screen, the corner button, the hover
+  tooltip, even spacing and the table (docs/plan-chart-polish.md) (done)
