@@ -21,7 +21,8 @@ export function startView({ pdgaNumber, player, flash, onSavePdgaNumber, onOpenS
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
-    el('h1', { id: 'view-title' }, player ? player.label : t('app.name')),
+    // On phones the top bar shows the heading.
+    el('h1', { id: 'view-title', class: 'wide-only' }, player ? player.label : t('app.name')),
     el('p', { class: 'lead' }, player ? t('start.noData') : t('app.tagline')),
     el('h2', {}, t('start.title')),
     el(

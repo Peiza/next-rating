@@ -242,13 +242,8 @@ export function playersPanel(props: PlayersProps): HTMLElement {
         if ((event as KeyboardEvent).key === 'Escape') props.onClose();
       },
     },
-    // On phones the panel replaces the view to switch player, and the top bar's button closes it.
-    el(
-      'h2',
-      { id: PANEL_TITLE_ID, class: 'panel-title', tabindex: -1 },
-      el('span', { class: 'menu-only' }, t('players.switch')),
-      el('span', { class: 'wide-only' }, t('players.title')),
-    ),
+    // On phones the panel replaces the view to switch player, and the top bar shows its heading next to Close.
+    el('h2', { id: PANEL_TITLE_ID, class: 'panel-title wide-only', tabindex: -1 }, t('players.title')),
     sortable && segmented('players.order', 'player-order', ORDER_OPTIONS, props.order, props.onOrder),
     favorites.length > 0
       ? el('ul', { class: 'player-list' }, ...favorites.map((player) => favoriteItem(player, props)))
@@ -284,7 +279,10 @@ export interface TopBarProps {
   onToggle: () => void;
   /** The shown player, named in the bar while the Rating tab shows them. */
   player?: { name: string | null; pdgaNumber: number } | null;
-  /** The heading of another view, such as Settings, shown in the bar instead of in the view. */
+  /**
+   * The heading of the players panel or another view, such as Settings or the
+   * start view, shown in the bar instead of in the view.
+   */
   title?: string | null;
 }
 
@@ -292,8 +290,9 @@ export interface TopBarProps {
  * The phone top bar: the view's heading at the left, which on the Rating tab
  * is the shown player's name with the PDGA number on a smaller line under
  * it, and the Players button at the top right, which reads Close while the
- * panel is open. Hidden on wide screens, where each view shows its own
- * heading. The heading takes focus when a view opens on a phone.
+ * panel is open and the bar shows the panel's heading. Hidden on wide
+ * screens, where each view shows its own heading. The heading takes focus
+ * when a view or the panel opens on a phone.
  */
 export function topBar({ open, onToggle, player, title }: TopBarProps): HTMLElement {
   const number = player && t('rating.playerNumber', { number: player.pdgaNumber });

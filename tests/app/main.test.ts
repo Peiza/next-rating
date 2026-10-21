@@ -98,6 +98,22 @@ describe('app start', () => {
     expect(document.getElementById('predicted')!.textContent).toBe('960');
   });
 
+  it('names the app in the top bar on the start view, and a player without data by number', async () => {
+    await start('/next-rating/');
+    const barTitle = () => document.getElementById('topbar-title')?.textContent;
+    expect(barTitle()).toBe('Next Rating');
+    expect(document.getElementById('view-title')!.classList.contains('wide-only')).toBe(true);
+    document.getElementById('players-menu')!.click();
+    expect(barTitle()).toBe('Switch player');
+    // Adding shows the player and closes the panel, back over its history entry.
+    const done = popped();
+    (document.getElementById('player-add') as HTMLInputElement).value = '100002';
+    (document.getElementById('player-add') as HTMLInputElement).form!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await done;
+    expect(barTitle()).toBe('#100002');
+    expect(document.getElementById('view-title')!.textContent).toBe('#100002');
+  });
+
   it('has only the Rating and Settings tabs', async () => {
     await start('/next-rating/');
     expect([...document.querySelectorAll('.tab')].map((tab) => tab.id)).toEqual(['tab-rating', 'tab-settings']);
@@ -223,6 +239,8 @@ describe('app start', () => {
       document.getElementById('open-guide')!.click();
       expect(document.activeElement?.id).toBe('guide-title');
       await clickBack('guide-back');
+      document.getElementById('players-menu')!.click();
+      expect(document.activeElement?.id).toBe('favorites-title');
     } finally {
       vi.unstubAllGlobals();
     }
@@ -365,7 +383,9 @@ describe('app start', () => {
     expect(menu().getAttribute('aria-expanded')).toBe('true');
     expect(menu().textContent).toBe('Close');
     expect(document.querySelector('.shell')!.classList.contains('menu-open')).toBe(true);
-    expect(document.activeElement?.id).toBe('favorites-title');
+    // jsdom is a phone: the bar shows the panel's heading next to Close, and it gets focus.
+    expect(barTitle()).toBe('Switch player');
+    expect(document.activeElement?.id).toBe('topbar-title');
     await clickBack('player-100002');
     expect(predicted()).toBe('1000');
     expect(barTitle()).toBe('Other Player #100002');

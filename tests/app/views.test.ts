@@ -1194,12 +1194,13 @@ describe('players panel', () => {
     expect(other!.querySelector('.player-meta')!.textContent).toBe('Not imported yet');
   });
 
-  it('is headed "Switch player" on phones, with the shown player marked as now', () => {
+  it('is headed "Players" on wide screens only, with the shown player marked as now on phones', () => {
     const view = panel();
     const heading = view.querySelector('#favorites-title')!;
-    expect(heading.querySelector('.menu-only')!.textContent).toBe('Switch player');
-    // The sidebar on wide screens keeps its heading and the check mark.
-    expect(heading.querySelector('.wide-only')!.textContent).toBe('Players');
+    // On phones the top bar shows the panel's heading.
+    expect(heading.textContent).toBe('Players');
+    expect(heading.classList.contains('wide-only')).toBe(true);
+    // The sidebar on wide screens keeps the check mark.
     const other = view.querySelector('#player-100002')!;
     expect(other.querySelector('.badge.menu-only')!.textContent).toBe('Now');
     expect(other.querySelector('.player-check')!.classList.contains('wide-only')).toBe(true);
