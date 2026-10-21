@@ -768,7 +768,7 @@ a {
  * point's kind (currentColor); hollow marks fill with the page colour.
  */
 .chart-frame {
-  max-width: 28rem;
+  max-width: 24rem;
 }
 
 .chart-plot {
