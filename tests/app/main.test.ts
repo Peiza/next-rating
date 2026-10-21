@@ -598,20 +598,12 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('chart-full-title');
     expect(document.querySelector('[role="dialog"]')!.getAttribute('aria-labelledby')).toBe('chart-full-title');
     expect(document.getElementById('chart-full-plot')).not.toBeNull();
-    // The chart is all the page shows, so no ids repeat.
-    expect(document.querySelector('.tabbar, #chart-plot')).toBeNull();
-
-    const select = () => document.querySelector<HTMLSelectElement>('#chart-full-period')!;
-    select().focus();
-    select().value = 'window';
-    select().dispatchEvent(new Event('change'));
-    expect(document.activeElement).toBe(select());
-    expect(stored().chartPeriod).toEqual({ kind: 'window' });
+    // The chart is all the page shows, so no ids repeat, and the period is chosen in the card.
+    expect(document.querySelector('.tabbar, #chart-plot, select')).toBeNull();
 
     await clickBack('chart-full-close');
     expect(document.getElementById('chart-full-plot')).toBeNull();
     expect(document.activeElement).toBe(button());
-    expect(document.querySelector<HTMLSelectElement>('#chart-period')!.value).toBe('window');
 
     button().click();
     await goBack();

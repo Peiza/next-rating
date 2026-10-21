@@ -251,28 +251,73 @@ describe('chart panel', () => {
     expect(cells).toEqual(['chart-date', 'chart-number', '', 'chart-event']);
   });
 
-  it('offers Full screen when it can open, and shows the chart there on its own', () => {
+  it('offers Full screen as a small button in the chart corner when it can open', () => {
     expect(panel().querySelector('#chart-full-screen')).toBeNull();
     const onFullScreen = vi.fn();
-    const button = panel({ kind: 'recent' }, { onFullScreen }).querySelector<HTMLButtonElement>('#chart-full-screen')!;
-    expect(button.textContent).toBe('Full screen');
+    const root = panel({ kind: 'recent' }, { onFullScreen });
+    const button = root.querySelector<HTMLButtonElement>('.chart-frame > #chart-full-screen')!;
+    expect(button.className).toBe('chart-corner');
+    expect(button.getAttribute('aria-label')).toBe('Full screen');
+    expect(button.textContent).toBe('');
+    expect(button.querySelector('svg[aria-hidden="true"] path')).not.toBeNull();
     button.click();
     expect(onFullScreen).toHaveBeenCalledTimes(1);
+    // The plot leaves a strip at the top for it: no point or line goes above it.
+    const svg = plot(root);
+    const tops = [...svg.querySelectorAll('.chart-shape')].map((shape) => Number(shape.getAttribute('cy') ?? shape.getAttribute('y') ?? 99));
+    expect(Math.min(...tops)).toBeGreaterThanOrEqual(20);
+  });
 
+  describe('full screen', () => {
     const onClose = vi.fn();
     const props = { pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), onClose };
-    const full = document.body.appendChild(chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props }));
-    expect(full.querySelector('h1')!.textContent).toBe('Chart');
-    expect([...full.querySelectorAll('[id]')].map((node) => node.id)).toEqual(
-      expect.arrayContaining(['chart-full-title', 'chart-full-close', 'chart-full-period', 'chart-full-detail', 'chart-full-plot']),
-    );
-    expect(full.querySelector('.chart-frame-fill')).not.toBeNull();
-    expect(full.querySelector('.chart-legend, .chart-history, .chart-table')).toBeNull();
-    full.querySelector<HTMLButtonElement>('#chart-full-close')!.click();
-    expect(onClose).toHaveBeenCalledTimes(1);
+    const full = () => document.body.appendChild(chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props }));
+    const label = (view: HTMLElement) => view.querySelector<HTMLElement>('#chart-full-detail')!;
 
-    const empty = chartFullView({ chart: chartData(model, { kind: 'year', year: 2020 }, TODAY), ...props });
-    expect(empty.querySelector('.chart-empty')!.textContent).toBe('No rated rounds in this period.');
+    it('shows only the chart, with Exit full screen in its corner', () => {
+      const view = full();
+      expect(view.querySelector('h1.visually-hidden')!.textContent).toBe('Chart');
+      expect([...view.querySelectorAll('[id]')].map((node) => node.id)).toEqual(['chart-full-title', 'chart-full-plot', 'chart-full-detail', 'chart-full-close']);
+      expect(view.querySelector('select, .chart-legend, .chart-history, .chart-table')).toBeNull();
+      const exit = view.querySelector<HTMLButtonElement>('.chart-frame-fill > #chart-full-close')!;
+      expect(exit.getAttribute('aria-label')).toBe('Exit full screen');
+      onClose.mockClear();
+      exit.click();
+      view.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      view.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+      expect(onClose).toHaveBeenCalledTimes(2);
+
+      const empty = chartFullView({ chart: chartData(model, { kind: 'year', year: 2020 }, TODAY), ...props });
+      expect(empty.querySelector('.chart-empty')!.textContent).toBe('No rated rounds in this period.');
+      expect(empty.querySelector('#chart-full-close')).not.toBeNull();
+    });
+
+    it('names the chosen round in a label in the chart corner, empty until one is chosen', () => {
+      const view = full();
+      expect(label(view).className).toBe('chart-label');
+      expect(label(view).parentElement!.classList.contains('chart-frame-fill')).toBe(true);
+      expect(label(view).getAttribute('aria-live')).toBe('polite');
+      expect(label(view).textContent).toBe('');
+      view.querySelector('svg')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      expect(label(view).textContent).toMatch(/^990 · /);
+    });
+
+    it('moves the label to the right while the chosen point is under it', () => {
+      const chart = chartData(model, { kind: 'custom', from: '2026-09-01', to: '2026-09-30' }, TODAY);
+      const view = document.body.appendChild(chartFullView({ chart, ...props }));
+      const svg = view.querySelector<SVGSVGElement>('#chart-full-plot')!;
+      svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
+      // The label covers the top left: the rounds of early September, rated 951 to 959, but not the dropped 700 at the bottom.
+      Object.defineProperty(label(view), 'offsetWidth', { get: () => 150 });
+      Object.defineProperty(label(view), 'offsetHeight', { get: () => 50 });
+      const choose = (name: string) => svg.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+      choose('Home');
+      expect(label(view).textContent).toMatch(/^700 · /);
+      expect(label(view).classList.contains('chart-label-right')).toBe(false);
+      choose('ArrowRight');
+      expect(label(view).textContent).toMatch(/^951 · /);
+      expect(label(view).classList.contains('chart-label-right')).toBe(true);
+    });
   });
 
   it('says so when the period has no rated rounds', () => {

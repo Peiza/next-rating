@@ -57,7 +57,8 @@ export const DEFAULT_SIZE = { width: 300, height: 200 } as const;
 const CARD_HEIGHT = { min: 200, max: 320 } as const;
 /** Narrower or lower than this, the drawing is scaled down instead. */
 const MIN_SIZE = { width: 240, height: 160 } as const;
-const MARGIN = { left: 34, right: 34, top: 10, bottom: 30 } as const;
+/** The top margin leaves a strip for the corner button (36 px, its icon in the top 20), so it covers no point or line value. */
+const MARGIN = { left: 34, right: 34, top: 26, bottom: 30 } as const;
 /** About this much room per labelled month tick and per gap between rating ticks. */
 const TICK_WIDTH = 52;
 const GAP_HEIGHT = 32;
@@ -242,26 +243,62 @@ function summaryText(chart: ChartData): string {
   return parts.filter(Boolean).join(' ');
 }
 
-export interface PlotOptions {
-  /** The plot's and the details line's ids. */
-  plotId: string;
-  detailId: string;
-  /** True to fill the frame's height, as in the full-screen view; else the card's height for the width. */
-  fill: boolean;
+/** The small button in the chart's top right corner: Full screen in the card, Exit full screen in the full-screen view. */
+interface Corner {
+  id: string;
+  label: MessageKey;
+  /** True for corners pointing inward, as on Exit full screen. */
+  inward: boolean;
+  onClick: () => void;
 }
 
-const CARD_PLOT: PlotOptions = { plotId: CHART_PLOT_ID, detailId: CHART_DETAIL_ID, fill: false };
+const CORNERS = {
+  out: 'M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5',
+  in: 'M7 2v5H2M13 2v5h5M18 13h-5v5M2 13h5v5',
+} as const;
+
+function cornerButton({ id, label, inward, onClick }: Corner): HTMLElement {
+  return el(
+    'button',
+    { id, class: 'chart-corner', type: 'button', 'aria-label': t(label), onclick: onClick },
+    icon(svg('path', { class: 'chart-corners', d: inward ? CORNERS.in : CORNERS.out })),
+  );
+}
+
+export interface PlotOptions {
+  /** The plot's and the chosen round's ids. */
+  plotId: string;
+  detailId: string;
+  /**
+   * True for the full-screen view: the frame fills the view's height and the
+   * chosen round shows as a label in the chart's corner. Else the card's
+   * height for the width, with the chosen round in a line above the chart.
+   */
+  full: boolean;
+  corner?: Corner;
+}
+
+const CARD_PLOT: PlotOptions = { plotId: CHART_PLOT_ID, detailId: CHART_DETAIL_ID, full: false };
+
+/** A label this close to the chosen point moves to the other corner. */
+const LABEL_CLEARANCE = 12;
 
 /**
- * The details line that names the chosen round, above the chart so a finger
- * on the chart does not cover it, then the chart in its frame. The chart is
- * drawn again at the frame's size whenever that changes, keeping the chosen
- * round. A tap picks the nearest point within TAP_RADIUS pixels; the arrow
- * keys step through the points, Home and End jump to the first and last.
+ * The chart in its frame, with the corner button. In the card, the details
+ * line that names the chosen round comes first, above the chart so a finger
+ * on the chart does not cover it; full screen, the round shows as a label in
+ * the top left corner, or the top right while the point is under it. The
+ * chart is drawn again at the frame's size whenever that changes, keeping
+ * the chosen round. A tap picks the nearest point within TAP_RADIUS pixels;
+ * the arrow keys step through the points, Home and End jump to the first and
+ * last.
  */
-export function plot(chart: ChartData, { plotId, detailId, fill }: PlotOptions = CARD_PLOT): HTMLElement[] {
+export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotOptions = CARD_PLOT): HTMLElement[] {
   const highlight = svg('circle', { class: 'chart-selected', r: 10, cx: -100, cy: -100, visibility: 'hidden' });
-  const detail = el('p', { id: detailId, class: 'chart-detail', 'aria-live': 'polite' }, t('chart.hint'));
+  // The label stays empty, and so hidden, until a round is chosen.
+  const detail = full
+    ? el('p', { id: detailId, class: 'chart-label', 'aria-live': 'polite' })
+    : el('p', { id: detailId, class: 'chart-detail', 'aria-live': 'polite' }, t('chart.hint'));
   let placed: { point: ChartPoint; x: number; y: number }[] = [];
   let size: { width: number; height: number } = DEFAULT_SIZE;
   let chosen = -1;
@@ -274,10 +311,25 @@ export function plot(chart: ChartData, { plotId, detailId, fill }: PlotOptions =
     highlight.setAttribute('visibility', 'visible');
   };
 
+  /** Full screen, the label moves to the top right while the chosen point is under it in the top left. */
+  const placeLabel = () => {
+    if (!full || chosen < 0) return;
+    detail.classList.remove('chart-label-right');
+    const box = drawing.getBoundingClientRect();
+    if (box.width === 0) return;
+    const scale = box.width / size.width;
+    const { x, y } = placed[chosen]!;
+    const under =
+      x * scale < detail.offsetLeft + detail.offsetWidth + LABEL_CLEARANCE &&
+      y * scale < detail.offsetTop + detail.offsetHeight + LABEL_CLEARANCE;
+    detail.classList.toggle('chart-label-right', under);
+  };
+
   const choose = (index: number) => {
     chosen = index;
     mark();
     detail.textContent = pointText(placed[index]!.point);
+    placeLabel();
   };
 
   const onTap = (event: Event) => {
@@ -348,9 +400,16 @@ export function plot(chart: ChartData, { plotId, detailId, fill }: PlotOptions =
       ]),
     );
     mark();
+    placeLabel();
   };
 
-  const frame = el('div', { class: fill ? 'chart-frame chart-frame-fill' : 'chart-frame' }, drawing);
+  const frame = el(
+    'div',
+    { class: full ? 'chart-frame chart-frame-fill' : 'chart-frame' },
+    drawing,
+    full && detail,
+    corner && cornerButton(corner),
+  );
   draw(size.width, size.height);
   if (typeof ResizeObserver === 'function') {
     const observer = new ResizeObserver(([entry]) => {
@@ -359,12 +418,12 @@ export function plot(chart: ChartData, { plotId, detailId, fill }: PlotOptions =
       const measured = Math.floor(entry!.contentRect.width);
       if (measured === 0) return;
       const width = Math.max(MIN_SIZE.width, measured);
-      const height = fill ? Math.max(MIN_SIZE.height, Math.floor(entry!.contentRect.height)) : cardHeight(width);
+      const height = full ? Math.max(MIN_SIZE.height, Math.floor(entry!.contentRect.height)) : cardHeight(width);
       if (width !== size.width || height !== size.height) draw(width, height);
     });
     observer.observe(frame);
   }
-  return [detail, frame];
+  return full ? [frame] : [detail, frame];
 }
 
 /** Only the kinds and marks the period has, then the band and the lines. */
@@ -433,19 +492,8 @@ function historyLink(pdgaNumber: number): HTMLElement {
 export function chartPanel({ chart, pdgaNumber, today, onPeriod, onFullScreen }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
   if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
-  const full =
-    onFullScreen &&
-    el(
-      'button',
-      { id: CHART_FULL_BUTTON_ID, class: 'button chart-full-button', type: 'button', onclick: onFullScreen },
-      svg(
-        'svg',
-        { class: 'chart-icon', viewBox: '0 0 20 20', 'aria-hidden': 'true', focusable: 'false' },
-        svg('path', { class: 'chart-corners', d: 'M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5' }),
-      ),
-      t('chart.fullScreen'),
-    );
-  return [...controls, ...(full ? [full] : []), ...plot(chart), legend(chart), historyLink(pdgaNumber), table(chart)];
+  const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
+  return [...controls, ...plot(chart, { ...CARD_PLOT, corner }), legend(chart), historyLink(pdgaNumber), table(chart)];
 }
 
 export interface ChartFullProps extends ChartProps {
@@ -453,27 +501,30 @@ export interface ChartFullProps extends ChartProps {
 }
 
 /**
- * The chart on its own over the whole page, for a phone turned sideways: a
- * header with the title and Close, the period, the chosen round, and the
- * chart filling the rest. The legend, link and table stay in the card. Its
- * ids differ from the card's, though the card is not shown under it.
+ * The chart alone over the whole page, for a phone turned sideways: only the
+ * chart, with the chosen round as a label in its corner and Exit full screen
+ * in the other. The period, legend, link and table stay in the card; its
+ * heading is for screen readers. Back, Exit full screen or Escape close it.
+ * Its ids differ from the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, today, onPeriod, onClose }: ChartFullProps): HTMLElement {
-  const controls = periodControls({ id: 'chart-full', ...chart, today, recent: true, onPeriod });
+export function chartFullView({ chart, onClose }: ChartFullProps): HTMLElement {
+  const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
-      ? [el('p', { class: 'chart-empty' }, t('chart.empty'))]
-      : plot(chart, { plotId: 'chart-full-plot', detailId: 'chart-full-detail', fill: true });
+      ? [el('div', { class: 'chart-frame chart-frame-fill' }, el('p', { class: 'chart-empty' }, t('chart.empty')), cornerButton(corner))]
+      : plot(chart, { plotId: 'chart-full-plot', detailId: 'chart-full-detail', full: true, corner });
   return el(
     'div',
-    { class: 'chart-full', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': CHART_FULL_TITLE_ID },
-    el(
-      'div',
-      { class: 'chart-full-bar' },
-      el('h1', { id: CHART_FULL_TITLE_ID, class: 'chart-full-title', tabindex: -1 }, t('chart.title')),
-      el('button', { id: CHART_FULL_CLOSE_ID, class: 'button', type: 'button', onclick: onClose }, t('chart.close')),
-    ),
-    el('div', { class: 'chart-full-period' }, ...controls),
+    {
+      class: 'chart-full',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-labelledby': CHART_FULL_TITLE_ID,
+      onkeydown: (event) => {
+        if ((event as KeyboardEvent).key === 'Escape') onClose();
+      },
+    },
+    el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
     ...body,
   );
 }
