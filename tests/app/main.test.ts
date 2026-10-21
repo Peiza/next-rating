@@ -7,8 +7,8 @@ import { LIVE_V1 } from './live-v1';
 import { detailsRow, detailsTable, eventDivision, eventPage, eventRow, playerHeader } from '../parsers/html';
 
 /** Loads the app as a fresh page load would. */
-async function start(url: string): Promise<void> {
-  history.replaceState(null, '', url);
+async function start(url: string, clearState = true): Promise<void> {
+  history.replaceState(clearState ? null : history.state, '', url);
   document.body.replaceChildren(Object.assign(document.createElement('div'), { id: 'app' }));
   vi.resetModules();
   await import('../../src/app/main');
@@ -46,6 +46,28 @@ async function handOff(...pages: [html: string, url?: string][]): Promise<void> 
   const payload = await encodeHandoff(envelope({ pages: pages.map(([html, url]) => handoffPage(html, url)) }));
   await start(`/next-rating/#d=${payload}`);
   await vi.waitFor(() => expect(document.getElementById('import-banner')).not.toBeNull());
+}
+
+/**
+ * Resolves after the next popstate, once the app has shown it: the app
+ * listens from its load, so it runs first.
+ */
+function popped(): Promise<void> {
+  return new Promise((resolve) => window.addEventListener('popstate', () => resolve(), { once: true }));
+}
+
+/** The phone's back gesture. */
+async function goBack(): Promise<void> {
+  const done = popped();
+  history.back();
+  await done;
+}
+
+/** Clicks a button that closes a layer by going back in history, and waits for it. */
+async function clickBack(id: string): Promise<void> {
+  const done = popped();
+  document.getElementById(id)!.click();
+  await done;
 }
 
 function bannerText(): string {
@@ -94,9 +116,70 @@ describe('app start', () => {
     document.getElementById('platform-android')!.click();
     expect(document.activeElement?.id).toBe('platform-android');
     expect(document.querySelector('#setup-steps-title')!.textContent).toBe('Chrome on Android');
-    document.getElementById('setup-back')!.click();
+    await clickBack('setup-back');
     expect(document.getElementById('bookmarklet-code')).toBeNull();
     expect(document.activeElement?.id).toBe('open-setup');
+  });
+
+  it('adds a history entry with the same address for each page opened over the tab, which the back gesture closes', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const menu = () => document.getElementById('players-menu')!;
+
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('open-guide')!.focus();
+    document.getElementById('open-guide')!.click();
+    // Measured from the first entry the app added, since earlier tests leave entries behind.
+    const length = history.length - 1;
+    expect(history.state).toEqual({ nextRating: 1, overlay: 'guide', menu: false, depth: 1 });
+    expect(location.href).toBe('http://localhost:3000/next-rating/');
+    // The players panel over How it works: back closes the panel, then How it works, in that order.
+    menu().click();
+    expect(history.length).toBe(length + 2);
+    await goBack();
+    expect(menu().getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(menu());
+    expect(document.getElementById('guide-title')).not.toBeNull();
+    await goBack();
+    expect(document.getElementById('guide-title')).toBeNull();
+    expect(document.activeElement?.id).toBe('open-guide');
+
+    // Forward shows it again, and the app's own Back leaves no entry behind.
+    const forward = popped();
+    history.forward();
+    await forward;
+    expect(document.getElementById('guide-title')).not.toBeNull();
+    await clickBack('guide-back');
+    document.getElementById('open-setup')!.click();
+    expect(history.length).toBe(length + 1);
+
+    // Picking a player from the panel over the setup closes both and goes back over both entries.
+    menu().click();
+    const unwound = popped();
+    document.getElementById('player-100001')!.click();
+    expect(document.getElementById('bookmarklet-code')).toBeNull();
+    await unwound;
+    expect(history.state).toBeNull();
+    expect(document.getElementById('predicted')).not.toBeNull();
+    expect(location.href).toBe('http://localhost:3000/next-rating/');
+  });
+
+  it('shows the page an entry stands for after a fresh load on it', async () => {
+    await start('/next-rating/');
+    history.replaceState({ nextRating: 1, overlay: 'setup', menu: false, depth: 1 }, '', '/next-rating/');
+    await start('/next-rating/', false);
+    expect(document.getElementById('bookmarklet-code')).not.toBeNull();
+    // Anything else in the state is not the app's.
+    history.replaceState({ nextRating: 1, overlay: 'setup', menu: false, depth: 0 }, '', '/next-rating/');
+    await start('/next-rating/', false);
+    expect(document.getElementById('bookmarklet-code')).toBeNull();
   });
 
   it('opens How it works from Settings and from a card at its section, and goes back to where it was opened', async () => {
@@ -114,14 +197,14 @@ describe('app start', () => {
     document.getElementById('stats-guide')!.click();
     expect(document.activeElement?.id).toBe('guide-rules');
     expect(document.getElementById('stats')).toBeNull();
-    document.getElementById('guide-back')!.click();
+    await clickBack('guide-back');
     expect(document.activeElement?.id).toBe('stats-guide');
 
     document.getElementById('tab-settings')!.click();
     document.getElementById('open-guide')!.focus();
     document.getElementById('open-guide')!.click();
     expect(document.activeElement?.id).toBe('guide-title');
-    document.getElementById('guide-back')!.click();
+    await clickBack('guide-back');
     expect(document.activeElement?.id).toBe('open-guide');
   });
 
@@ -222,7 +305,7 @@ describe('app start', () => {
     expect(menu().textContent).toBe('Close');
     expect(document.querySelector('.shell')!.classList.contains('menu-open')).toBe(true);
     expect(document.activeElement?.id).toBe('favorites-title');
-    document.getElementById('player-100002')!.click();
+    await clickBack('player-100002');
     expect(predicted()).toBe('1000');
     expect(barTitle()).toBe('Other Player #100002');
     expect(menu().getAttribute('aria-expanded')).toBe('false');
@@ -239,7 +322,8 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('remove-cancel-100002');
     document.getElementById('remove-confirm-100002')!.click();
     expect(stored().players.map((player: { pdgaNumber: number }) => player.pdgaNumber)).toEqual([100001]);
-    menu().click();
+    await clickBack('players-menu');
+    expect(menu().getAttribute('aria-expanded')).toBe('false');
     expect(predicted()).toBe('950');
   });
 
