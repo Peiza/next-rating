@@ -31,6 +31,7 @@ import {
   MAX_FAVORITES,
   STORAGE_KEY,
   type CardName,
+  type ChartAxis,
   type ChartPeriod,
   type OpenWith,
   type PlayerOrder,
@@ -448,6 +449,12 @@ function setChartPeriod(chartPeriod: ChartPeriod): void {
   render();
 }
 
+/** Stores the chart's x-axis with the settings; focus stays on the radio. */
+function setChartAxis(chartAxis: ChartAxis): void {
+  store.update({ chartAxis });
+  render();
+}
+
 /** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
 function setTop8Own(top8Own: boolean): void {
   store.update({ top8Own });
@@ -763,6 +770,8 @@ function chartProps(player: StoredPlayer, model: Model, now: Date): ChartProps {
     pdgaNumber: player.pdgaNumber,
     today: today(now),
     onPeriod: setChartPeriod,
+    axis: store.get().chartAxis,
+    onAxis: setChartAxis,
     onFullScreen: openChart,
   };
 }

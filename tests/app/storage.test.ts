@@ -409,6 +409,12 @@ describe('Rating tab settings', () => {
     }
   });
 
+  it('draw the chart by date unless even spacing is stored', () => {
+    expect(validateData({}).chartAxis).toBe('time');
+    expect(validateData({ chartAxis: 'even' }).chartAxis).toBe('even');
+    for (const bad of ['Even', 'index', 1, null, true]) expect(validateData({ chartAxis: bad }).chartAxis).toBe('time');
+  });
+
   it('survive a round trip through storage, and load as defaults from data saved before they existed', () => {
     const storage = new MemoryStorage();
     storage.setItem(STORAGE_KEY, JSON.stringify({ language: 'sv', theme: null, playerOrder: 'name', me: null, players: [] }));
@@ -418,8 +424,10 @@ describe('Rating tab settings', () => {
       top8Period: { kind: 'window' },
       top8Own: true,
       chartPeriod: { kind: 'year', year: 2025 },
+      chartAxis: 'even',
     });
     const data = createStore(storage).get();
+    expect(data.chartAxis).toBe('even');
     expect(data.cards.top8).toBe(true);
     expect(data.top8Period).toEqual({ kind: 'window' });
     expect(data.top8Own).toBe(true);
