@@ -101,7 +101,11 @@ widget, nothing on the Rating tab), and the polish from computer and
 Android testing (the chart's period and x-axis in one row of the same
 height; full-screen controls only on screens tall enough too; each tab
 remembers its scroll position; the Rounds card lists the rounds that
-count, the rest behind "Show more").
+count, the rest behind "Show more"), and the rating history line (the
+official rating after each update as steps in the chart, with the
+prediction as the last; bookmarklet 1.2.0 fetches the ratings history and
+sends any other page of a player alone; times on a 24-hour clock with Year
+first and Day first).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -110,10 +114,14 @@ Bookmarklet rules every change keeps:
 - Read only page content, including content hidden behind a toggle (read with
   textContent; never click the toggle). Never read cookies, storage or form
   fields.
-- At most 10 event pages, plus the previous season's results only from
-  1 January to the January update, sequential, about 1 second apart, one
-  attempt per page. On a Cloudflare challenge or a failure, stop fetching and hand off
-  what was collected, with the URLs of the pages that failed.
+- At most 10 event pages, plus the ratings history page (fetched last) and
+  the previous season's results only from 1 January to the January update,
+  sequential, about 1 second apart, one attempt per page. On a Cloudflare
+  challenge or a failure, stop fetching and hand off what was collected,
+  with the URLs of the pages that failed.
+- On an event page or any other page of a player than the details and
+  profile, send that page alone and fetch nothing. Only the bookmarklet's own
+  code decides what it fetches; no link or fragment does.
 - Hand off by navigating the current tab to the app with the data compressed
   and base64url-encoded in the fragment (#d=...), reserved for this hand-off.
   Never window.open after async work.
@@ -205,7 +213,8 @@ request and deploys every merge, so each version can be tested live on my
 phone. At the start of every new step, first run git switch main, git pull
 --ff-only and git fetch --prune, delete local branches that are already
 merged with git branch -d (never -D), then create the new feature branch
-from main. When a step is done, Claude pushes the branch and opens the
+from main. Run git branch -d with the Bash tool, not PowerShell: the
+PowerShell deny rule for git branch -D also matches -d. When a step is done, Claude pushes the branch and opens the
 pull request with gh (`C:\Program Files\GitHub CLI\gh.exe` when gh isn't
 on PATH), with the description and a checklist of what to test on the
 phones, waits for CI and reports whether it passed. Never merge: I always
@@ -218,8 +227,8 @@ calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
-Ko-fi link and the polish from computer and Android testing
-(docs/finished-steps.md). Nothing else is planned: the
+Ko-fi link, the polish from computer and Android testing and the rating
+history line (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.

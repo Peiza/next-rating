@@ -21,13 +21,8 @@ Process list in CLAUDE.md.
 4. Following update too: when some rounds count only in the following update
    (dated after the report deadline), also show the prediction for that
    update, so both are visible.
-5. Official rating history in the chart: the player's official rating after
-   each update, from pdga.com's ratings history page, as a stepped line in the
-   rating chart. It needs one more page in the bookmarklet (so a new
-   bookmarklet version and a higher page limit), a parser for that page and a
-   place in the stored import. Until then the chart draws the official
-   rating and the prediction only across the current window, and links to
-   that page (Chart follow-up in docs/finished-steps.md).
+5. Built: the official rating history in the chart (Rating history line in
+   docs/finished-steps.md). The number stays so the others keep theirs.
 6. Zoom in the chart: pinch to zoom and drag to pan, so a short stretch of a
    long period can be read without changing the period.
 7. Average over a stretch of the chart: select a period with two fingers, as
