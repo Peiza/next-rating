@@ -43,8 +43,9 @@ App: https://peiza.github.io/next-rating/
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
   Dates follow the language and the device's region, or a date format
-  picked in Settings (year, day or month first); the browser's own date
-  pickers keep the device's format.
+  picked in Settings (year, day or month first, where year and day first
+  also show times on a 24-hour clock); the browser's own date pickers keep
+  the device's format.
 - It opens on you, or, with "When the app opens: Show the last viewed player"
   in Settings, on the player you looked at last. A bookmarklet import always
   opens the imported player.
@@ -127,19 +128,22 @@ where a round comes from: a circle for official, a square for unofficial and
 a triangle for manual rounds. The fill shows what the next update does with
 it: filled counts, a ring counts twice, hollow does not count, and a cross
 marks a round that is dropped, left out or not counted by PDGA. The
-prediction's window is shaded, with lines across it for the official rating
-(dashed) and the prediction (solid), or one line when they are equal. They
-are today's values, so a period that does not reach the window has none; a
-link under the chart opens the player's ratings history on pdga.com for the
-official rating over time. Tap a point, or use the arrow keys, to see its
+prediction's window is shaded. A dashed line shows the official rating after
+each ratings update, from the player's ratings history on pdga.com, and at
+the next update a solid line rises or falls to the prediction. Until an
+import has brought the history (bookmarklet 1.2.0 or later), the chart
+draws today's official rating (dashed) and the prediction (solid) across the
+window instead, or one line when they are equal. A link under the chart
+opens the ratings history on pdga.com. Tap a point, or use the arrow keys, to see its
 rating, date, event and status above the chart; on a computer, holding the pointer
 over a point shows them in a tooltip. The same rounds are also available as
 a table. The chart is drawn at the card's width, and the button in its top
 right corner shows it full screen, on its own with the tapped round on a
 line above it, and on a larger screen with the period and the x-axis too
 (in landscape on Android; on iPhone, turn the phone with rotation lock off). The
-period is the last 24 months by default (ending at a planned manual round
-when that is later than today), or a year, the rating window or a
+period is the last 24 months by default (ending today, at the next ratings
+update once the history is imported, or at a planned manual round when that
+is later), or a year, the rating window or a
 custom range, picked like the Top 8's and remembered. The x-axis follows
 time, or with Even spacing gives every round the same width, so a busy
 summer spreads out; that choice is remembered too.
@@ -189,10 +193,10 @@ browser is up to date.
 
 Run it on your ratings details page or player page on pdga.com. It:
 
-- reads the page you run it on, then fetches the other player page and the
-  pages of recent events that are not in your ratings details yet: at most
-  12 requests, one at a time, about a second apart, in your own browser
-  session;
+- reads the page you run it on, then fetches the other player page, the
+  pages of recent events that are not in your ratings details yet and last
+  your ratings history: at most 12 requests, one at a time, about a second
+  apart, in your own browser session;
 - from 1 January until the January ratings update, also fetches your
   previous season's results (one more request), since your player page then
   lists only the new season and a December event not rated yet would be
@@ -202,8 +206,13 @@ Run it on your ratings details page or player page on pdga.com. It:
 - never reads cookies, stored data or form fields, and never loads code from
   anywhere.
 
+On an event page, or any other page of a player (such as the ratings
+history), it sends only that page and fetches nothing.
+
 The app parses that HTML, so when pdga.com changes its pages, an update of
-the app fixes the import without installing the bookmarklet again. If
+the app fixes the import without installing the bookmarklet again; a page
+the app learns to read later can be imported by running the bookmarklet on
+it, and only fetching it in the same run needs a new bookmarklet. If
 pdga.com asks for a browser check, the bookmarklet stops and the app lists
 the pages to open and run it on.
 

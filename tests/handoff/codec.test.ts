@@ -95,9 +95,21 @@ describe('hand-off codec', () => {
     'http://www.pdga.com/player/100001',
     'https://www.pdga.com/player/100001?next=https://evil.example',
     'https://www.pdga.com/user/login',
+    'https://www.pdga.com/player/100001/History',
+    'https://www.pdga.com/player/100001/stats/2025/MPO',
+    'https://www.pdga.com/player/100001/abcdefghijklmnopqrstu',
     'javascript:alert(1)',
   ])('rejects a page from %s', async (url) => {
     expect(await errorCode(pack(envelope({ pages: [handoffPage('<p></p>', url)] })))).toBe('malformed');
+  });
+
+  it.each([
+    'https://www.pdga.com/player/100001/history',
+    'https://www.pdga.com/player/100001/stats/2025',
+    'https://www.pdga.com/player/100001/wins',
+  ])('accepts any page of a player, such as %s', async (url) => {
+    const decoded = await decodeHandoff(await pack(envelope({ pages: [handoffPage('<p></p>', url)] })));
+    expect(decoded.pages?.[0]?.url).toBe(url);
   });
 
   it('limits the number of pages and the size of each', async () => {

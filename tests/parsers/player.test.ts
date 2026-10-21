@@ -77,7 +77,8 @@ describe('detectPage', () => {
     expect(at('https://www.pdga.com/tour/event/900001')).toBe('event');
     expect(at('https://www.pdga.com/player/100001/stats/2025')).toBe('season');
     expect(at('https://www.pdga.com/player/100001/stats/25')).toBe('unknown');
-    expect(at('https://www.pdga.com/player/100001/history')).toBe('unknown');
+    expect(at('https://www.pdga.com/player/100001/history')).toBe('history');
+    expect(at('https://www.pdga.com/player/100001/wins')).toBe('unknown');
     expect(at('https://example.com/player/100001')).toBe('unknown');
     expect(at('')).toBe('unknown');
   });

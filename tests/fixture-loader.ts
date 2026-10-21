@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { DetailsRound } from '../src/parsers/types';
+import type { DetailsRound, HistoryEntry } from '../src/parsers/types';
 
 /*
  * The fixtures are pdga.com pages saved from a browser, and expected.json
@@ -49,6 +49,11 @@ export interface Expected {
    * same player, optional: its file, year and number of events.
    */
   season?: { file: string; year: number; events: number };
+  /**
+   * A saved ratings history page (/player/<nr>/history), of any player,
+   * optional: its file, number of updates and the oldest and newest update.
+   */
+  history?: { file: string; rows: number; oldest: HistoryEntry; newest: HistoryEntry };
   eventRated: ExpectedEvent;
   eventUnofficial: ExpectedEvent & {
     rowsWithoutPdgaNumber: number;
@@ -85,6 +90,13 @@ export function seasonFixture(): { year: number; events: number; html: string } 
   const season = fixtures?.expected.season;
   if (!season || !existsSync(join(DIR, season.file))) return null;
   return { year: season.year, events: season.events, html: readFileSync(join(DIR, season.file), 'utf8') };
+}
+
+/** The ratings history page from expected.json with its HTML, or null when it is not saved. */
+export function historyFixture(): (NonNullable<Expected['history']> & { html: string }) | null {
+  const history = fixtures?.expected.history;
+  if (!history || !existsSync(join(DIR, history.file))) return null;
+  return { ...history, html: readFileSync(join(DIR, history.file), 'utf8') };
 }
 
 export interface LoadedPlayer {

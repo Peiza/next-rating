@@ -6,14 +6,18 @@ import { buildModel } from '../../src/app/model';
 import { collect, keepPlayerRows, packEnvelope, pageHtml, previousSeasonPath, type CollectDeps } from '../../src/bookmarklet/collect';
 import { decodeHandoff, MAX_PAYLOAD } from '../../src/handoff';
 import { detectPage, parsePlayer } from '../../src/parsers';
-import { fixtures, seasonFixture } from '../fixture-loader';
-import { parseHtml } from '../parsers/html';
+import { fixtures, historyFixture, seasonFixture } from '../fixture-loader';
+import { historyTable, page, parseHtml } from '../parsers/html';
 
 /*
  * The whole path on real pdga.com pages: the bookmarklet's collection, the
  * fragment encoding, the app's page reader, the stored import and the
  * prediction. The expected rating is the one the profile page shows.
  */
+
+/** The ratings history the bookmarklet fetches last: an invented table without a player header, so the saved pages' header stays. */
+const historyPath = `/player/${fixtures?.expected.pdgaNumber}/history`;
+const historyHtml = page(historyTable([['8-Sep-2026', '950', '20']]));
 describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
   // A skipped suite is still collected, so stop before reading the fixtures.
   if (!fixtures) return;
@@ -30,6 +34,7 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
     const deps: CollectDeps = {
       fetch: async (path) => {
         requests.push(path);
+        if (path === historyPath) return new Response(historyHtml);
         return path === `/player/${expected.pdgaNumber}` ? new Response(html.profile) : new Response('', { status: 404 });
       },
       parse: parseHtml,
@@ -40,7 +45,7 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
     const envelope = await collect(parseHtml(html.details), `${base}/details`, deps);
     expect(envelope.status).toBe('ok');
     // Every event on the saved profile page is already in the saved details.
-    expect(requests).toEqual([`/player/${expected.pdgaNumber}`]);
+    expect(requests).toEqual([`/player/${expected.pdgaNumber}`, historyPath]);
 
     const payload = await packEnvelope(envelope);
     console.info(`Hand-off from the ratings details page: ${payload.length} characters`);
@@ -116,6 +121,7 @@ describe.skipIf(!fixtures)('the previous season on pdga.com pages', () => {
       fetch: async (path) => {
         requests.push(path);
         if (path === `/player/${expected.pdgaNumber}`) return new Response(html.profile);
+        if (path === historyPath) return new Response(historyHtml);
         return path === seasonPath ? new Response(seasonHtml) : new Response('', { status: 404 });
       },
       parse: parseHtml,
@@ -126,7 +132,7 @@ describe.skipIf(!fixtures)('the previous season on pdga.com pages', () => {
     const envelope = await collect(parseHtml(html.details), `https://www.pdga.com/player/${expected.pdgaNumber}/details`, deps);
     expect(envelope.status).toBe('ok');
     // Every event of the saved seasons is older than the newest rated round or already rated.
-    expect(requests).toEqual([`/player/${expected.pdgaNumber}`, seasonPath]);
+    expect(requests).toEqual([`/player/${expected.pdgaNumber}`, seasonPath, historyPath]);
     const sent = envelope.pages!.find(({ url }) => url.endsWith(seasonPath))!;
     // The season selector found the results tables, so the page is not sent whole.
     expect(sent.html).toContain('id="player-results-');
@@ -136,5 +142,24 @@ describe.skipIf(!fixtures)('the previous season on pdga.com pages', () => {
     const { parts, unreadable } = readPages((await decodeHandoff(await packEnvelope(envelope))).pages ?? []);
     expect(unreadable).toEqual([]);
     expect(parts.profileEvents).toHaveLength(expected.profile.events + events);
+  });
+});
+
+const savedHistory = historyFixture();
+
+describe.skipIf(!savedHistory)('the ratings history on a pdga.com page', () => {
+  if (!savedHistory) return;
+  const doc = parseHtml(savedHistory.html);
+  const url = doc.querySelector('link[rel=canonical]')!.getAttribute('href')!;
+
+  it('sends only the history table and the header, which the app reads back', () => {
+    const sent = pageHtml(doc, 'history');
+    expect(sent).toContain('id="player-results-history"');
+    expect(sent).toContain('class="current-rating"');
+    expect(sent.length).toBeLessThan(savedHistory.html.length / 2);
+    const { parts, unreadable } = readPages([{ url, html: sent }]);
+    expect(unreadable).toEqual([]);
+    expect(parts.history).toHaveLength(savedHistory.rows);
+    expect(parts.player?.currentRating).toBe(String(savedHistory.newest.rating));
   });
 });

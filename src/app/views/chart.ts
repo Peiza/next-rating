@@ -11,6 +11,7 @@ import {
   type PointKind,
   type PointMark,
   type RatingAxis,
+  type RatingStep,
 } from '../chart';
 import { disclosure, el, present, svg, type Child, type Disclosure } from '../dom';
 import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format';
@@ -252,6 +253,28 @@ function ratingLines(chart: ChartData, layout: Layout): SVGElement[] {
   ]);
 }
 
+/**
+ * The official rating after each update as one dashed line that steps at
+ * each update, and the prediction as a solid rise at the next update, held
+ * to the period's end, with its value just after it. A step that runs to the
+ * period's end ends after that day's rounds, as the band does.
+ */
+function stepLines(chart: ChartData, layout: Layout): SVGElement[] {
+  const { steps, next } = chart;
+  if (!steps) return [];
+  const x = (date: PlainDate) => (date === chart.to ? layout.end(date) : layout.start(date));
+  const path = steps.map((step, i) => `${i === 0 ? `M${x(step.from)} ` : 'V'}${layout.y(step.rating)}H${x(step.to)}`).join('');
+  const lines: SVGElement[] = [svg('path', { class: 'chart-line chart-line-official', d: path })];
+  if (next) {
+    const [rise, end, y] = [x(next.date), layout.end(chart.to), layout.y(next.rating)];
+    lines.push(
+      svg('path', { class: 'chart-line chart-line-predicted', d: `M${rise} ${layout.y(steps.at(-1)!.rating)}V${y}H${end}` }),
+      svg('text', { class: 'chart-line-label', x: end + 4, y, 'dominant-baseline': 'middle' }, formatRating(next.rating)),
+    );
+  }
+  return lines;
+}
+
 /** "Example Open, round 2", or the round alone; '' for a manual round without a name. */
 function eventAndRound({ eventName, roundLabel: label }: ChartPoint['row']['round']): string {
   if (!label) return eventName;
@@ -286,6 +309,17 @@ function tipText(point: ChartPoint): string[] {
   return [event || t(KINDS[point.kind]), formatDate(point.date), `${formatRating(point.rating)} · ${t(`round.status.${result.status}`)}`];
 }
 
+/** The lowest and highest official rating the steps show. */
+function stepRange(steps: readonly RatingStep[]): { low: string; high: string } {
+  const ratings = steps.map((step) => step.rating);
+  return { low: formatRating(Math.min(...ratings)), high: formatRating(Math.max(...ratings)) };
+}
+
+/** The prediction's step: its rating and the update, "10 Nov". */
+function nextValues(next: NonNullable<ChartData['next']>): { rating: string; update: string } {
+  return { rating: formatRating(next.rating), update: formatDayMonth(next.date) };
+}
+
 /** What the chart shows, for screen readers. */
 function summaryText(chart: ChartData): string {
   const ratings = chart.points.map((point) => point.rating);
@@ -300,6 +334,8 @@ function summaryText(chart: ChartData): string {
     chart.same && t('chart.summaryBoth', { rating: formatRating(chart.predicted!) }),
     !chart.same && chart.predicted !== null && t('chart.summaryPredicted', { rating: formatRating(chart.predicted) }),
     !chart.same && chart.official !== null && t('chart.summaryOfficial', { rating: formatRating(chart.official) }),
+    chart.steps && t('chart.summarySteps', stepRange(chart.steps)),
+    chart.next && t('chart.summaryNext', nextValues(chart.next)),
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -514,6 +550,7 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
         yAxis(layout),
         xAxis(layout),
         ...ratingLines(chart, layout),
+        ...stepLines(chart, layout),
         ...placed.map(({ point, x, y }) => marker(point.kind, point.mark, x, y)),
         highlight,
       ]),
@@ -564,6 +601,8 @@ function legend(chart: ChartData): HTMLElement {
     chart.same && item(icon(line('predicted')), t('chart.both', { rating: formatRating(chart.predicted!) })),
     !chart.same && chart.predicted !== null && item(icon(line('predicted')), t('chart.predicted', { rating: formatRating(chart.predicted) })),
     !chart.same && chart.official !== null && item(icon(line('official')), t('chart.official', { rating: formatRating(chart.official) })),
+    chart.steps && item(icon(line('official')), t('chart.steps')),
+    chart.next && item(icon(line('predicted')), t('chart.next', nextValues(chart.next))),
   );
 }
 
@@ -613,8 +652,9 @@ export function chartTeaser(chart: ChartData): string {
 }
 
 /**
- * The official rating after each past update is on pdga.com, so the chart
- * links there instead of drawing it. A plain link in the same tab.
+ * pdga.com's ratings history page, with the rounds each update used, and
+ * for a player whose history the app has not read yet the only place to see
+ * the official rating over time. A plain link in the same tab.
  */
 function historyLink(pdgaNumber: number): HTMLElement {
   return el('p', { class: 'chart-history' }, el('a', { href: historyUrl(pdgaNumber), rel: 'noreferrer' }, t('chart.history')));

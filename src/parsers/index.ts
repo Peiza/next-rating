@@ -1,5 +1,6 @@
 export { extractRatingsDetails, normalizeRatingsDetails, parseRatingsDetails } from './details';
 export { extractEvent, normalizeEvent, parseEvent } from './event';
+export { extractRatingsHistory, normalizeRatingsHistory, parseRatingsHistory } from './history';
 export { detectPage, type PageKind } from './page';
 export {
   extractPlayer,
@@ -17,6 +18,7 @@ export type {
   EventResults,
   EventRound,
   EventRow,
+  HistoryEntry,
   PlayerInfo,
   ProfileEvent,
   RatingsDetails,
@@ -25,6 +27,7 @@ export type {
   RawEventDivision,
   RawEventRound,
   RawEventRow,
+  RawHistoryRow,
   RawPlayer,
   RawProfileEvent,
 } from './types';

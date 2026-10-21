@@ -10,8 +10,9 @@ import {
   parsePlayer,
   parseProfileEvents,
   parseRatingsDetails,
+  parseRatingsHistory,
 } from '../../src/parsers';
-import { fixtures } from '../fixture-loader';
+import { fixtures, historyFixture } from '../fixture-loader';
 import { parseHtml } from './html';
 
 /*
@@ -151,5 +152,24 @@ describe.skipIf(!fixtures)('pdga.com fixtures', () => {
       expect(rounds.map((round) => round.rating)).toEqual(ratings);
       for (const round of rounds) expect(round).toMatchObject({ source: 'unofficial', holes: 18 });
     });
+  });
+});
+
+const history = historyFixture();
+
+describe.skipIf(!history)('pdga.com ratings history page', () => {
+  if (!history) return;
+  const doc = parseHtml(history.html);
+
+  it('is a history page with a player header', () => {
+    expect(detectPage(doc)).toBe('history');
+    expect(parsePlayer(doc)?.currentRating).toBe(history.newest.rating);
+  });
+
+  it('reads every update, oldest first', () => {
+    const entries = parseRatingsHistory(doc);
+    expect(entries).toHaveLength(history.rows);
+    expect(entries[0]).toEqual(history.oldest);
+    expect(entries.at(-1)).toEqual(history.newest);
   });
 });

@@ -796,6 +796,48 @@ Built as (docs/plan-computer-android-polish.md):
 - CLAUDE.md "Process": the branch routine at the start of a step, and pull
   requests opened with gh.
 
+## Rating history line
+Spec (idea 5 of docs/ideas.md), with a fix for times:
+1. The bookmarklet also fetches the player's ratings history page
+   (pdga.com/player/<nr>/history), and the app reads the official rating at
+   each update from its table.
+2. The chart draws the official rating as a stepped line across the chosen
+   period, with the prediction as the last step at the next update.
+3. A new bookmarklet version means a reinstall for everyone. Build it so
+   that new pdga.com pages need no reinstall later, without letting a link
+   make it fetch any page it likes, and report its size against 5 kB.
+4. With a year-first date format, times showed as "2:50 PM". Year first
+   implies a 24-hour clock ("14:50"); the default US English format keeps
+   AM/PM. No extra setting.
+
+Built as (docs/plan-rating-history.md):
+- Page kind `history`; src/parsers/history.ts reads `#player-results-history`
+  (effective date, rating, rounds used), oldest first. Stored as
+  `StoredImport.history`, replaced only by an import that brings it;
+  `Model.history` adds the player header's rating when its date is newer.
+- Bookmarklet 1.2.0, 5036 bytes: on a details or profile page it fetches the
+  history last, after the season and event pages, so a failure there costs
+  no event page, and the fragment limit drops event pages, never the
+  history. On any other page of a player (`/player/<nr>/<word>`, with a year
+  after it as on a season page) it sends that page alone and fetches
+  nothing, so a page the app learns later is read by a run on it; only
+  fetching it in the one-tap run needs a new version. Nothing outside the
+  bookmarklet decides what it fetches. `PDGA_PAGE` accepts those pages,
+  `MAX_PAGES` is 14.
+- `ratingSteps` and `ChartData.steps` and `next` in src/app/chart.ts: each
+  update's rating to the next update's date, clipped to the period, the last
+  one to the next ratings update; the prediction at that update when it is
+  in the period. With a history the last 24 months and the rating window run
+  on to the next update, and the flat lines across the window are gone,
+  also before the first update; without a history the chart is as before.
+  One dashed path, a solid rise held to the period's end with its value,
+  even spacing included; not tappable. Legend "Official rating after each
+  update" and "Prediction 978 at the 10 Nov update", and both in the SVG
+  summary. The ratings history link stays.
+- `formatDateTime` uses `hourCycle: 'h23'` with Year first and Day first;
+  Month first and Automatic keep the locale's clock. It is the only clock
+  time in the app (the "Last import" line).
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -857,3 +899,6 @@ Built in this order:
 - Polish from computer and Android testing: the chart controls, full-screen
   controls only where there is height, remembered scroll positions and a
   shorter Rounds card (docs/plan-computer-android-polish.md) (done)
+- Rating history line: the official rating after each update as steps in
+  the chart, bookmarklet 1.2.0 with the history page, and 24-hour times
+  with Year first and Day first (docs/plan-rating-history.md) (done)

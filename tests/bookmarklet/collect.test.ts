@@ -21,6 +21,7 @@ import {
   eventDivision,
   eventPage,
   eventRow,
+  historyTable,
   layoutTooltip,
   page,
   parseHtml,
@@ -35,6 +36,8 @@ import {
 const ORIGIN = 'https://www.pdga.com';
 const DETAILS = `${ORIGIN}/player/100001/details`;
 const PROFILE = `${ORIGIN}/player/100001`;
+const HISTORY_PATH = '/player/100001/history';
+const HISTORY = ORIGIN + HISTORY_PATH;
 const eventUrl = (id: string) => `${ORIGIN}/tour/event/${id}`;
 
 function detailsHtml(extra = ''): string {
@@ -64,9 +67,16 @@ function eventHtml(id: string, rating = '960'): string {
   });
 }
 
+const historyHtml = page(
+  playerHeader() + historyTable([['8-Sep-2026', '950', '20'], ['11-Aug-2026', '947', '18']]),
+  HISTORY,
+);
+
 type Served = string | Response | Error;
 
-function setup(served: Record<string, Served>, now = new Date(2026, 9, 12)) {
+/** Serves the pages, and the history page unless `served` answers it. */
+function setup(pages: Record<string, Served>, now = new Date(2026, 9, 12)) {
+  const served: Record<string, Served> = { [HISTORY_PATH]: historyHtml, ...pages };
   const requests: string[] = [];
   const waits: number[] = [];
   const progress: [number, number][] = [];
@@ -101,20 +111,21 @@ const profileWithNewEvent = profileHtml([
 ]);
 
 describe('bookmarklet on a player page', () => {
-  it('sends the ratings details, the profile and new events with only the player\'s rows', async () => {
+  it('sends the ratings details, the profile, new events with only the player\'s rows and the history', async () => {
     const { deps, requests, waits, progress } = setup({
       '/player/100001': profileWithNewEvent,
       '/tour/event/900003': eventHtml('900003'),
     });
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
 
-    expect(requests).toEqual(['/player/100001', '/tour/event/900003']);
-    expect(waits).toEqual([REQUEST_GAP, REQUEST_GAP]);
-    expect(progress.at(-1)).toEqual([3, 3]);
+    expect(requests).toEqual(['/player/100001', '/tour/event/900003', HISTORY_PATH]);
+    expect(waits).toEqual([REQUEST_GAP, REQUEST_GAP, REQUEST_GAP]);
+    expect(progress.at(-1)).toEqual([4, 4]);
     expect(envelope).toMatchObject({ v: 2, status: 'ok', page: 'details', bookmarklet: BOOKMARKLET_VERSION });
     expect(envelope.failed).toBeUndefined();
-    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, eventUrl('900003')]);
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, eventUrl('900003'), HISTORY]);
     expect(envelope.pages![2]!.html).not.toContain('Other Player');
+    expect(envelope.pages![3]!.html).toContain('id="player-results-history"');
 
     const { parts, owner, unreadable } = await received(envelope);
     expect(owner).toBe(100001);
@@ -127,6 +138,10 @@ describe('bookmarklet on a player page', () => {
     expect(parts.events![0]!.divisions[0]!.rows).toEqual([
       { pdgaNumber: '100001', name: 'Test Player', rounds: [{ score: '54', rating: '960' }] },
     ]);
+    expect(parts.history).toEqual([
+      { date: '8-Sep-2026', rating: '950', rounds: '20' },
+      { date: '11-Aug-2026', rating: '947', rounds: '18' },
+    ]);
   });
 
   it('starts from the profile page just as well', async () => {
@@ -135,9 +150,21 @@ describe('bookmarklet on a player page', () => {
       '/tour/event/900003': eventHtml('900003'),
     });
     const envelope = await collect(parseHtml(profileWithNewEvent), PROFILE, deps);
-    expect(requests).toEqual(['/player/100001/details', '/tour/event/900003']);
+    expect(requests).toEqual(['/player/100001/details', '/tour/event/900003', HISTORY_PATH]);
     expect(envelope.page).toBe('profile');
-    expect(envelope.pages!.map(({ url }) => url)).toEqual([PROFILE, DETAILS, eventUrl('900003')]);
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([PROFILE, DETAILS, eventUrl('900003'), HISTORY]);
+  });
+
+  it('keeps the events when only the history fails', async () => {
+    const { deps } = setup({
+      '/player/100001': profileWithNewEvent,
+      '/tour/event/900003': eventHtml('900003'),
+      [HISTORY_PATH]: new Response('Server error', { status: 500 }),
+    });
+    const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
+    expect(envelope.status).toBe('partial');
+    expect(envelope.failed).toEqual([HISTORY]);
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, eventUrl('900003')]);
   });
 
   it('keeps only the parts the app reads', async () => {
@@ -186,7 +213,7 @@ describe('picking events', () => {
     expect(ids).toHaveLength(MAX_EVENT_PAGES);
     expect(ids[0]).toBe('900111');
     expect(new Set(ids).size).toBe(ids.length);
-    expect(MAX_PAGES).toBe(MAX_EVENT_PAGES + 3);
+    expect(MAX_PAGES).toBe(MAX_EVENT_PAGES + 4);
   });
 
   it('takes every season event for a player without rated rounds', () => {
@@ -243,11 +270,18 @@ describe('the previous season in January', () => {
       JANUARY,
     );
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
-    expect(requests).toEqual(['/player/100001', SEASON_PATH, '/tour/event/900008', '/tour/event/900007']);
-    expect(waits).toHaveLength(4);
-    expect(progress.at(-1)).toEqual([5, 5]);
+    expect(requests).toEqual(['/player/100001', SEASON_PATH, '/tour/event/900008', '/tour/event/900007', HISTORY_PATH]);
+    expect(waits).toHaveLength(5);
+    expect(progress.at(-1)).toEqual([6, 6]);
     expect(envelope.status).toBe('ok');
-    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, SEASON, eventUrl('900008'), eventUrl('900007')]);
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([
+      DETAILS,
+      PROFILE,
+      SEASON,
+      eventUrl('900008'),
+      eventUrl('900007'),
+      HISTORY,
+    ]);
     expect(envelope.pages![2]!.html).not.toContain('year-link');
 
     const { parts, unreadable } = await received(envelope);
@@ -257,10 +291,10 @@ describe('the previous season in January', () => {
     expect(parts.events).toHaveLength(2);
   });
 
-  it('fetches only the other player page outside January', async () => {
-    const { deps, requests } = setup({ '/player/100001': profile2027 }, new Date(2027, 0, 13));
+  it('fetches no season outside January', async () => {
+    const { deps, requests } = setup({ '/player/100001': profile2027, '/tour/event/900008': eventHtml('900008') }, new Date(2027, 0, 13));
     await collect(parseHtml(detailsHtml()), DETAILS, deps);
-    expect(requests).toEqual(['/player/100001', '/tour/event/900008']);
+    expect(requests).toEqual(['/player/100001', '/tour/event/900008', HISTORY_PATH]);
   });
 
   it('stops at a challenge on the season page', async () => {
@@ -269,7 +303,7 @@ describe('the previous season in January', () => {
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
     expect(requests).toEqual(['/player/100001', SEASON_PATH]);
     expect(envelope.status).toBe('challenge');
-    expect(envelope.failed).toEqual([SEASON, eventUrl('900008')]);
+    expect(envelope.failed).toEqual([SEASON, eventUrl('900008'), HISTORY]);
   });
 
   it('works from the profile page too', async () => {
@@ -288,7 +322,7 @@ describe('stopping', () => {
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
     expect(requests).toEqual(['/player/100001', '/tour/event/900004']);
     expect(envelope.status).toBe('challenge');
-    expect(envelope.failed).toEqual([eventUrl('900004'), eventUrl('900003')]);
+    expect(envelope.failed).toEqual([eventUrl('900004'), eventUrl('900003'), HISTORY]);
     expect(envelope.pages).toHaveLength(2);
   });
 
@@ -296,7 +330,7 @@ describe('stopping', () => {
     const { deps } = setup({ '/player/100001': page('<form id="challenge-form"></form>', '', 'Just a moment...') });
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
     expect(envelope.status).toBe('challenge');
-    expect(envelope.failed).toEqual([PROFILE]);
+    expect(envelope.failed).toEqual([PROFILE, HISTORY]);
     expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS]);
   });
 
@@ -308,7 +342,7 @@ describe('stopping', () => {
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
     expect(requests).toEqual(['/player/100001']);
     expect(envelope.status).toBe('partial');
-    expect(envelope.failed).toEqual([PROFILE]);
+    expect(envelope.failed).toEqual([PROFILE, HISTORY]);
   });
 
   it('treats a redirect to another kind of page as a failure', async () => {
@@ -317,7 +351,7 @@ describe('stopping', () => {
     const { deps } = setup({ '/player/100001': login });
     const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
     expect(envelope.status).toBe('partial');
-    expect(envelope.failed).toEqual([PROFILE]);
+    expect(envelope.failed).toEqual([PROFILE, HISTORY]);
   });
 });
 
@@ -331,18 +365,48 @@ describe('other pages', () => {
     expect(parts.events![0]!.divisions[0]!.rows).toHaveLength(2);
   });
 
+  it('sends the history page alone, without fetching anything', async () => {
+    const { deps, requests } = setup({});
+    const envelope = await collect(parseHtml(historyHtml), HISTORY, deps);
+    expect(requests).toEqual([]);
+    expect(envelope).toMatchObject({ status: 'ok', page: 'history' });
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([HISTORY]);
+    const { parts, owner, unreadable } = await received(envelope);
+    expect(owner).toBe(100001);
+    expect(unreadable).toEqual([]);
+    expect(parts.player?.currentRating).toBe('950');
+    expect(parts.history).toHaveLength(2);
+    expect(parts.details).toBeUndefined();
+  });
+
+  it('sends any other page of a player alone, for an app that can read it later', async () => {
+    const { deps, requests } = setup({});
+    const wins = `${ORIGIN}/player/100001/wins`;
+    const envelope = await collect(parseHtml(page(`${playerHeader()}<script>track()</script><p>Wins</p>`, wins)), `${wins}/`, deps);
+    expect(requests).toEqual([]);
+    expect(envelope).toMatchObject({ status: 'ok', page: 'unknown' });
+    expect(envelope.pages![0]!.url).toBe(wins);
+    expect(envelope.pages![0]!.html).toContain('<p>Wins</p>');
+    expect(envelope.pages![0]!.html).not.toContain('<script');
+    const { unreadable } = await received(envelope);
+    expect(unreadable).toEqual([wins]);
+  });
+
   it('reports a challenge page with its address', async () => {
     const doc = parseHtml(page('<form id="challenge-form"></form>', '', 'Just a moment...'));
     const envelope = await collect(doc, `${DETAILS}?__cf_chl_rt_tk=abc`, setup({}).deps);
     expect(envelope).toMatchObject({ status: 'challenge', page: 'challenge', failed: [DETAILS] });
   });
 
-  it('reports any other page as unsupported', async () => {
-    const { deps, requests } = setup({});
-    const envelope = await collect(parseHtml(page('<h1>News</h1>')), `${ORIGIN}/news`, deps);
-    expect(requests).toEqual([]);
-    expect(envelope).toEqual({ v: 2, status: 'unsupported-page', page: 'unknown', bookmarklet: BOOKMARKLET_VERSION });
-  });
+  it.each([`${ORIGIN}/news`, `${ORIGIN}/player/100001/Wins`, `${ORIGIN}/player/100001/stats/2025/MPO`, `${ORIGIN}/players`])(
+    'reports %s as unsupported',
+    async (url) => {
+      const { deps, requests } = setup({});
+      const envelope = await collect(parseHtml(page('<h1>News</h1>')), url, deps);
+      expect(requests).toEqual([]);
+      expect(envelope).toEqual({ v: 2, status: 'unsupported-page', page: 'unknown', bookmarklet: BOOKMARKLET_VERSION });
+    },
+  );
 
   it('reports an error when reading the page fails', async () => {
     const { deps } = setup({});
@@ -366,7 +430,7 @@ describe('after a markup change on pdga.com', () => {
     const envelope = await collect(doc, DETAILS, deps);
 
     // Without a readable details table, no event can be told to be new.
-    expect(requests).toEqual(['/player/100001']);
+    expect(requests).toEqual(['/player/100001', HISTORY_PATH]);
     const html = envelope.pages![0]!.html;
     expect(html).toContain('<link rel="canonical"');
     expect(html).toContain('id="ratings-table"');
@@ -415,6 +479,26 @@ describe('fragment limit', () => {
     expect(envelope.failed).toEqual([eventUrl('900004')]);
     expect(envelope.status).toBe('partial');
     expect((await decodeHandoff(payload)).failed).toEqual([eventUrl('900004')]);
+  });
+
+  it('keeps the history after the event pages', async () => {
+    const envelope: Envelope = {
+      v: 2,
+      status: 'ok',
+      page: 'details',
+      bookmarklet: BOOKMARKLET_VERSION,
+      pages: [
+        { url: DETAILS, html: detailsHtml() },
+        { url: PROFILE, html: profileWithNewEvent },
+        { url: eventUrl('900003'), html: noise(4000, 1) },
+        { url: eventUrl('900004'), html: noise(4000, 2) },
+        { url: HISTORY, html: historyHtml },
+      ],
+    };
+    const payload = await packEnvelope(envelope, 5000);
+    expect(payload.length).toBeLessThanOrEqual(5000);
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, eventUrl('900003'), HISTORY]);
+    expect(envelope.failed).toEqual([eventUrl('900004')]);
   });
 
   it('never drops the page it ran on', async () => {

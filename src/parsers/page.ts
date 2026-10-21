@@ -1,5 +1,9 @@
-/** A season is a player's results of an earlier year, which the profile links to (/player/<nr>/stats/<year>). */
-export type PageKind = 'details' | 'profile' | 'season' | 'event' | 'challenge' | 'unknown';
+/**
+ * A season is a player's results of an earlier year, which the profile links
+ * to (/player/<nr>/stats/<year>); the history is the official rating after
+ * each update (/player/<nr>/history).
+ */
+export type PageKind = 'details' | 'profile' | 'season' | 'history' | 'event' | 'challenge' | 'unknown';
 
 /**
  * Tells which kind of pdga.com page a document is, from its URL. Without a
@@ -20,6 +24,7 @@ export function detectPage(doc: Document, url?: string): PageKind {
   if (/^\/player\/\d+\/details\/?$/.test(path)) return 'details';
   if (/^\/player\/\d+\/?$/.test(path)) return 'profile';
   if (/^\/player\/\d+\/stats\/\d{4}\/?$/.test(path)) return 'season';
+  if (/^\/player\/\d+\/history\/?$/.test(path)) return 'history';
   if (/^\/tour\/event\/\d+\/?$/.test(path)) return 'event';
   return 'unknown';
 }

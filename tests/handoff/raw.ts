@@ -1,5 +1,5 @@
 import type { Envelope, HandoffPage } from '../../src/handoff';
-import type { RawDetailsRow, RawEvent, RawEventRow, RawPlayer, RawProfileEvent } from '../../src/parsers/types';
+import type { RawDetailsRow, RawEvent, RawEventRow, RawHistoryRow, RawPlayer, RawProfileEvent } from '../../src/parsers/types';
 
 /* Synthetic raw records, as the extract layer returns them, and hand-offs. All names, numbers and results are invented. */
 
@@ -57,4 +57,9 @@ export function envelope(extra: Partial<Envelope> = {}): Envelope {
 /** A page as the bookmarklet sends it. */
 export function handoffPage(html: string, url = 'https://www.pdga.com/player/100001/details'): HandoffPage {
   return { url, html };
+}
+
+/** A ratings history row: an update's effective date, rating and rounds used. */
+export function rawHistoryRow(date = '8-Sep-2026', rating = '950', rounds = '20'): RawHistoryRow {
+  return { date, rating, rounds };
 }
