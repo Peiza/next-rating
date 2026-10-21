@@ -359,7 +359,7 @@ describe('Rating tab settings', () => {
     for (const bad of ['100001', 1.5, -1, null]) expect(validateData({ lastViewed: bad, players }).lastViewed).toBeNull();
   });
 
-  it('count own rounds in the Top 8 only for a stored true', () => {
+  it('count manual rounds in the Top 8 only for a stored true', () => {
     expect(validateData({ top8Own: true }).top8Own).toBe(true);
     for (const bad of [false, 'true', 1, null]) expect(validateData({ top8Own: bad }).top8Own).toBe(false);
   });

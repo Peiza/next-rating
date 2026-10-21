@@ -13,7 +13,7 @@ export type { TopPeriod };
 
 export interface TopEight {
   period: TopPeriod;
-  /** Whether the user's own (manual) rounds count. */
+  /** Whether manual rounds count. */
   own: boolean;
   /** Whether the player has a rated manual round, so the switch for them matters. */
   hasOwn: boolean;

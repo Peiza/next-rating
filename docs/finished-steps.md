@@ -418,7 +418,7 @@ Built as (docs/plan-target-date.md):
   or "No rounds leave the window by …". The hint follows the date field as
   it changes.
 
-## Phone polish and Top 8 with own rounds
+## Phone polish and Top 8 with manual rounds
 Spec:
 1. Players page: the same space above and below the "Edit list" button, and
    less space between the add-by-number form and the name search.
@@ -429,8 +429,8 @@ Spec:
 3. Top bar on phones: Settings, How it works and the setup page show their
    title on the left of the top bar, next to the Players button, instead of
    a separate heading line below it.
-4. Top 8: a switch "Include my own rounds", off by default and remembered.
-   When it is on, manual rounds count in the Top 8, are marked as my own,
+4. Top 8: a switch "Include manual rounds", off by default and remembered.
+   When it is on, manual rounds count in the Top 8, are marked as manual,
    and their years appear in the year list.
 5. Year boundary: the profile page lists only the current season, so in
    early January the bookmarklet misses a December event that is not rated
@@ -457,8 +457,8 @@ Built as (docs/plan-phone-polish.md):
 - `topRounds` and `isTopRound` take `{ own }`. The checkbox sits under the
   period select, only when the player has a rated manual round. Stored with
   the settings as `top8Own`, the same for every player. A manual round reads
-  "Own" in place of the round label, with its event name or "Own round", no
-  link.
+  "Manual" in place of the round label, with its event name or "Manual
+  round", no link.
 - `previousSeasonPath` in src/bookmarklet/collect.ts: on the device's date
   from 1 January to the second Tuesday of January (inclusive), and only when
   the profile's `.year-link` tabs link to /player/<nr>/stats/<year - 1>.
@@ -492,7 +492,7 @@ Spec (idea 2 of docs/ideas.md), with a small step first:
 3. A Chart card on the Rating tab after Why it changed, closed by default:
    inline SVG drawn by the app's own code, phone first, colours from the
    theme tokens, readable at 320 px. Round ratings over time, newest to the
-   right; official, unofficial and own rounds told apart by shape; rounds
+   right; official, unofficial and manual rounds told apart by shape; rounds
    that count twice, are dropped, excluded or left out marked. The current
    window shaded, with lines for the official rating and the prediction.
    Period: the last 24 months by default, or a year, the rating window or a
@@ -741,7 +741,7 @@ Built in this order:
   top bar and closed-card header feedback (done)
 - Target date: a date in the target calculator (docs/plan-target-date.md)
   (done)
-- Phone polish and Top 8 with own rounds (docs/plan-phone-polish.md) (done)
+- Phone polish and Top 8 with manual rounds (docs/plan-phone-polish.md) (done)
 - Rating chart, with notes for leagues and late reports and Open with the
   last viewed player (docs/plan-chart.md) (done)
 - Chart follow-up: lines across the window, the ratings history link,

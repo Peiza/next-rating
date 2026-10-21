@@ -103,7 +103,7 @@ describe('periodYears', () => {
   });
 });
 
-describe('own rounds', () => {
+describe('manual rounds', () => {
   const rounds = manualToRounds([manual(1060, '2026-09-01'), manual(990, '2023-05-01')]);
   const model = buildModel(stored, 100001, NOW, rounds);
 

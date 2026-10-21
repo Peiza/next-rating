@@ -176,7 +176,7 @@ describe('chart panel', () => {
     key(root, 'ArrowRight');
     expect(detail(root)).toMatch(/^951 · Counted · Event 1/);
     key(root, 'End');
-    expect(detail(root)).toMatch(/^990 · Counts in the following update · Planned Open · \S+ · Your own$/);
+    expect(detail(root)).toMatch(/^990 · Counts in the following update · Planned Open · \S+ · Manual$/);
     key(root, 'ArrowRight');
     expect(detail(root)).toMatch(/^990/);
     key(root, 'Home');
@@ -334,7 +334,7 @@ describe('chart panel', () => {
       ...[...row.querySelectorAll('.chart-event > span')].map((span) => span.textContent),
     ]);
     expect(rows).toHaveLength(13);
-    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Your own']);
+    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Manual']);
     expect(rows.at(-1)).toEqual(['700', 'Event 0 · Round 1', 'Dropped · Official']);
     expect(rows.some(([, , status]) => status === 'Counts twice · Official')).toBe(true);
     // The date and the rating keep to one line; the event name wraps.

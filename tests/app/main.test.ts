@@ -840,7 +840,7 @@ describe('app start', () => {
     }
   });
 
-  it('remembers whether the Top 8 counts own rounds across launches', async () => {
+  it('remembers whether the Top 8 counts manual rounds across launches', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const date = new Date().toISOString().slice(0, 10);
     localStorage.setItem(

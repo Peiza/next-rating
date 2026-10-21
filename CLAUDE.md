@@ -74,7 +74,7 @@ works, X-tier events (rounds PDGA leaves out; unofficial X-tier events
 marked, any unofficial event can be left out), a date in the target
 calculator (the update for that date and the rounds that leave the window),
 phone polish (the back gesture closes the players panel, setup and How
-it works; view titles in the phone top bar; Top 8 with own rounds; the
+it works; view titles in the phone top bar; Top 8 with manual rounds; the
 previous season in January), the rating chart (with notes for leagues
 and late reports, and the last viewed player when the app opens), the
 chart follow-up (lines across the window only, a link to the ratings

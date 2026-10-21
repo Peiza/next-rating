@@ -811,7 +811,7 @@ describe('top 8 panel', () => {
     return ratingView({ model, top8, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
-  it('offers the own rounds switch only with a manual round, and marks own rounds when they count', () => {
+  it('offers the manual rounds switch only with a manual round, and marks manual rounds when they count', () => {
     expect(page().querySelector('#top8-own')).toBeNull();
     const manual = manualToRounds([
       { id: 'a', rating: 1060, date: '2026-09-01', eventName: 'Practice league', holes: null },
@@ -831,7 +831,7 @@ describe('top 8 panel', () => {
     const off = view(false);
     const box = off.querySelector<HTMLInputElement>('#top8-own')!;
     expect(box.checked).toBe(false);
-    expect(off.querySelector('label[for="top8-own"]')!.textContent).toBe('Include my own rounds');
+    expect(off.querySelector('label[for="top8-own"]')!.textContent).toBe('Include manual rounds');
     expect(off.querySelector('.top8-row-own')).toBeNull();
     box.checked = true;
     box.dispatchEvent(new Event('change'));
@@ -840,7 +840,7 @@ describe('top 8 panel', () => {
     const on = view(true);
     expect(on.querySelector<HTMLInputElement>('#top8-own')!.checked).toBe(true);
     const own = [...on.querySelectorAll('.top8-row-own')];
-    expect(own.map((row) => row.textContent)).toEqual(['OwnPractice league1060', 'OwnOwn round1055']);
+    expect(own.map((row) => row.textContent)).toEqual(['ManualPractice league1060', 'ManualManual round1055']);
     expect(own[0]!.querySelector('a')).toBeNull();
   });
 

@@ -244,7 +244,7 @@ function pointText(point: ChartPoint): string {
   return [formatRating(point.rating), t(`round.status.${result.status}`), roundWhere(round), t(KINDS[point.kind])].filter(Boolean).join(' · ');
 }
 
-/** The tooltip's lines: the event and round (or the kind, for an own round without a name), the date, then the rating and status. */
+/** The tooltip's lines: the event and round (or the kind, for a manual round without a name), the date, then the rating and status. */
 function tipText(point: ChartPoint): string[] {
   const { round, result } = point.row;
   const event = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)].filter(Boolean).join(' · ');

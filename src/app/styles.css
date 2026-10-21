@@ -786,14 +786,14 @@ a {
   overflow: hidden;
 }
 
-/* From and to side by side; both date fields fit at 320 px. */
-/* "Include my own rounds", a .check on its own between the period and the card. */
+/* "Include manual rounds", a .check on its own between the period and the card. */
 .top8-own {
   align-items: center;
   margin: -0.5rem 0 0.5rem;
   border-bottom: none;
 }
 
+/* From and to side by side; both date fields fit at 320 px. */
 .period-range {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1189,6 +1189,11 @@ a {
   min-width: 3.25em;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+/* Room for "Manual" or "Manuell" in every row while one shows, so the event names stay in line. */
+.top8-rounds:has(.top8-row-own) .top8-label {
+  min-width: 4.5em;
 }
 
 .top8-event {
