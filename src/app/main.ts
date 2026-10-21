@@ -82,7 +82,7 @@ import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
 import { openWithId, settingsView, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
-import { startView } from './views/start';
+import { startTabId, startView, type StartTab } from './views/start';
 
 /*
  * The fragment is reserved for the bookmarklet hand-off and there is no
@@ -113,6 +113,8 @@ let tab: Tab = 'rating';
 /** The player the Rating tab shows. A page load starts on "me", or on the player shown last when Settings says so. */
 let selected: number | null = initialSelection(store.get());
 let flash: PdgaFlash = null;
+/** The start view's first step: your PDGA number, or a search by name. A page load starts on the number. */
+let startTab: StartTab = 'number';
 let banner: Banner | null = null;
 /**
  * The bookmarklet setup, How it works or the full-screen chart shows over the
@@ -215,6 +217,11 @@ function savePdgaNumber(pdgaNumber: number | null): void {
   }
   // Focus the button rather than the field, so a phone keyboard closes.
   render(PDGA_SAVE_ID);
+}
+
+/** Opens pdga.com's player search in the same tab, so the back gesture or the bookmarklet comes back here. */
+function searchPdga(url: string): void {
+  window.location.assign(url);
 }
 
 /** Saves the unsaved player as a favorite, then puts focus on `focusId`. */
@@ -759,7 +766,14 @@ function currentView(): HTMLElement {
     pdgaNumber: data.me,
     player: player ? { pdgaNumber: player.pdgaNumber, label: playerLabel(player) } : null,
     flash,
+    tab: startTab,
+    onTab: (next) => {
+      startTab = next;
+      flash = null;
+      render(startTabId(next));
+    },
     onSavePdgaNumber: savePdgaNumber,
+    onSearch: searchPdga,
     onOpenSetup: openSetup,
   });
 }
@@ -834,8 +848,7 @@ function render(focusId = document.activeElement?.id): void {
         order: data.playerOrder,
         now: new Date(),
         onOrder: setPlayerOrder,
-        // The same tab, so the bookmarklet run on the player's page comes back here.
-        onSearch: (url) => window.location.assign(url),
+        onSearch: searchPdga,
         onSelect: selectPlayer,
         onClose: closeMenu,
         onToggleEdit: toggleEditPlayers,

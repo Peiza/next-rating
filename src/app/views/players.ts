@@ -3,7 +3,7 @@ import { el } from '../dom';
 import { deviceLocale, formatAge } from '../format';
 import { playerName, sortFavorites } from '../players';
 import type { PlayerOrder, StoredPlayer } from '../storage';
-import { detailsUrl, pdgaNumberForm, playerSearchUrl, type PdgaFlash } from './pdga';
+import { detailsUrl, nameSearchForm, pdgaNumberForm, type PdgaFlash } from './pdga';
 import { segmented, type Segment } from './segmented';
 
 /*
@@ -182,46 +182,6 @@ function unsavedItem(player: StoredPlayer, props: PlayersProps): HTMLElement {
   );
 }
 
-/** Opens pdga.com's player search for a name; the user picks the player there and runs the bookmarklet. */
-function searchForm(onSearch: (url: string) => void): HTMLFormElement {
-  const statusId = `${SEARCH_INPUT_ID}-status`;
-  const input = el('input', {
-    id: SEARCH_INPUT_ID,
-    class: 'input',
-    type: 'search',
-    autocomplete: 'off',
-    enterkeyhint: 'search',
-    maxlength: 100,
-    'aria-describedby': `${SEARCH_INPUT_ID}-hint ${statusId}`,
-  });
-  const status = el('p', { id: statusId, class: 'status', role: 'status' });
-  const submit = (event: Event) => {
-    event.preventDefault();
-    const url = playerSearchUrl(input.value);
-    if (url === null) {
-      input.setAttribute('aria-invalid', 'true');
-      status.classList.add('error');
-      status.textContent = t('players.searchEmpty');
-      input.focus();
-      return;
-    }
-    onSearch(url);
-  };
-  return el(
-    'form',
-    { class: 'field', novalidate: true, onsubmit: submit },
-    el('label', { for: SEARCH_INPUT_ID, class: 'label' }, t('players.searchLabel')),
-    el('p', { id: `${SEARCH_INPUT_ID}-hint`, class: 'hint' }, t('players.searchHint')),
-    el(
-      'div',
-      { class: 'row' },
-      input,
-      el('button', { id: `${SEARCH_INPUT_ID}-submit`, class: 'button', type: 'submit' }, t('players.search')),
-    ),
-    status,
-  );
-}
-
 export function playersPanel(props: PlayersProps): HTMLElement {
   const favorites = sortFavorites(
     props.players.filter((player) => player.favorite),
@@ -268,7 +228,8 @@ export function playersPanel(props: PlayersProps): HTMLElement {
       submit: 'players.add',
       allowEmpty: false,
     }),
-    searchForm(props.onSearch),
+    // The user picks the player there and runs the bookmarklet.
+    nameSearchForm(props.onSearch, { id: SEARCH_INPUT_ID, label: 'players.searchLabel', hint: 'players.searchHint' }),
   );
 }
 

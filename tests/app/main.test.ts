@@ -114,6 +114,19 @@ describe('app start', () => {
     expect(document.getElementById('view-title')!.textContent).toBe('#100002');
   });
 
+  it('switches the first step between your PDGA number and a search by name', async () => {
+    await start('/next-rating/');
+    document.getElementById('start-by-name')!.click();
+    expect(document.activeElement?.id).toBe('start-by-name');
+    expect(document.getElementById('pdga-number')).toBeNull();
+    expect(document.getElementById('start-search')).not.toBeNull();
+    document.getElementById('start-by-number')!.click();
+    expect(document.activeElement?.id).toBe('start-by-number');
+    (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';
+    (document.getElementById('pdga-number') as HTMLInputElement).form!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(stored().me).toBe(100001);
+  });
+
   it('has only the Rating and Settings tabs', async () => {
     await start('/next-rating/');
     expect([...document.querySelectorAll('.tab')].map((tab) => tab.id)).toEqual(['tab-rating', 'tab-settings']);

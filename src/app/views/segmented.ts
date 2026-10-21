@@ -8,18 +8,22 @@ export interface Segment<T> {
   label: MessageKey;
 }
 
-/** A segmented control of native radios, such as the theme picker. */
+/**
+ * A segmented control of native radios, such as the theme picker. The legend
+ * can be hidden from view when the text above already says what it is for.
+ */
 export function segmented<T>(
   legend: MessageKey,
   name: string,
   segments: readonly Segment<T>[],
   value: T,
   onChange: (value: T) => void,
+  { hideLegend = false }: { hideLegend?: boolean } = {},
 ): HTMLElement {
   return el(
     'fieldset',
     { class: 'segmented' },
-    el('legend', { class: 'label' }, t(legend)),
+    el('legend', { class: hideLegend ? 'visually-hidden' : 'label' }, t(legend)),
     el(
       'div',
       { class: 'segments' },
