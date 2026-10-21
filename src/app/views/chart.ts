@@ -1,7 +1,18 @@
 import type { PlainDate } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
-import { dayNumber, type ChartData, type ChartPeriod, type ChartPoint, type MonthTick, type PointKind, type PointMark } from '../chart';
-import { el, svg, type Child } from '../dom';
+import {
+  dayNumber,
+  monthTicks,
+  ratingAxis,
+  type ChartData,
+  type ChartPeriod,
+  type ChartPoint,
+  type MonthTick,
+  type PointKind,
+  type PointMark,
+  type RatingAxis,
+} from '../chart';
+import { el, present, svg, type Child } from '../dom';
 import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format';
 import { historyUrl } from './pdga';
 import { periodControls, periodId, periodLabel } from './period';
@@ -13,7 +24,7 @@ import { roundLabel, roundWhere, tierNote } from './round-text';
  * from, the fill what the next update does with it, so nothing depends on
  * colour alone. Colours come from the theme tokens through classes in
  * styles.css (the CSP blocks inline styles). Tapping a point, or the arrow
- * keys, show its round under the chart; a table holds the same rounds.
+ * keys, show its round above the chart; a table holds the same rounds.
  */
 
 export const CHART_PERIOD_ID = periodId('chart');
@@ -29,12 +40,21 @@ export interface ChartProps {
   onPeriod: (period: ChartPeriod) => void;
 }
 
-/** The drawing's own units; it scales to the card's width (styles.css caps it). */
-const WIDTH = 300;
-const HEIGHT = 200;
+/**
+ * The chart is drawn in CSS pixels at the size it is shown, so the text
+ * keeps its size on any screen. Until that size is known (before layout, or
+ * without ResizeObserver) it draws at the default size, which styles.css
+ * scales to fit.
+ */
+export const DEFAULT_SIZE = { width: 300, height: 200 } as const;
+/** In the card, the height is two thirds of the width, within these limits. */
+const CARD_HEIGHT = { min: 200, max: 320 } as const;
+/** Narrower or lower than this, the drawing is scaled down instead. */
+const MIN_SIZE = { width: 240, height: 160 } as const;
 const MARGIN = { left: 34, right: 34, top: 10, bottom: 30 } as const;
-const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right;
-const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom;
+/** About this much room per labelled month tick and per gap between rating ticks. */
+const TICK_WIDTH = 52;
+const GAP_HEIGHT = 32;
 /** Line labels closer than this are moved apart. */
 const LABEL_GAP = 13;
 /** A tap selects the nearest point within this many screen pixels. */
@@ -53,17 +73,42 @@ const MARKS: Record<PointMark, MessageKey> = {
   'ruled-out': 'chart.mark.ruledOut',
 };
 
-interface Scale {
+/** The card's chart height for a width. */
+export function cardHeight(width: number): number {
+  return Math.min(CARD_HEIGHT.max, Math.max(CARD_HEIGHT.min, Math.round((width * 2) / 3)));
+}
+
+/** Where everything goes at one size: the plot's edges, the ticks that fit, and the scales. */
+interface Layout {
+  width: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  axis: RatingAxis;
+  ticks: MonthTick[];
   x: (date: PlainDate) => number;
   y: (rating: number) => number;
 }
 
-function scaleOf(chart: ChartData, y: NonNullable<ChartData['y']>): Scale {
+function layoutOf(chart: ChartData, width: number, height: number): Layout {
+  const [left, right, top, bottom] = [MARGIN.left, width - MARGIN.right, MARGIN.top, height - MARGIN.bottom];
+  const axis = ratingAxis(chart.values, Math.max(2, Math.floor((bottom - top) / GAP_HEIGHT)))!;
+  const ticks = monthTicks(chart.from, chart.to, Math.max(2, Math.floor((right - left) / TICK_WIDTH)));
   const start = dayNumber(chart.from);
   const days = Math.max(1, dayNumber(chart.to) - start);
   return {
-    x: (date) => MARGIN.left + ((dayNumber(date) - start) / days) * PLOT_WIDTH,
-    y: (rating) => MARGIN.top + ((y.max - rating) / (y.max - y.min)) * PLOT_HEIGHT,
+    width,
+    height,
+    left,
+    right,
+    top,
+    bottom,
+    axis,
+    ticks,
+    x: (date) => left + ((dayNumber(date) - start) / days) * (right - left),
+    y: (rating) => top + ((axis.max - rating) / (axis.max - axis.min)) * (bottom - top),
   };
 }
 
@@ -95,39 +140,38 @@ function icon(...children: Child[]): SVGElement {
   return svg('svg', { class: 'chart-icon', viewBox: '0 0 20 20', 'aria-hidden': 'true', focusable: 'false' }, ...children);
 }
 
-function yAxis(chart: ChartData, y: NonNullable<ChartData['y']>, scale: Scale): SVGElement {
+function yAxis(layout: Layout): SVGElement {
   return svg(
     'g',
     { class: 'chart-axis' },
-    ...y.ticks.flatMap((tick) => [
-      svg('line', { class: 'chart-grid', x1: MARGIN.left, x2: WIDTH - MARGIN.right, y1: scale.y(tick), y2: scale.y(tick) }),
-      svg('text', { x: MARGIN.left - 5, y: scale.y(tick), 'text-anchor': 'end', 'dominant-baseline': 'middle' }, formatRating(tick)),
+    ...layout.axis.ticks.flatMap((tick) => [
+      svg('line', { class: 'chart-grid', x1: layout.left, x2: layout.right, y1: layout.y(tick), y2: layout.y(tick) }),
+      svg('text', { x: layout.left - 5, y: layout.y(tick), 'text-anchor': 'end', 'dominant-baseline': 'middle' }, formatRating(tick)),
     ]),
   );
 }
 
 /** A month tick reads "Oct", with the year under it on the first tick and on January; a range end reads "12 Oct". */
-function tickLabel(tick: MonthTick, x: number): SVGElement {
+function tickLabel(tick: MonthTick, x: number, layout: Layout): SVGElement {
   const first = tick.date.endsWith('-01') ? formatMonth(tick.date) : formatDayMonth(tick.date);
-  const anchor = x < MARGIN.left + 12 ? 'start' : x > WIDTH - MARGIN.right - 12 ? 'end' : 'middle';
-  const bottom = HEIGHT - MARGIN.bottom;
+  const anchor = x < layout.left + 12 ? 'start' : x > layout.right - 12 ? 'end' : 'middle';
   return svg(
     'text',
-    { x, y: bottom + 13, 'text-anchor': anchor },
+    { x, y: layout.bottom + 13, 'text-anchor': anchor },
     svg('tspan', { x }, first),
     tick.year && svg('tspan', { x, dy: 13 }, tick.date.slice(0, 4)),
   );
 }
 
-function xAxis(chart: ChartData, scale: Scale): SVGElement {
-  const bottom = HEIGHT - MARGIN.bottom;
+function xAxis(layout: Layout): SVGElement {
+  const { left, right, bottom } = layout;
   return svg(
     'g',
     { class: 'chart-axis' },
-    svg('line', { class: 'chart-baseline', x1: MARGIN.left, x2: WIDTH - MARGIN.right, y1: bottom, y2: bottom }),
-    ...chart.xTicks.flatMap((tick) => {
-      const x = scale.x(tick.date);
-      return [svg('line', { class: 'chart-baseline', x1: x, x2: x, y1: bottom, y2: bottom + 4 }), tickLabel(tick, x)];
+    svg('line', { class: 'chart-baseline', x1: left, x2: right, y1: bottom, y2: bottom }),
+    ...layout.ticks.flatMap((tick) => {
+      const x = layout.x(tick.date);
+      return [svg('line', { class: 'chart-baseline', x1: x, x2: x, y1: bottom, y2: bottom + 4 }), tickLabel(tick, x, layout)];
     }),
   );
 }
@@ -137,14 +181,14 @@ function xAxis(chart: ChartData, scale: Scale): SVGElement {
  * its value just after the line's end. When they are equal, the prediction's
  * line alone shows the value. Values too close to read apart are moved apart.
  */
-function ratingLines(chart: ChartData, scale: Scale): SVGElement[] {
+function ratingLines(chart: ChartData, layout: Layout): SVGElement[] {
   if (!chart.band) return [];
   const lines = [
     chart.official !== null && !chart.same && { value: chart.official, kind: 'official' },
     chart.predicted !== null && { value: chart.predicted, kind: 'predicted' },
   ].filter((line): line is { value: number; kind: string } => line !== false);
-  const [x1, x2] = [scale.x(chart.band.from), scale.x(chart.band.to)];
-  const labels = lines.map((line) => scale.y(line.value));
+  const [x1, x2] = [layout.x(chart.band.from), layout.x(chart.band.to)];
+  const labels = lines.map((line) => layout.y(line.value));
   if (labels.length === 2 && Math.abs(labels[0]! - labels[1]!) < LABEL_GAP) {
     const middle = (labels[0]! + labels[1]!) / 2;
     // The higher rating keeps the upper label.
@@ -157,8 +201,8 @@ function ratingLines(chart: ChartData, scale: Scale): SVGElement[] {
       class: `chart-line chart-line-${line.kind}`,
       x1,
       x2,
-      y1: scale.y(line.value),
-      y2: scale.y(line.value),
+      y1: layout.y(line.value),
+      y2: layout.y(line.value),
     }),
     svg(
       'text',
@@ -192,32 +236,49 @@ function summaryText(chart: ChartData): string {
   return parts.filter(Boolean).join(' ');
 }
 
+export interface PlotOptions {
+  /** The plot's and the details line's ids. */
+  plotId: string;
+  detailId: string;
+  /** True to fill the frame's height, as in the full-screen view; else the card's height for the width. */
+  fill: boolean;
+}
+
+const CARD_PLOT: PlotOptions = { plotId: CHART_PLOT_ID, detailId: CHART_DETAIL_ID, fill: false };
+
 /**
- * The plot, with a line under it that names the chosen round. A tap picks
- * the nearest point within TAP_RADIUS screen pixels; the arrow keys step
- * through the points, Home and End jump to the first and last.
+ * The details line that names the chosen round, above the chart so a finger
+ * on the chart does not cover it, then the chart in its frame. The chart is
+ * drawn again at the frame's size whenever that changes, keeping the chosen
+ * round. A tap picks the nearest point within TAP_RADIUS pixels; the arrow
+ * keys step through the points, Home and End jump to the first and last.
  */
-function plot(chart: ChartData, y: NonNullable<ChartData['y']>): HTMLElement[] {
-  const scale = scaleOf(chart, y);
-  const placed = chart.points.map((point) => ({ point, x: scale.x(point.date), y: scale.y(point.rating) }));
+export function plot(chart: ChartData, { plotId, detailId, fill }: PlotOptions = CARD_PLOT): HTMLElement[] {
   const highlight = svg('circle', { class: 'chart-selected', r: 10, cx: -100, cy: -100, visibility: 'hidden' });
-  const detail = el('p', { id: CHART_DETAIL_ID, class: 'chart-detail', 'aria-live': 'polite' }, t('chart.hint'));
+  const detail = el('p', { id: detailId, class: 'chart-detail', 'aria-live': 'polite' }, t('chart.hint'));
+  let placed: { point: ChartPoint; x: number; y: number }[] = [];
+  let size: { width: number; height: number } = DEFAULT_SIZE;
   let chosen = -1;
+
+  const mark = () => {
+    if (chosen < 0) return;
+    const { x, y } = placed[chosen]!;
+    highlight.setAttribute('cx', String(x));
+    highlight.setAttribute('cy', String(y));
+    highlight.setAttribute('visibility', 'visible');
+  };
 
   const choose = (index: number) => {
     chosen = index;
-    const { point, x, y: top } = placed[index]!;
-    highlight.setAttribute('cx', String(x));
-    highlight.setAttribute('cy', String(top));
-    highlight.setAttribute('visibility', 'visible');
-    detail.textContent = pointText(point);
+    mark();
+    detail.textContent = pointText(placed[index]!.point);
   };
 
   const onTap = (event: Event) => {
     const { clientX, clientY } = event as PointerEvent;
     const box = drawing.getBoundingClientRect();
     if (box.width === 0) return;
-    const units = WIDTH / box.width;
+    const units = size.width / box.width;
     const [tapX, tapY] = [(clientX - box.left) * units, (clientY - box.top) * units];
     let nearest = -1;
     let best = TAP_RADIUS * units;
@@ -245,34 +306,59 @@ function plot(chart: ChartData, y: NonNullable<ChartData['y']>): HTMLElement[] {
     choose(next);
   };
 
-  const drawing = svg(
-    'svg',
-    {
-      id: CHART_PLOT_ID,
-      class: 'chart-plot',
-      viewBox: `0 0 ${WIDTH} ${HEIGHT}`,
-      role: 'img',
-      'aria-label': summaryText(chart),
-      'aria-describedby': CHART_DETAIL_ID,
-      tabindex: 0,
-      onpointerup: onTap,
-      onkeydown: onKey,
-    },
-    chart.band &&
-      svg('rect', {
-        class: 'chart-band',
-        x: scale.x(chart.band.from),
-        y: MARGIN.top,
-        width: Math.max(1, scale.x(chart.band.to) - scale.x(chart.band.from)),
-        height: PLOT_HEIGHT,
-      }),
-    yAxis(chart, y, scale),
-    xAxis(chart, scale),
-    ...ratingLines(chart, scale),
-    ...placed.map(({ point, x, y: top }) => marker(point.kind, point.mark, x, top)),
-    highlight,
-  );
-  return [el('div', { class: 'chart-frame' }, drawing), detail];
+  const drawing = svg('svg', {
+    id: plotId,
+    class: 'chart-plot',
+    role: 'img',
+    'aria-label': summaryText(chart),
+    'aria-describedby': detailId,
+    tabindex: 0,
+    onpointerup: onTap,
+    onkeydown: onKey,
+  });
+
+  const draw = (width: number, height: number) => {
+    size = { width, height };
+    const layout = layoutOf(chart, width, height);
+    placed = chart.points.map((point) => ({ point, x: layout.x(point.date), y: layout.y(point.rating) }));
+    drawing.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    drawing.setAttribute('width', String(width));
+    drawing.setAttribute('height', String(height));
+    drawing.replaceChildren(
+      ...present([
+        chart.band &&
+          svg('rect', {
+            class: 'chart-band',
+            x: layout.x(chart.band.from),
+            y: layout.top,
+            width: Math.max(1, layout.x(chart.band.to) - layout.x(chart.band.from)),
+            height: layout.bottom - layout.top,
+          }),
+        yAxis(layout),
+        xAxis(layout),
+        ...ratingLines(chart, layout),
+        ...placed.map(({ point, x, y }) => marker(point.kind, point.mark, x, y)),
+        highlight,
+      ]),
+    );
+    mark();
+  };
+
+  const frame = el('div', { class: fill ? 'chart-frame chart-frame-fill' : 'chart-frame' }, drawing);
+  draw(size.width, size.height);
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(([entry]) => {
+      // A frame taken out of the page reports no size; it is not drawn again.
+      if (!frame.isConnected) return observer.disconnect();
+      const measured = Math.floor(entry!.contentRect.width);
+      if (measured === 0) return;
+      const width = Math.max(MIN_SIZE.width, measured);
+      const height = fill ? Math.max(MIN_SIZE.height, Math.floor(entry!.contentRect.height)) : cardHeight(width);
+      if (width !== size.width || height !== size.height) draw(width, height);
+    });
+    observer.observe(frame);
+  }
+  return [detail, frame];
 }
 
 /** Only the kinds and marks the period has, then the band and the lines. */
@@ -337,9 +423,9 @@ function historyLink(pdgaNumber: number): HTMLElement {
   return el('p', { class: 'chart-history' }, el('a', { href: historyUrl(pdgaNumber), rel: 'noreferrer' }, t('chart.history')));
 }
 
-/** The card's content: the period, the chart with the chosen round under it, the legend, the history link and the table. */
+/** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
 export function chartPanel({ chart, pdgaNumber, today, onPeriod }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
-  if (!chart.y || chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
-  return [...controls, ...plot(chart, chart.y), legend(chart), historyLink(pdgaNumber), table(chart)];
+  if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
+  return [...controls, ...plot(chart), legend(chart), historyLink(pdgaNumber), table(chart)];
 }

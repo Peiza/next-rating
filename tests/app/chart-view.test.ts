@@ -162,6 +162,60 @@ describe('chart panel', () => {
     expect(root.querySelector('.chart-selected')!.getAttribute('visibility')).toBe('visible');
   });
 
+  it('names the chosen round above the chart, under the period', () => {
+    const root = panel();
+    const order = [...root.children].map((child) => child.id || child.className);
+    expect(order.indexOf('chart-detail')).toBeLessThan(order.indexOf('chart-frame'));
+    expect(order.indexOf('chart-detail')).toBeGreaterThan(order.findIndex((name) => name.includes('period')));
+  });
+
+  it('draws at the measured width, two thirds as high within limits, and keeps the chosen round', () => {
+    const observers: { callback: ResizeObserverCallback; disconnected: boolean }[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        entry: { callback: ResizeObserverCallback; disconnected: boolean };
+        constructor(callback: ResizeObserverCallback) {
+          this.entry = { callback, disconnected: false };
+          observers.push(this.entry);
+        }
+        observe() {}
+        disconnect() {
+          this.entry.disconnected = true;
+        }
+      },
+    );
+    try {
+      const root = panel();
+      const svg = plot(root);
+      expect(svg.getAttribute('viewBox')).toBe('0 0 300 200');
+      key(root, 'End');
+      const resize = (width: number) =>
+        observers[0]!.callback([{ contentRect: { width, height: 0 } } as unknown as ResizeObserverEntry], {} as ResizeObserver);
+      const ticks = () => svg.querySelectorAll('.chart-axis line.chart-baseline').length;
+      const before = ticks();
+
+      resize(600.7);
+      expect(svg.getAttribute('viewBox')).toBe('0 0 600 320');
+      expect([svg.getAttribute('width'), svg.getAttribute('height')]).toEqual(['600', '320']);
+      expect(ticks()).toBeGreaterThan(before);
+      const own = svg.querySelector('.chart-own polygon')!.getAttribute('points')!.split(' ')[0]!.split(',').map(Number);
+      expect(Number(svg.querySelector('.chart-selected')!.getAttribute('cx'))).toBeCloseTo(own[0]!);
+      expect(detail(root)).toMatch(/^990 · /);
+
+      resize(330);
+      expect(svg.getAttribute('viewBox')).toBe('0 0 330 220');
+      resize(100);
+      expect(svg.getAttribute('viewBox')).toBe('0 0 240 200');
+
+      root.remove();
+      resize(0);
+      expect(observers[0]!.disconnected).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('picks the nearest round to a tap, within reach', () => {
     const root = panel();
     const svg = plot(root);

@@ -762,15 +762,12 @@ a {
 }
 
 /*
- * Rating chart. The SVG scales with the card; its text is set in the
- * drawing's units, about 11px at 320px and capped by the frame's width so it
- * does not grow large on wide screens. Shapes take their colour from the
- * point's kind (currentColor); hollow marks fill with the page colour.
+ * Rating chart. The view draws the SVG in CSS pixels at the frame's measured
+ * width (and, full screen, its height), so the text keeps its size on any
+ * screen; before that size is known the drawing scales to the frame. Shapes
+ * take their colour from the point's kind (currentColor); hollow marks fill
+ * with the page colour.
  */
-.chart-frame {
-  max-width: 24rem;
-}
-
 .chart-plot {
   display: block;
   width: 100%;

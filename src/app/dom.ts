@@ -57,7 +57,8 @@ function setProps(node: Element, props: Props): void {
   }
 }
 
-function present(children: readonly Child[]): (Node | string)[] {
+/** The children that are nodes or text: false, null and undefined leave a child out. */
+export function present(children: readonly Child[]): (Node | string)[] {
   return children.filter((child): child is Node | string => child !== null && child !== undefined && child !== false);
 }
 
