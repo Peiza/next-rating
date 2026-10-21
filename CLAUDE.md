@@ -70,9 +70,10 @@ pattern, remembered open cards and Top 8 period), the setup page with How it
 works, X-tier events (rounds PDGA leaves out; unofficial X-tier events
 marked, any unofficial event can be left out), a date in the target
 calculator (the update for that date and the rounds that leave the window),
-and phone polish (the back gesture closes the players panel, setup and How
+phone polish (the back gesture closes the players panel, setup and How
 it works; view titles in the phone top bar; Top 8 with own rounds; the
-previous season in January).
+previous season in January), and the rating chart (with notes for leagues
+and late reports, and Open with the last viewed player).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -179,8 +180,8 @@ minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
-with How it works, X-tier events, the target date and the phone polish
-(docs/finished-steps.md). Nothing else is planned: the
+with How it works, X-tier events, the target date, the phone polish and the
+rating chart (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 

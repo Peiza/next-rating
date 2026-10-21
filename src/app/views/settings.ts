@@ -1,6 +1,6 @@
 import { languages, resolveLanguage, t } from '../../i18n';
 import { el } from '../dom';
-import type { Theme } from '../storage';
+import type { OpenWith, Theme } from '../storage';
 import { segmented, type Segment } from './segmented';
 import { bookmarkletStatus } from './setup';
 
@@ -11,11 +11,14 @@ export interface SettingsProps {
   preferred: readonly string[];
   /** The theme override; null follows the device. */
   theme: Theme | null;
+  /** Whether the app opens on "me" or on the player shown last. */
+  openWith: OpenWith;
   persistent: boolean;
   /** The bookmarklet version of the last hand-off, or null before one. */
   bookmarklet: string | null;
   onLanguage: (language: string | null) => void;
   onTheme: (theme: Theme | null) => void;
+  onOpenWith: (openWith: OpenWith) => void;
   onOpenSetup: () => void;
   onOpenGuide: () => void;
 }
@@ -29,6 +32,16 @@ const THEME_OPTIONS: Segment<Theme | null>[] = [
 /** The id of the radio for a theme, so focus can return to it. */
 export function themeId(theme: Theme | null): string {
   return THEME_OPTIONS.find((option) => option.value === theme)!.id;
+}
+
+const OPEN_WITH_OPTIONS: Segment<OpenWith>[] = [
+  { value: 'me', id: 'open-with-me', label: 'settings.openWithMe' },
+  { value: 'last', id: 'open-with-last', label: 'settings.openWithLast' },
+];
+
+/** The id of the radio for an Open with choice, so focus can return to it. */
+export function openWithId(openWith: OpenWith): string {
+  return OPEN_WITH_OPTIONS.find((option) => option.value === openWith)!.id;
 }
 
 function languagePicker(language: string | null, preferred: readonly string[], onLanguage: (language: string | null) => void) {
@@ -53,7 +66,7 @@ function languagePicker(language: string | null, preferred: readonly string[], o
 }
 
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { language, preferred, theme, persistent, bookmarklet, onLanguage, onTheme, onOpenSetup, onOpenGuide } = props;
+  const { language, preferred, theme, openWith, persistent, bookmarklet, onLanguage, onTheme, onOpenWith, onOpenSetup, onOpenGuide } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -62,6 +75,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     !persistent && el('p', { class: 'warning' }, t('settings.storageUnavailable')),
     languagePicker(language, preferred, onLanguage),
     segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),
+    segmented('settings.openWith', 'open-with', OPEN_WITH_OPTIONS, openWith, onOpenWith),
     el('h2', {}, t('settings.bookmarklet')),
     bookmarkletStatus(bookmarklet),
     el(

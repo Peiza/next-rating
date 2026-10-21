@@ -12,14 +12,15 @@ import {
   formatEffect,
   formatRating,
 } from '../format';
-import { isXTier, STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
+import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
-import { roundLabel, roundWhere, xTierNote } from './round-text';
+import { eventNote, roundLabel, roundWhere, tierNote } from './round-text';
 import { targetCalculator, type TargetProps } from './target';
+import { chartPanel, chartTeaser, type ChartProps } from './chart';
 import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
 
 export interface RatingProps {
@@ -28,6 +29,8 @@ export interface RatingProps {
   manual?: ManualProps;
   /** The Reach a target rating card's content. */
   target?: TargetProps;
+  /** The Chart card's content. */
+  chart?: ChartProps;
   /** The Top 8 card's content. */
   top8?: Top8Props;
   /** Whether "How to refresh" is open; it follows the data age when left out. */
@@ -194,7 +197,7 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
     t(SOURCE[round.source]),
-    xTierNote(round),
+    tierNote(round),
   ].filter(Boolean);
   return el(
     'li',
@@ -412,7 +415,8 @@ function statsList(stats: RatingStats, exact: number | null): HTMLElement {
 
 /**
  * The unofficial events, each with a Count checkbox: one tap leaves an event
- * out of the prediction, such as an X-tier event that may not count.
+ * out of the prediction, such as one reported after the deadline. X-tier
+ * events and leagues say why they may not count.
  */
 function eventChoices(
   { unofficialEvents }: Model,
@@ -444,7 +448,7 @@ function eventChoices(
     ),
     ...unofficialEvents.map((event, i) => {
       const id = `count-event-${i}`;
-      const meta = [formatDate(event.date), event.xTier ? t('round.xTier') : ''].filter(Boolean).join(' · ');
+      const meta = [formatDate(event.date), eventNote(event.tier)].filter(Boolean).join(' · ');
       return el(
         'div',
         { class: 'check' },
@@ -490,6 +494,7 @@ function top8Intro(): (Node | string)[] {
 /** The How it works section each card's explanation links to. */
 const CARD_GUIDE: Record<CardName, GuideSection> = {
   why: 'why',
+  chart: 'chart',
   manual: 'rounds',
   target: 'target',
   top8: 'top8',
@@ -526,7 +531,7 @@ function intro(name: CardName, title: MessageKey, text: (Node | string)[], onGui
  * per section, each starting with a one-line explanation.
  */
 export function ratingView(props: RatingProps): HTMLElement {
-  const { model, manual, target, top8, cards = DEFAULT_CARDS, onToggleCard = () => {}, onGuide } = props;
+  const { model, manual, target, top8, chart, cards = DEFAULT_CARDS, onToggleCard = () => {}, onGuide } = props;
   const section = (
     name: CardName,
     title: MessageKey,
@@ -553,6 +558,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     summary(props),
     (hasChanges(model) || unchangedText(model) !== null) &&
       section('why', 'why.title', () => [t('why.intro')], () => whyBody(model, changes ?? []), whyTeaser(model)),
+    chart && section('chart', 'chart.title', () => [t('chart.intro')], () => chartPanel(chart), chartTeaser(chart.chart)),
     manual &&
       section(
         'manual',

@@ -41,16 +41,8 @@ export function textWithNodes(text: string, nodes: Readonly<Record<string, Node>
     .filter((part) => part !== '');
 }
 
-/**
- * Creates an element. Props starting with "on" add event listeners; true
- * adds an empty attribute; false, null and undefined leave it out.
- */
-export function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: Props = {},
-  ...children: Child[]
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
+/** Sets props on a new element: handlers for names starting with "on", attributes for the rest. */
+function setProps(node: Element, props: Props): void {
   for (const [name, value] of Object.entries(props)) {
     if (typeof value === 'function') {
       if (!name.startsWith('on')) throw new Error(`Handler without "on": ${name}`);
@@ -63,6 +55,37 @@ export function el<K extends keyof HTMLElementTagNameMap>(
       node.setAttribute(name, name === 'href' ? checkHref(String(value)) : String(value));
     }
   }
-  node.append(...children.filter((child): child is Node | string => child !== null && child !== undefined && child !== false));
+}
+
+function present(children: readonly Child[]): (Node | string)[] {
+  return children.filter((child): child is Node | string => child !== null && child !== undefined && child !== false);
+}
+
+/**
+ * Creates an element. Props starting with "on" add event listeners; true
+ * adds an empty attribute; false, null and undefined leave it out.
+ */
+export function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Props = {},
+  ...children: Child[]
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  setProps(node, props);
+  node.append(...present(children));
+  return node;
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Creates an SVG element, such as the rating chart's marks, with the same props as el(). */
+export function svg<K extends keyof SVGElementTagNameMap>(
+  tag: K,
+  props: Props = {},
+  ...children: Child[]
+): SVGElementTagNameMap[K] {
+  const node = document.createElementNS(SVG_NS, tag) as SVGElementTagNameMap[K];
+  setProps(node, props);
+  node.append(...present(children));
   return node;
 }

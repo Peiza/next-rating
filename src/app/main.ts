@@ -31,6 +31,8 @@ import {
   MAX_FAVORITES,
   STORAGE_KEY,
   type CardName,
+  type ChartPeriod,
+  type OpenWith,
   type PlayerOrder,
   type StoredManualRound,
   type StoredPlayer,
@@ -45,6 +47,7 @@ import {
   type TargetDraft,
   type TargetQuery,
 } from './target';
+import { chartData } from './chart';
 import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
@@ -75,7 +78,7 @@ import { cardToggleId } from './views/card';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
-import { settingsView, themeId } from './views/settings';
+import { openWithId, settingsView, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startView } from './views/start';
 
@@ -105,7 +108,7 @@ const ERROR_MESSAGES: Record<HandoffErrorCode, MessageKey> = {
 const store = createStore(browserStorage());
 const root = document.getElementById('app')!;
 let tab: Tab = 'rating';
-/** The player the Rating tab shows. Every page load starts on "me". */
+/** The player the Rating tab shows. A page load starts on "me", or on the player shown last when Settings says so. */
 let selected: number | null = initialSelection(store.get());
 let flash: PdgaFlash = null;
 let banner: Banner | null = null;
@@ -180,6 +183,22 @@ function setTheme(theme: Theme | null): void {
   render(themeId(theme));
 }
 
+/**
+ * Shows another player. While the app opens on the player shown last, that
+ * player is stored too; otherwise nothing is written.
+ */
+function setSelected(pdgaNumber: number | null): void {
+  selected = pdgaNumber;
+  const { openWith, lastViewed } = store.get();
+  if (openWith === 'last' && pdgaNumber !== null && pdgaNumber !== lastViewed) store.update({ lastViewed: pdgaNumber });
+}
+
+/** Choosing the player shown last stores the one shown now; going back to "me" forgets it. */
+function setOpenWith(openWith: OpenWith): void {
+  store.update({ openWith, lastViewed: openWith === 'last' ? selected : null });
+  render(openWithId(openWith));
+}
+
 /** Your own PDGA number: saved as a favorite and made "me". An empty field clears "me". */
 function savePdgaNumber(pdgaNumber: number | null): void {
   const before = store.get().me;
@@ -187,7 +206,7 @@ function savePdgaNumber(pdgaNumber: number | null): void {
   if (pdgaNumber !== null && me !== pdgaNumber) {
     flash = 'full';
   } else {
-    if (me !== null) selected = me;
+    if (me !== null) setSelected(me);
     flash = pdgaNumber !== null ? 'saved' : before !== null ? 'removed' : null;
   }
   // Focus the button rather than the field, so a phone keyboard closes.
@@ -287,7 +306,7 @@ function closeMenu(): void {
 
 /** Shows a player on the Rating tab. On phones the menu closes, and focus returns to its button. */
 function selectPlayer(pdgaNumber: number): void {
-  selected = pdgaNumber;
+  setSelected(pdgaNumber);
   tab = 'rating';
   overlay = null;
   banner = null;
@@ -319,7 +338,7 @@ function askRemove(pdgaNumber: number | null): void {
 function removeFromPanel(pdgaNumber: number): void {
   const data = store.update(removePlayer(store.get(), pdgaNumber));
   confirmRemove = null;
-  if (selected === pdgaNumber) selected = initialSelection(data);
+  if (selected === pdgaNumber) setSelected(initialSelection(data));
   const anyFavorite = data.players.some((player) => player.favorite);
   if (!anyFavorite) editingPlayers = false;
   render(anyFavorite ? 'players-edit' : PANEL_TITLE_ID);
@@ -420,6 +439,12 @@ function setTop8Period(top8Period: TopPeriod): void {
   render();
 }
 
+/** Stores the chart period with the settings; focus stays on the control that changed it. */
+function setChartPeriod(chartPeriod: ChartPeriod): void {
+  store.update({ chartPeriod });
+  render();
+}
+
 /** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
 function setTop8Own(top8Own: boolean): void {
   store.update({ top8Own });
@@ -465,7 +490,7 @@ function saveImport(parts: ImportParts, owner: number | null = null): Routed {
   const data = store.get();
   const routed = routeImport(data, parts, new Date().toISOString(), owner, selected);
   if (routed.data !== data) store.update({ players: routed.data.players });
-  if (routed.owner !== null && routed.players.length > 0) selected = routed.owner;
+  if (routed.owner !== null && routed.players.length > 0) setSelected(routed.owner);
   // Fresh data: "How to refresh" follows the data age again.
   refreshOpen = null;
   return routed;
@@ -611,6 +636,8 @@ function currentView(): HTMLElement {
       bookmarklet: data.bookmarklet,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
+      openWith: data.openWith,
+      onOpenWith: setOpenWith,
       onOpenSetup: openSetup,
       onOpenGuide: () => openGuide(),
     });
@@ -650,6 +677,11 @@ function currentView(): HTMLElement {
           targetDraft = { ...targetDraft!, [field]: value };
         },
         onCalculate: calculate,
+      },
+      chart: {
+        chart: chartData(model, data.chartPeriod, today(now)),
+        today: today(now),
+        onPeriod: setChartPeriod,
       },
       top8: {
         top: topEight(model, data.top8Period, today(now), data.top8Own),

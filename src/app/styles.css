@@ -745,20 +745,170 @@ a {
   border-bottom: none;
 }
 
-.top8-range {
+.period-range {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 0.75rem;
   margin-bottom: 1rem;
 }
 
-.top8-range .field {
+.period-range .field {
   min-width: 0;
   margin: 0;
 }
 
-.top8-range .status {
+.period-range .status {
   grid-column: 1 / -1;
+}
+
+/*
+ * Rating chart. The SVG scales with the card; its text is set in the
+ * drawing's units, about 11px at 320px and capped by the frame's width so it
+ * does not grow large on wide screens. Shapes take their colour from the
+ * point's kind (currentColor); hollow marks fill with the page colour.
+ */
+.chart-frame {
+  max-width: 24rem;
+}
+
+.chart-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: manipulation;
+  border-radius: 0.25rem;
+}
+
+.chart-plot text,
+.chart-icon text {
+  font-size: 13px;
+  fill: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-band {
+  fill: var(--surface);
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-opacity: 0.35;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-baseline {
+  stroke: var(--border);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-line {
+  fill: none;
+}
+
+.chart-line-predicted {
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+
+.chart-line-official {
+  stroke: var(--text-muted);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
+}
+
+.chart-line-label {
+  font-weight: 700;
+}
+
+.chart-point {
+  color: var(--accent);
+}
+
+.chart-official {
+  color: var(--text);
+}
+
+/* A filled mark keeps a thin ring in the page colour, so overlapping points stay apart. */
+.chart-shape {
+  fill: currentColor;
+  stroke: var(--bg);
+  stroke-width: 1.5px;
+}
+
+.chart-not .chart-shape,
+.chart-ruled-out .chart-shape {
+  fill: var(--bg);
+  stroke: currentColor;
+}
+
+.chart-ring,
+.chart-cross {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5px;
+}
+
+.chart-selected {
+  fill: none;
+  stroke: var(--focus);
+  stroke-width: 2.5px;
+}
+
+.chart-detail {
+  min-height: 2.9em;
+  margin: 0.5rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chart-icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.chart-table summary {
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-table .chart-number {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .top8-figures {
@@ -1324,6 +1474,47 @@ a {
     forced-color-adjust: none;
     color: HighlightText;
     background: Highlight;
+  }
+
+  /* Shapes and fills carry the meaning, so they keep working in system colours. */
+  .chart-plot,
+  .chart-icon {
+    forced-color-adjust: none;
+  }
+
+  .chart-point,
+  .chart-official {
+    color: CanvasText;
+  }
+
+  .chart-plot text,
+  .chart-icon text {
+    fill: CanvasText;
+  }
+
+  .chart-band {
+    fill: Canvas;
+    stroke: GrayText;
+  }
+
+  .chart-shape {
+    stroke: Canvas;
+  }
+
+  .chart-not .chart-shape,
+  .chart-ruled-out .chart-shape {
+    fill: Canvas;
+  }
+
+  .chart-line-predicted,
+  .chart-line-official,
+  .chart-grid,
+  .chart-baseline {
+    stroke: CanvasText;
+  }
+
+  .chart-selected {
+    stroke: Highlight;
   }
 }
 

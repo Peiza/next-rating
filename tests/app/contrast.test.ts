@@ -66,6 +66,28 @@ const NON_TEXT_PAIRS: [string, string][] = [
   ['focus', 'surface'],
 ];
 
+describe('rating chart', () => {
+  // The chart's rules before the forced-colours block, which uses system colours instead.
+  const rules = [...css.split('@media (forced-colors: active)')[0]!.matchAll(/([^{}]*\.chart-[^{}]*)\{([^}]*)\}/g)];
+  const colours = rules.flatMap(([, , body]) => [...body!.matchAll(/(?:^|[\s;])(fill|stroke|color|background):\s*([^;]+);/g)].map((m) => m[2]!.trim()));
+
+  it('takes every colour from a theme token, the point colour or none', () => {
+    expect(colours.length).toBeGreaterThan(10);
+    for (const value of colours) expect(value).toMatch(/^(var\(--[\w-]+\)|currentColor|none)$/);
+  });
+
+  it('draws marks, labels and lines only in colours that reach 7:1 on the page and the shaded window', () => {
+    const used = new Set(colours.flatMap((value) => /^var\(--([\w-]+)\)$/.exec(value)?.slice(1) ?? []));
+    const surfaces = new Set(['bg', 'surface']);
+    const checked = new Set(TEXT_PAIRS.filter(([, bg]) => bg === 'bg').map(([fg]) => fg));
+    for (const token of used) {
+      if (surfaces.has(token) || token === 'border' || token === 'focus') continue;
+      expect(checked, `--${token}`).toContain(token);
+      expect(TEXT_PAIRS).toContainEqual([token, 'surface']);
+    }
+  });
+});
+
 describe.each([
   ['light', light],
   ['dark', dark],

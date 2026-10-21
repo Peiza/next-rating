@@ -22,13 +22,25 @@ export type Theme = (typeof THEMES)[number];
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
 
+/** Who the app opens on: "me" (the default), or the player shown last. */
+export const OPEN_WITH = ['me', 'last'] as const;
+export type OpenWith = (typeof OPEN_WITH)[number];
+
 /** The collapsible cards on the Rating tab, in the order they show. */
-export const CARDS = ['why', 'manual', 'target', 'top8', 'stats', 'rounds'] as const;
+export const CARDS = ['why', 'chart', 'manual', 'target', 'top8', 'stats', 'rounds'] as const;
 export type CardName = (typeof CARDS)[number];
 export type CardState = Readonly<Record<CardName, boolean>>;
 
 /** Only Rounds starts open. */
-export const DEFAULT_CARDS: CardState = { why: false, manual: false, target: false, top8: false, stats: false, rounds: true };
+export const DEFAULT_CARDS: CardState = {
+  why: false,
+  chart: false,
+  manual: false,
+  target: false,
+  top8: false,
+  stats: false,
+  rounds: true,
+};
 
 /**
  * The Top 8 period: a calendar year (null follows today's year, the
@@ -41,6 +53,11 @@ export type TopPeriod =
   | { kind: 'custom'; from: PlainDate; to: PlainDate };
 
 export const DEFAULT_TOP_PERIOD: TopPeriod = { kind: 'year', year: null };
+
+/** The chart's period: the last 24 months (the default), or a period as in the Top 8. */
+export type ChartPeriod = { kind: 'recent' } | TopPeriod;
+
+export const DEFAULT_CHART_PERIOD: ChartPeriod = { kind: 'recent' };
 /** The years a stored Top 8 period can name. */
 const TOP_YEARS = [1970, 2200] as const;
 
@@ -89,12 +106,18 @@ export interface AppData {
   cards: CardState;
   /** The Top 8 period, the same for every player. */
   top8Period: TopPeriod;
+  /** The chart period, the same for every player. */
+  chartPeriod: ChartPeriod;
   /** Whether the Top 8 counts manual rounds too, the same for every player. */
   top8Own: boolean;
   /** The bookmarklet version of the last hand-off in this browser, or null before one. */
   bookmarklet: string | null;
   /** The favorite the app opens on. */
   me: number | null;
+  /** Whether the app opens on "me" or on the player shown last. */
+  openWith: OpenWith;
+  /** The player shown last, kept only while `openWith` is 'last'; null when unknown. */
+  lastViewed: number | null;
   /** Favorites in the order they were added, and at most one unsaved player. */
   players: StoredPlayer[];
 }
@@ -106,8 +129,11 @@ export const EMPTY_DATA: AppData = {
   cards: DEFAULT_CARDS,
   top8Period: DEFAULT_TOP_PERIOD,
   top8Own: false,
+  chartPeriod: DEFAULT_CHART_PERIOD,
   bookmarklet: null,
   me: null,
+  openWith: 'me',
+  lastViewed: null,
   players: [],
 };
 
@@ -177,8 +203,8 @@ function validateCards(value: unknown): CardState {
   ) as Record<CardName, boolean>;
 }
 
-/** Reads a stored Top 8 period; anything not valid is the current year. */
-export function validateTopPeriod(value: unknown): TopPeriod {
+/** A stored year, window or custom range, or null when not valid. */
+function topPeriodOf(value: unknown): TopPeriod | null {
   const fields = record(value);
   if (fields?.kind === 'window') return { kind: 'window' };
   if (fields?.kind === 'year') {
@@ -189,7 +215,17 @@ export function validateTopPeriod(value: unknown): TopPeriod {
     const { from, to } = fields;
     if (isPlainDate(from) && isPlainDate(to) && compareDates(from, to) <= 0) return { kind: 'custom', from, to };
   }
-  return DEFAULT_TOP_PERIOD;
+  return null;
+}
+
+/** Reads a stored Top 8 period; anything not valid is the current year. */
+export function validateTopPeriod(value: unknown): TopPeriod {
+  return topPeriodOf(value) ?? DEFAULT_TOP_PERIOD;
+}
+
+/** Reads a stored chart period; anything not valid is the last 24 months. */
+export function validateChartPeriod(value: unknown): ChartPeriod {
+  return topPeriodOf(value) ?? DEFAULT_CHART_PERIOD;
 }
 
 /** Reads one stored player, or null without a valid number. A bad import loses only the import. */
@@ -230,6 +266,7 @@ export function validateData(value: unknown): AppData {
   const { language, theme, playerOrder } = fields;
   const players = validatePlayers(fields.players);
   const me = pdgaNumberOf(fields.me);
+  const lastViewed = pdgaNumberOf(fields.lastViewed);
   return {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
@@ -237,8 +274,11 @@ export function validateData(value: unknown): AppData {
     cards: validateCards(fields.cards),
     top8Period: validateTopPeriod(fields.top8Period),
     top8Own: fields.top8Own === true,
+    chartPeriod: validateChartPeriod(fields.chartPeriod),
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
+    openWith: OPEN_WITH.find((name) => name === fields.openWith) ?? 'me',
+    lastViewed: players.some((player) => player.pdgaNumber === lastViewed) ? lastViewed : null,
     players,
   };
 }

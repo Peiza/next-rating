@@ -6,6 +6,7 @@ import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
 import { ratingView } from '../../src/app/views/rating';
+import { chartData } from '../../src/app/chart';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
@@ -95,10 +96,12 @@ describe('settings view', () => {
     language: null,
     preferred: ['sv-SE'],
     theme: null,
+    openWith: 'me',
     persistent: true,
     bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
+    onOpenWith: () => {},
     onOpenSetup: () => {},
     onOpenGuide: () => {},
   };
@@ -125,6 +128,21 @@ describe('settings view', () => {
     view.querySelector<HTMLInputElement>('#theme-device')!.click();
     expect(onTheme).toHaveBeenLastCalledWith(null);
     view.remove();
+  });
+
+  it('opens with you by default, or with the last viewed player', () => {
+    const onOpenWith = vi.fn();
+    const view = document.body.appendChild(settingsView({ ...props, onOpenWith }));
+    const radios = [...view.querySelectorAll<HTMLInputElement>('input[name="open-with"]')];
+    expect(view.querySelectorAll('.segmented legend')[1]!.textContent).toBe('Open with');
+    expect(radios.map((radio) => [view.querySelector(`label[for="${radio.id}"]`)!.textContent, radio.checked])).toEqual([
+      ['You', true],
+      ['Last viewed player', false],
+    ]);
+    view.querySelector<HTMLInputElement>('#open-with-last')!.click();
+    expect(onOpenWith).toHaveBeenLastCalledWith('last');
+    view.remove();
+    expect(settingsView({ ...props, openWith: 'last' }).querySelector<HTMLInputElement>('#open-with-last')!.checked).toBe(true);
   });
 
   it('offers the device setting and every language', () => {
@@ -372,6 +390,17 @@ describe('rating view', () => {
       expect(page(stored).querySelector('#count-event-0-meta')!.textContent).toMatch(/^\S+$/);
     });
 
+    it('mark a league on its event and its rounds, with a general hint above', () => {
+      const LEAGUE = 'League: counts only when the whole league is finished and reported';
+      const view = page({ ...stored, profileEvents: [rawProfileEvent({ tier: 'L' })] });
+      expect(view.querySelector('#event-choices .hint')!.textContent).toBe(
+        "Uncheck an event the next update won't count, for example one whose report arrives after the deadline.",
+      );
+      expect(view.querySelector('#count-event-0-meta')!.textContent).toMatch(new RegExp(`^\\S+ · ${LEAGUE}$`));
+      const marked = [...view.querySelectorAll('.round-meta')].filter((meta) => meta.textContent!.includes(LEAGUE));
+      expect(marked).toHaveLength(2);
+    });
+
     it('offer no choice without a handler', () => {
       const model = buildModel(stored, 100001, NOW);
       expect(ratingView({ model, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('#event-choices')).toBeNull();
@@ -597,12 +626,13 @@ describe('rating tab cards', () => {
       onClear: vi.fn(),
     };
     const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
-    return ratingView({ model, manual, target, top8, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    return ratingView({ model, manual, target, top8, chart, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
   it('follow the summary in a fixed order, then the unofficial notice', () => {
     const view = page();
-    expect([...view.querySelectorAll('.card')].map((card) => card.id)).toEqual(['why', 'manual', 'target', 'top8', 'stats', 'rounds']);
+    expect([...view.querySelectorAll('.card')].map((card) => card.id)).toEqual(['why', 'chart', 'manual', 'target', 'top8', 'stats', 'rounds']);
     expect(view.querySelector('.summary')!.nextElementSibling!.id).toBe('why');
     expect(view.querySelector('#rounds')!.nextElementSibling!.className).toBe('notice');
   });
@@ -612,6 +642,7 @@ describe('rating tab cards', () => {
     const open = [...view.querySelectorAll('.card-toggle')].map((toggle) => [toggle.id, toggle.getAttribute('aria-expanded')]);
     expect(open).toEqual([
       ['why-toggle', 'false'],
+      ['chart-toggle', 'false'],
       ['manual-toggle', 'false'],
       ['target-toggle', 'false'],
       ['top8-toggle', 'false'],
@@ -643,9 +674,10 @@ describe('rating tab cards', () => {
   it('each start with a one-line explanation', () => {
     const view = page(ALL_OPEN);
     const intros = [...view.querySelectorAll('.card-body')].map((body) => body.firstElementChild!);
-    expect(intros.map((intro) => intro.className)).toEqual(Array(6).fill('card-intro'));
+    expect(intros.map((intro) => intro.className)).toEqual(Array(7).fill('card-intro'));
     expect(intros.map((intro) => intro.textContent)).toEqual([
       'What moved the prediction away from the official rating, largest effect first.',
+      "The player's round ratings over time, newest to the right, with the rating window shaded and lines for the official and the predicted rating.",
       'Add round ratings that are not on pdga.com yet, or rounds you expect to play.',
       'The average round rating your next rounds need to reach a rating at the update they count in.',
       "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",
@@ -1062,11 +1094,37 @@ describe('bookmarklet setup', () => {
     vi.unstubAllGlobals();
   });
 
-  it('explains X-tier events: what PDGA leaves out, the mark on unofficial rounds and leaving an event out', () => {
-    const xTier = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
-    for (const part of ['X-tier events', '5.10', 'mulligans', 'Not counted by PDGA', 'X-tier: may not count', 'one tap', 'Top 8 still counts']) {
-      expect(xTier).toContain(part);
+  it('explains the events the next update may not count: a late report, an unfinished league and X-tier', () => {
+    const section = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!;
+    expect(section.querySelector('h2')!.textContent).toBe('Events the next update may not count');
+    expect([...section.querySelectorAll('li')].map((item) => item.textContent!.split('.')[0])).toEqual([
+      'A late report',
+      'An unfinished league',
+      'An X-tier event PDGA leaves out',
+    ]);
+    const text = section.textContent!;
+    for (const part of [
+      'one tap',
+      'reported by its deadline',
+      'tier L on pdga.com',
+      'League: counts only when the whole league is finished and reported',
+      'X-tier (the tiers XA, XB, XC and XM on pdga.com)',
+      '5.10',
+      'mulligans',
+      'X-tier: may not count',
+      'Not counted by PDGA',
+      'Top 8 still counts',
+    ]) {
+      expect(text).toContain(part);
     }
+  });
+
+  it('keeps the PDGA term X-tier in Swedish and explains it once', () => {
+    setLanguage('sv');
+    const text = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
+    expect(text.split('X-tier (nivåerna XA, XB, XC och XM på pdga.com)')).toHaveLength(2);
+    expect(text).toContain('Liga: räknas först när hela ligan är klar och rapporterad');
+    expect(text).toContain('X-tier: räknas kanske inte');
   });
 
   it('goes back', () => {
@@ -1331,7 +1389,7 @@ describe('how it works', () => {
     const headings = [...view.querySelectorAll('h2')];
     expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
     expect(headings.map((h2) => h2.getAttribute('tabindex'))).toEqual(Array(GUIDE_SECTIONS.length).fill('-1'));
-    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'target', 'top8']);
+    expect(GUIDE_SECTIONS).toEqual(['about', 'data', 'rules', 'rounds', 'xtier', 'why', 'chart', 'target', 'top8']);
   });
 
   it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
@@ -1372,7 +1430,9 @@ describe('how it works', () => {
       persistent: true,
       bookmarklet: null,
       onLanguage: vi.fn(),
+      openWith: 'me',
       onTheme: vi.fn(),
+      onOpenWith: vi.fn(),
       onOpenSetup: vi.fn(),
       onOpenGuide,
     }).querySelector<HTMLButtonElement>('#open-guide')!.click();
@@ -1403,7 +1463,7 @@ describe('how it works', () => {
     const onGuide = vi.fn();
     const props = { model: buildModel(stored, 100001, NOW), cards: ALL_OPEN, onLeaveOut: vi.fn(), favorite: true, now: NOW, onAddFavorite: vi.fn() };
     const link = ratingView({ ...props, onGuide }).querySelector<HTMLButtonElement>('#event-choices #xtier-guide')!;
-    expect(link.getAttribute('aria-label')).toBe('How it works: X-tier events');
+    expect(link.getAttribute('aria-label')).toBe('How it works: Events the next update may not count');
     link.click();
     expect(onGuide).toHaveBeenCalledWith('xtier');
     expect(ratingView(props).querySelector('#xtier-guide')).toBeNull();
