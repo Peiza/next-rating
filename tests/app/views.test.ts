@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el, textWithNodes } from '../../src/app/dom';
-import { formatDate } from '../../src/app/format';
+import { formatCount, formatDate } from '../../src/app/format';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
@@ -1264,6 +1264,12 @@ describe('bookmarklet setup', () => {
     expect(trouble.open).toBe(false);
     expect(trouble.querySelector('summary')!.textContent).toBe("If it doesn't work");
     expect(trouble.textContent).toContain('javascript:');
+  });
+
+  it("gives the code's length and ending, to check a pasted bookmark against", () => {
+    const address = setupView(setupProps(CODE)).querySelector('#setup-trouble li:nth-last-child(4)')!;
+    expect(address.textContent).toContain(`holds the whole code: ${formatCount(CODE.length)} characters, ending in ;void 0.`);
+    expect(CODE.endsWith(';void 0')).toBe(true);
   });
 
   it('copies the code to the clipboard', async () => {

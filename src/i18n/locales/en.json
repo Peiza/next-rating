@@ -347,7 +347,7 @@
   "setup.trouble.title": "If it doesn't work",
   "setup.trouble.iphoneScript": "\"Cannot Run Script: Safari cannot run the script because JavaScript is not allowed to be used this way.\" shows when the bookmark is started from the address bar suggestions. Tap the address bar, then the book icon, and tap the bookmark there.",
   "setup.trouble.androidTested": "Tested on Android in Chrome, Brave, Ghost Browser and Samsung Internet.",
-  "setup.trouble.address": "Check that the bookmark's address starts with javascript: and holds the whole code. If not, copy and paste it again.",
+  "setup.trouble.address": "Check that the bookmark's address starts with javascript: and holds the whole code: {length} characters, ending in {end}. If not, copy and paste it again.",
   "setup.trouble.browsers": "Install it in each browser you use.",
   "setup.trouble.homeScreen": "The home screen icon opens the app in a normal browser tab, so the bookmarklet works from there too.",
   "setup.trouble.check": "If pdga.com shows a browser check, finish it, then run the bookmarklet again.",

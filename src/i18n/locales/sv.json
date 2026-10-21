@@ -347,7 +347,7 @@
   "setup.trouble.title": "Om det inte fungerar",
   "setup.trouble.iphoneScript": "”Cannot Run Script: Safari cannot run the script because JavaScript is not allowed to be used this way.” visas när bokmärket startas från förslagen i adressfältet. Tryck i stället på adressfältet och sedan på boksymbolen, och tryck på bokmärket där.",
   "setup.trouble.androidTested": "Testat på Android i Chrome, Brave, Ghost Browser och Samsung Internet.",
-  "setup.trouble.address": "Kontrollera att bokmärkets adress börjar med javascript: och innehåller hela koden. Kopiera och klistra in den igen om inte.",
+  "setup.trouble.address": "Kontrollera att bokmärkets adress börjar med javascript: och innehåller hela koden: {length} tecken som slutar med {end}. Kopiera och klistra in den igen om inte.",
   "setup.trouble.browsers": "Installera det i varje webbläsare du använder.",
   "setup.trouble.homeScreen": "Hemskärmsikonen öppnar appen i en vanlig webbläsarflik, så bokmärket fungerar därifrån också.",
   "setup.trouble.check": "Om pdga.com visar en webbläsarkontroll, slutför den och kör sedan bokmärket igen.",
