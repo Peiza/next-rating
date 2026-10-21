@@ -101,11 +101,13 @@ widget, nothing on the Rating tab), and the polish from computer and
 Android testing (the chart's period and x-axis in one row of the same
 height; full-screen controls only on screens tall enough too; each tab
 remembers its scroll position; the Rounds card lists the rounds that
-count, the rest behind "Show more"), and the rating history line (the
+count, the rest behind "Show more"), the rating history line (the
 official rating after each update as steps in the chart, with the
 prediction as the last; bookmarklet 1.2.0 fetches the ratings history and
 sends any other page of a player alone; times on a 24-hour clock with Year
-first and Day first).
+first and Day first), and the bookmarklet size (bookmarklet 1.3.0, 4171
+characters, under the 5,000 that the bookmark URL field in Chrome on Android
+keeps; the setup page gives the code's length and ending).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -126,7 +128,10 @@ Bookmarklet rules every change keeps:
   and base64url-encoded in the fragment (#d=...), reserved for this hand-off.
   Never window.open after async work.
 - No text of its own: a minimal progress indicator and a status code that the
-  app translates. Minified size under 5 kB.
+  app translates. At most 4,200 characters as the javascript: URL, measured
+  with the live app URL (build test). The bookmark URL field in Chrome on
+  Android keeps 5,000 characters (measured on a Pixel) and cuts off the
+  rest of a paste.
 
 Open, both optional:
 
@@ -227,8 +232,8 @@ calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
-Ko-fi link, the polish from computer and Android testing and the rating
-history line (docs/finished-steps.md). Nothing else is planned: the
+Ko-fi link, the polish from computer and Android testing, the rating
+history line and the bookmarklet size (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.
