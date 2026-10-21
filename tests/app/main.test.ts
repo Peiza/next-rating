@@ -340,10 +340,16 @@ describe('app start', () => {
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement?.id).toBe('target-toggle');
     expect(document.querySelector<HTMLInputElement>('#target-rating')!.value).toBe('960');
+    expect(document.querySelector<HTMLInputElement>('#target-date')!.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
     document.querySelector('#target-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
     const status = () => document.getElementById('target-status')!;
-    expect(status().textContent).toMatch(/^Average at least \d+ in the next 3 rounds to reach 960 at the .+ update\.$/);
+    const lines = [...status().querySelectorAll('p')].map((p) => p.textContent);
+    expect(lines).toEqual([
+      expect.stringMatching(/^With the last round on .+, this is for the .+ update \(report deadline .+\)\.$/),
+      expect.stringMatching(/^Average at least \d+ in the next 3 rounds to reach 960 at the .+ update\.$/),
+      expect.stringMatching(/^No rounds leave the window by .+\.$/),
+    ]);
     expect(document.activeElement).toBe(status());
 
     const answer = status().textContent;

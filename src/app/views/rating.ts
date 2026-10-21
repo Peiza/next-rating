@@ -18,6 +18,7 @@ import { card, cardIntro } from './card';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
+import { roundLabel, roundWhere, xTierNote } from './round-text';
 import { targetCalculator, type TargetProps } from './target';
 import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
 
@@ -176,10 +177,6 @@ function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps):
   );
 }
 
-function roundLabel(label: string): string {
-  return /^\d+$/.test(label) ? t('round.number', { number: label }) : label;
-}
-
 /** The event name, linked to its pdga.com page when the id is known, then the round. */
 function roundEvent(round: ListedRound): HTMLElement | false {
   const label = round.roundLabel && roundLabel(round.roundLabel);
@@ -189,11 +186,6 @@ function roundEvent(round: ListedRound): HTMLElement | false {
       ? el('a', { href: eventUrl(round.eventId), rel: 'noreferrer' }, round.eventName)
       : round.eventName;
   return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
-}
-
-/** An unofficial round of an X-tier event counts, but PDGA may leave it out (Competition Manual 5.10). */
-function xTierNote(round: ListedRound): string {
-  return round.source === 'unofficial' && isXTier(round.tier) ? t('round.xTier') : '';
 }
 
 function roundItem({ round, result }: ListedResult): HTMLElement {
@@ -262,14 +254,12 @@ function reasonText({ item }: ListedChange): string {
 }
 
 function reasonItem(change: ListedChange): HTMLElement {
-  const { round, item } = change;
-  const where = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), formatDate(round.date), xTierNote(round)];
   return el(
     'li',
     { class: 'reason' },
-    effect(item.effect),
+    effect(change.item.effect),
     el('p', { class: 'reason-text' }, reasonText(change)),
-    el('p', { class: 'reason-meta' }, where.filter(Boolean).join(' · ')),
+    el('p', { class: 'reason-meta' }, roundWhere(change.round)),
   );
 }
 
