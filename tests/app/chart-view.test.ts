@@ -419,14 +419,15 @@ describe('chart panel', () => {
       expect(empty.querySelector('#chart-full-close')).not.toBeNull();
     });
 
-    it('shows the period and the x-axis above the chart on wide screens only, with ids of their own', () => {
+    it('shows the period and the x-axis above the chart on wide and tall screens only, with ids of their own', () => {
       const onPeriod = vi.fn();
       const onAxis = vi.fn();
       const view = document.body.appendChild(
         chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props, onPeriod, onAxis }),
       );
       const controls = view.querySelector('.chart-full-controls')!;
-      expect(controls.classList.contains('wide-only')).toBe(true);
+      // styles.css shows them from 64rem wide and 40rem high, so not on a phone turned sideways; not by .wide-only.
+      expect(controls.className).toBe('chart-full-controls');
       expect(controls.nextElementSibling!.id).toBe('chart-full-detail');
       expect([...controls.querySelectorAll('select, input')].map((node) => node.id)).toEqual(['chart-full-period', 'chart-full-axis-time', 'chart-full-axis-even']);
       expect(controls.querySelector<HTMLSelectElement>('#chart-full-period')!.value).toBe('recent');

@@ -1108,6 +1108,37 @@ a {
   min-height: 0;
 }
 
+/*
+ * The period and the x-axis above the full-screen chart, only where there
+ * is room both ways: a phone turned sideways is far lower than 40rem,
+ * however wide, so it keeps the chart alone.
+ */
+.chart-full-controls {
+  display: none;
+}
+
+@media (min-width: 64rem) and (min-height: 40rem) {
+  .chart-full-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0 1.5rem;
+  }
+
+  .chart-full-controls > .chart-controls {
+    flex: 0 1 36rem;
+  }
+
+  .chart-full-controls > .period-range {
+    flex: 0 1 24rem;
+  }
+
+  .chart-full-controls .chart-controls > *,
+  .chart-full-controls > .period-range {
+    margin-bottom: 0.75rem;
+  }
+}
+
 /* Where the browser has no full screen (iPhone): turn the phone. Only while it is upright, so it takes no height sideways. */
 .chart-rotate-hint {
   margin: 0.5rem 0 0;
@@ -1670,27 +1701,6 @@ a {
 
   .wide-only {
     display: revert;
-  }
-
-  /* The period and the x-axis above the full-screen chart, side by side, since there is room. */
-  .chart-full-controls.wide-only {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 0 1.5rem;
-  }
-
-  .chart-full-controls > .chart-controls {
-    flex: 0 1 36rem;
-  }
-
-  .chart-full-controls > .period-range {
-    flex: 0 1 24rem;
-  }
-
-  .chart-full-controls .chart-controls > *,
-  .chart-full-controls > .period-range {
-    margin-bottom: 0.75rem;
   }
 
   .favorites,

@@ -648,10 +648,11 @@ export interface ChartFullProps extends ChartProps {
 /**
  * The chart alone over the whole page, for a phone turned sideways: only the
  * chart, with the chosen round on one line above it and Exit full screen in
- * its corner. On wide screens, where there is room, the period and the
- * x-axis show above it too; the legend, link and table stay in the card. Its
- * heading is for screen readers. Back, Exit full screen or Escape close it.
- * Its ids differ from the card's, though the card is not shown under it.
+ * its corner. On screens wide and tall enough, where there is room (not a
+ * phone turned sideways), the period and the x-axis show above it too; the
+ * legend, link and table stay in the card. Its heading is for screen
+ * readers. Back, Exit full screen or Escape close it. Its ids differ from
+ * the card's, though the card is not shown under it.
  */
 export function chartFullView(props: ChartFullProps): HTMLElement {
   const { chart, axis, onClose, rotateHint = false } = props;
@@ -672,7 +673,7 @@ export function chartFullView(props: ChartFullProps): HTMLElement {
       },
     },
     el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
-    el('div', { class: 'chart-full-controls wide-only' }, ...chartControls('chart-full', props, true)),
+    el('div', { class: 'chart-full-controls' }, ...chartControls('chart-full', props, true)),
     ...body,
     rotateHint && el('p', { id: 'chart-rotate-hint', class: 'chart-rotate-hint' }, t('chart.rotateHint')),
   );
