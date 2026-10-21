@@ -9,6 +9,13 @@ import { build, type Rolldown } from 'vite';
 
 const ENTRY = fileURLToPath(new URL('../src/bookmarklet/main.ts', import.meta.url));
 
+/*
+ * The app's address. It is hard-coded in every installed bookmarklet, so it
+ * must never change. vite.config.ts lets NEXT_RATING_APP_URL override it for
+ * local testing only, such as http://localhost:4173/ with `npm run preview`.
+ */
+export const LIVE_APP_URL = 'https://peiza.github.io/next-rating/';
+
 /** Accepts https, or http on localhost or a LAN address for local testing, ending in "/". */
 const APP_URL = /^(?:https:\/\/[^/?#\s]+|http:\/\/(?:localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(?::\d+)?)\/(?:[^?#\s]*\/)?$/;
 
