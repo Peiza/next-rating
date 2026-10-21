@@ -228,6 +228,65 @@ describe('chart panel', () => {
     expect(detail(root)).toMatch(/^990 · /);
   });
 
+  describe('a mouse over a point', () => {
+    const at = (root: HTMLElement) => {
+      const svg = plot(root);
+      svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
+      const frame = root.querySelector<HTMLElement>('.chart-frame')!;
+      frame.getBoundingClientRect = svg.getBoundingClientRect;
+      return (pointerType: string, clientX: number, clientY: number) =>
+        svg.dispatchEvent(Object.assign(new MouseEvent('pointermove', { clientX, clientY }), { pointerType }));
+    };
+    const ownPoint = (root: HTMLElement) => plot(root).querySelector('.chart-own polygon')!.getAttribute('points')!.split(' ')[0]!.split(',').map(Number) as [number, number];
+    const tip = (root: HTMLElement) => root.querySelector<HTMLElement>('.chart-tip')!;
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('shows its event, date, rating and status by the pointer after a short delay', () => {
+      vi.useFakeTimers();
+      const root = panel();
+      const move = at(root);
+      const [x, y] = ownPoint(root);
+      expect(tip(root).getAttribute('aria-hidden')).toBe('true');
+      move('mouse', x + 2, y + 5);
+      expect(tip(root).hidden).toBe(true);
+      vi.advanceTimersByTime(99);
+      expect(tip(root).hidden).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(tip(root).hidden).toBe(false);
+      const lines = [...tip(root).children].map((line) => line.textContent);
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toBe('Planned Open');
+      expect(lines[2]).toBe('990 · Counts in the following update');
+      // Above the pointer (jsdom gives the tooltip no size), and to its left near the frame's right edge.
+      expect(tip(root).style.top).toBe(`${Math.round(y + 5 - 12)}px`);
+      Object.defineProperty(tip(root), 'offsetWidth', { get: () => 100 });
+      move('mouse', x + 3, y + 5);
+      expect(tip(root).style.left).toBe(`${Math.round(x + 3 - 12 - 100)}px`);
+      // The details line stays as it was: hovering chooses nothing.
+      expect(detail(root)).toBe('Tap a point, or use the arrow keys, to see its round.');
+
+      move('mouse', 150, 2);
+      expect(tip(root).hidden).toBe(true);
+      move('mouse', x, y);
+      plot(root).dispatchEvent(new MouseEvent('pointerleave'));
+      vi.advanceTimersByTime(200);
+      expect(tip(root).hidden).toBe(true);
+    });
+
+    it('is left to taps on a touch screen', () => {
+      vi.useFakeTimers();
+      const root = panel();
+      const move = at(root);
+      const [x, y] = ownPoint(root);
+      move('touch', x, y);
+      vi.advanceTimersByTime(200);
+      expect(tip(root).hidden).toBe(true);
+    });
+  });
+
   it('explains only the shapes and marks the period has, then the window and the lines', () => {
     const legend = (from: typeof model) =>
       [...panel({ kind: 'custom', from: '2026-09-02', to: '2026-09-30' }, {}, from).querySelectorAll('.chart-legend li')];

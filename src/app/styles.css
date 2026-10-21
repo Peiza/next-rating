@@ -949,6 +949,33 @@ a {
   display: none;
 }
 
+/* A mouse over a point: its round by the pointer, placed by the view. Pointer events pass through to the chart. */
+.chart-tip {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 16rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+  pointer-events: none;
+}
+
+.chart-tip[hidden] {
+  display: none;
+}
+
+.chart-tip span:last-child {
+  font-weight: 700;
+}
+
 /* Left of the corner button, while the chosen point is under the label's usual place. */
 .chart-label-right {
   right: 40px;

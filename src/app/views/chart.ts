@@ -66,6 +66,9 @@ const GAP_HEIGHT = 32;
 const LABEL_GAP = 13;
 /** A tap selects the nearest point within this many screen pixels. */
 const TAP_RADIUS = 24;
+/** A mouse over a point shows its tooltip after this many ms, this many pixels from the pointer. */
+export const HOVER_DELAY = 100;
+const TIP_OFFSET = 12;
 
 const KINDS: Record<PointKind, MessageKey> = {
   official: 'chart.kind.official',
@@ -225,6 +228,13 @@ function pointText(point: ChartPoint): string {
   return [formatRating(point.rating), t(`round.status.${result.status}`), roundWhere(round), t(KINDS[point.kind])].filter(Boolean).join(' · ');
 }
 
+/** The tooltip's lines: the event and round (or the kind, for an own round without a name), the date, then the rating and status. */
+function tipText(point: ChartPoint): string[] {
+  const { round, result } = point.row;
+  const event = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)].filter(Boolean).join(' · ');
+  return [event || t(KINDS[point.kind]), formatDate(point.date), `${formatRating(point.rating)} · ${t(`round.status.${result.status}`)}`];
+}
+
 /** What the chart shows, for screen readers. */
 function summaryText(chart: ChartData): string {
   const ratings = chart.points.map((point) => point.rating);
@@ -332,10 +342,10 @@ export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotO
     placeLabel();
   };
 
-  const onTap = (event: Event) => {
-    const { clientX, clientY } = event as PointerEvent;
+  /** The point nearest to a place on the screen, within TAP_RADIUS pixels, or -1. */
+  const nearestTo = (clientX: number, clientY: number): number => {
     const box = drawing.getBoundingClientRect();
-    if (box.width === 0) return;
+    if (box.width === 0) return -1;
     const units = size.width / box.width;
     const [tapX, tapY] = [(clientX - box.left) * units, (clientY - box.top) * units];
     let nearest = -1;
@@ -347,7 +357,67 @@ export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotO
         nearest = i;
       }
     });
+    return nearest;
+  };
+
+  const onTap = (event: Event) => {
+    const { clientX, clientY } = event as PointerEvent;
+    const nearest = nearestTo(clientX, clientY);
     if (nearest >= 0) choose(nearest);
+  };
+
+  /*
+   * A mouse or pen over a point shows its round in a tooltip by the pointer,
+   * once it has stayed there HOVER_DELAY ms. Touch has no hover, so a tap
+   * chooses the point as before. Screen readers get the round from the
+   * details line instead, so the tooltip is hidden from them.
+   */
+  const tip = el('div', { class: 'chart-tip', 'aria-hidden': 'true', hidden: true });
+  let hovered = -1;
+  let pointer = { x: 0, y: 0 };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const hideTip = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    hovered = -1;
+    tip.hidden = true;
+  };
+
+  /** By the pointer, above and to the right, or on the other side where the frame ends. */
+  const placeTip = () => {
+    const box = frame.getBoundingClientRect();
+    const [x, y] = [pointer.x - box.left, pointer.y - box.top];
+    const [width, height] = [tip.offsetWidth, tip.offsetHeight];
+    let left = x + TIP_OFFSET;
+    if (left + width > box.width) left = x - TIP_OFFSET - width;
+    let top = y - TIP_OFFSET - height;
+    if (top < 0) top = y + TIP_OFFSET;
+    // CSSOM, which the CSP allows; it only blocks style attributes.
+    tip.style.left = `${Math.max(0, Math.round(left))}px`;
+    tip.style.top = `${Math.max(0, Math.round(top))}px`;
+  };
+
+  const showTip = () => {
+    timer = undefined;
+    tip.replaceChildren(...tipText(placed[hovered]!.point).map((line) => el('span', {}, line)));
+    tip.hidden = false;
+    placeTip();
+  };
+
+  const onHover = (event: Event) => {
+    const { pointerType, clientX, clientY } = event as PointerEvent;
+    if (pointerType === 'touch') return;
+    pointer = { x: clientX, y: clientY };
+    const nearest = nearestTo(clientX, clientY);
+    if (nearest === hovered) {
+      if (!tip.hidden) placeTip();
+      return;
+    }
+    hideTip();
+    if (nearest < 0) return;
+    hovered = nearest;
+    timer = setTimeout(showTip, HOVER_DELAY);
   };
 
   const onKey = (event: Event) => {
@@ -372,10 +442,14 @@ export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotO
     'aria-describedby': detailId,
     tabindex: 0,
     onpointerup: onTap,
+    onpointermove: onHover,
+    onpointerleave: hideTip,
     onkeydown: onKey,
   });
 
   const draw = (width: number, height: number) => {
+    // The points move, so a tooltip would no longer be by its point.
+    hideTip();
     size = { width, height };
     const layout = layoutOf(chart, width, height);
     placed = chart.points.map((point) => ({ point, x: layout.x(point.date), y: layout.y(point.rating) }));
@@ -408,6 +482,7 @@ export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotO
     { class: full ? 'chart-frame chart-frame-fill' : 'chart-frame' },
     drawing,
     full && detail,
+    tip,
     corner && cornerButton(corner),
   );
   draw(size.width, size.height);
