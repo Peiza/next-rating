@@ -1,4 +1,4 @@
-import type { Envelope, HandoffPage } from '../handoff/envelope';
+import type { Envelope, HandoffPage, HandoffStatus } from '../handoff/envelope';
 import { MAX_PAYLOAD, packText } from '../handoff/pack';
 import type { PageKind } from '../parsers/page';
 import { BOOKMARKLET_VERSION } from './version';
@@ -113,10 +113,10 @@ export function dateKey(text: string): number {
   return date ? +date[3]! * 1e4 + (MONTHS.indexOf(date[2]!.toLowerCase()) / 3 + 1) * 100 + +date[1]! : 0;
 }
 
-/** Event ids and dates from the rows of a player page's results tables. */
+/** Event ids, from each row's first event link, and dates from the rows of a player page's results tables. */
 function eventRows(doc: Document): [string, number][] {
   return [...doc.querySelectorAll(`${RESULTS} tr`)].flatMap((row): [string, number][] => {
-    const id = /\/tour\/event\/(\d+)/.exec(row.querySelector('a[href*="/tour/event/"]')?.getAttribute('href') ?? '')?.[1];
+    const id = /\/tour\/event\/(\d+)/.exec(row.outerHTML)?.[1];
     return id ? [[id, dateKey(row.textContent ?? '')]] : [];
   });
 }
@@ -169,34 +169,44 @@ export function keepPlayerRows(doc: Document, pdgaNumber: string): void {
 export async function collect(doc: Document, url: string, deps: CollectDeps): Promise<Envelope> {
   const path = new URL(url).pathname.replace(/\/$/, '');
   const page = isChallenge(doc) ? 'challenge' : pageKind(path);
-  const envelope: Envelope = { v: 2, status: 'ok', page, bookmarklet: BOOKMARKLET_VERSION };
+  // Only on a player's pages, the only ones it fetches from.
+  const pdgaNumber = /^\/player\/(\d+)/.exec(path)?.[1] ?? '';
+  let status: HandoffStatus = 'ok';
   const pages: HandoffPage[] = [];
   const failed: string[] = [];
   let done = 1;
   let planned = 1;
 
+  /** Adds a page to the hand-off, with the parts the app reads. */
+  function keep(path: string, from: Document, kind: PageKind): Document {
+    pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(from, kind) });
+    return from;
+  }
+
   /**
-   * Fetches one page. After a challenge or a failure, nothing more is
-   * fetched: this page and every later one are listed as failed instead.
+   * Fetches one page and adds it, an event page with only this player's
+   * rows. After a challenge or a failure, nothing more is fetched: this page
+   * and every later one are listed as failed instead.
    */
-  async function fetchPage(path: string, kind: ContentKind): Promise<Document | undefined> {
-    if (envelope.status === 'ok') {
+  async function read(path: string, kind: ContentKind): Promise<Document | undefined> {
+    if (status === 'ok') {
       await deps.wait(REQUEST_GAP);
       try {
         const response = await deps.fetch(path);
         const fetched = deps.parse(await response.text());
         if (response.headers.get('cf-mitigated') === 'challenge' || isChallenge(fetched)) {
-          envelope.status = 'challenge';
+          status = 'challenge';
         } else if (response.ok && (!response.redirected || pageKind(new URL(response.url).pathname) === kind)) {
           // The path was built for this kind, so only a redirect can lead elsewhere.
-          return fetched;
+          if (kind === 'event') keepPlayerRows(fetched, pdgaNumber);
+          return keep(path, fetched, kind);
         }
       } catch {
-        // A network error, or a response that could not be read.
+        // A network error, or a page that could not be read.
       } finally {
         deps.progress(++done, planned);
       }
-      if (envelope.status === 'ok') envelope.status = 'partial';
+      if (status === 'ok') status = 'partial';
     }
     failed.push(PDGA_ORIGIN + path);
     return undefined;
@@ -204,57 +214,47 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
 
   try {
     if (page === 'challenge') {
-      envelope.status = 'challenge';
+      status = 'challenge';
       failed.push(PDGA_ORIGIN + path);
     } else if (page === 'event' || (page !== 'details' && PLAYER_PAGE.test(path))) {
-      pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
+      keep(path, doc, page);
     } else if (page !== 'details' && page !== 'profile') {
-      envelope.status = 'unsupported-page';
+      status = 'unsupported-page';
     } else {
-      const pdgaNumber = /^\/player\/(\d+)/.exec(path)![1]!;
-      const other = page === 'details' ? `/player/${pdgaNumber}` : `/player/${pdgaNumber}/details`;
-      const otherKind = page === 'details' ? 'profile' : 'details';
-      const historyPath = `/player/${pdgaNumber}/history`;
-      pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
+      const onDetails = page === 'details';
+      keep(path, doc, page);
       planned = 3;
       deps.progress(done, planned);
-      const fetched = await fetchPage(other, otherKind);
+      const fetched = await read(`/player/${pdgaNumber}${onDetails ? '' : '/details'}`, onDetails ? 'profile' : 'details');
       if (fetched) {
-        pages.push({ url: PDGA_ORIGIN + other, html: pageHtml(fetched, otherKind) });
-        const [details, profile] = page === 'details' ? [doc, fetched] : [fetched, doc];
+        const [details, profile] = onDetails ? [doc, fetched] : [fetched, doc];
         const seasons = [profile];
         const seasonPath = previousSeasonPath(profile, pdgaNumber, deps.now);
         if (seasonPath) {
           planned += 1;
-          const season = await fetchPage(seasonPath, 'season');
-          if (season) {
-            seasons.push(season);
-            pages.push({ url: PDGA_ORIGIN + seasonPath, html: pageHtml(season, 'season') });
-          }
+          const season = await read(seasonPath, 'season');
+          if (season) seasons.push(season);
         }
         // Without a readable details table, every event would look new.
         const ids = details.querySelector(PARTS.details[0]) ? newEventIds(details, ...seasons) : [];
         planned += ids.length;
-        for (const id of ids) {
-          const eventPath = `/tour/event/${id}`;
-          const event = await fetchPage(eventPath, 'event');
-          if (event) {
-            keepPlayerRows(event, pdgaNumber);
-            pages.push({ url: PDGA_ORIGIN + eventPath, html: pageHtml(event, 'event') });
-          }
-        }
+        for (const id of ids) await read(`/tour/event/${id}`, 'event');
       }
       // Last, so a failure here costs no event page.
-      const history = await fetchPage(historyPath, 'history');
-      if (history) pages.push({ url: PDGA_ORIGIN + historyPath, html: pageHtml(history, 'history') });
+      await read(`/player/${pdgaNumber}/history`, 'history');
     }
   } catch {
-    envelope.status = 'error';
+    status = 'error';
   }
-  if (pages.length > 0) envelope.pages = pages;
-  if (failed.length > 0) envelope.failed = failed;
   deps.progress(planned, planned);
-  return envelope;
+  return {
+    v: 2,
+    status,
+    page,
+    bookmarklet: BOOKMARKLET_VERSION,
+    ...(pages.length > 0 && { pages }),
+    ...(failed.length > 0 && { failed }),
+  };
 }
 
 /**
@@ -271,7 +271,7 @@ export async function packEnvelope(envelope: Envelope, limit = MAX_PAYLOAD): Pro
     while (last > 0 && !pages[last]!.url.includes('/tour/event/')) last -= 1;
     if (payload.length <= limit || last < 1) return payload;
     const [dropped] = pages.splice(last, 1);
-    envelope.failed = [...(envelope.failed ?? []), dropped!.url];
+    (envelope.failed ??= []).push(dropped!.url);
     if (envelope.status === 'ok') envelope.status = 'partial';
   }
 }
