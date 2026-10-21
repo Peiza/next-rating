@@ -132,6 +132,49 @@ describe('app start', () => {
     expect([...document.querySelectorAll('.tab')].map((tab) => tab.id)).toEqual(['tab-rating', 'tab-settings']);
   });
 
+  it('shows each tab where it was last scrolled, and the tab already shown at the top', async () => {
+    const scrollAt = (y: number) => Object.defineProperty(window, 'scrollY', { value: y, configurable: true, writable: true });
+    const scrolledTo = () => vi.mocked(window.scrollTo).mock.lastCall;
+    const tap = (id: string) => document.getElementById(id)!.click();
+    try {
+      await start('/next-rating/');
+      scrollAt(400);
+      tap('tab-settings');
+      expect(scrolledTo()).toEqual([0, 0]);
+      scrollAt(150);
+      tap('tab-rating');
+      expect(scrolledTo()).toEqual([0, 400]);
+      tap('tab-rating');
+      expect(scrolledTo()).toEqual([0, 0]);
+      tap('tab-settings');
+      expect(scrolledTo()).toEqual([0, 150]);
+
+      // A view over the tab, or the players panel, keeps the position from before it opened.
+      scrollAt(300);
+      tap('open-setup');
+      scrollAt(900);
+      let done = popped();
+      tap('tab-settings');
+      await done;
+      expect(scrolledTo()).toEqual([0, 300]);
+      tap('tab-rating');
+      scrollAt(500);
+      tap('players-menu');
+      scrollAt(0);
+      done = popped();
+      tap('tab-rating');
+      await done;
+      expect(scrolledTo()).toEqual([0, 500]);
+
+      // A launch starts every tab at the top.
+      await start('/next-rating/');
+      tap('tab-settings');
+      expect(scrolledTo()).toEqual([0, 0]);
+    } finally {
+      scrollAt(0);
+    }
+  });
+
   it('opens the bookmarklet setup over the current tab and goes back to where it was opened', async () => {
     await start('/next-rating/');
     const open = document.getElementById('open-setup') as HTMLButtonElement;
@@ -345,6 +388,39 @@ describe('app start', () => {
 
     await start('/next-rating/');
     expect(predicted()).toBe('960');
+  });
+
+  it('shows every round after "Show more" through re-renders, until another player is shown', async () => {
+    await start('/next-rating/');
+    (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';
+    (document.getElementById('pdga-number') as HTMLInputElement).form!.dispatchEvent(new Event('submit', { cancelable: true }));
+    // Two rounds that count, then two outside the window: the list ends with the first of those.
+    const older = [detailsRow({ eventId: '900010', date: '1-Jul-2023', rating: '900' }), detailsRow({ eventId: '900011', date: '1-Jun-2023', rating: '900' })];
+    await handOff([playerHeader('Test Player', '100001', '960') + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' }), ...older])]);
+    await handOff([otherHtml, 'https://www.pdga.com/player/100002/details']);
+    document.getElementById('add-favorite')!.click();
+    await start('/next-rating/');
+    const rounds = () => document.querySelectorAll('#rounds-body .round').length;
+    expect(rounds()).toBe(3);
+    const more = document.getElementById('rounds-more')!;
+    expect(more.textContent).toBe('Show 1 more round');
+    more.click();
+    expect(rounds()).toBe(4);
+    expect(document.getElementById('rounds-more')).toBeNull();
+    expect(document.activeElement?.id).toBe('rounds-next');
+
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('tab-rating')!.click();
+    expect(rounds()).toBe(4);
+
+    for (const pdgaNumber of [100002, 100001]) {
+      document.getElementById('players-menu')!.click();
+      const done = popped();
+      document.getElementById(`player-${pdgaNumber}`)!.click();
+      await done;
+    }
+    expect(rounds()).toBe(3);
+    expect(document.getElementById('rounds-more')).not.toBeNull();
   });
 
   it('opens on the last viewed player when Settings says so, and on an imported player after a hand-off', async () => {
@@ -763,9 +839,9 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('chart-full-title');
     expect(document.querySelector('[role="dialog"]')!.getAttribute('aria-labelledby')).toBe('chart-full-title');
     expect(document.getElementById('chart-full-plot')).not.toBeNull();
-    // The chart is all the page shows, so no ids repeat; only wide screens show its own period select.
+    // The chart is all the page shows, so no ids repeat; only wide and tall screens show its own period select.
     expect(document.querySelector('.tabbar, #chart-plot, #chart-period')).toBeNull();
-    expect(document.querySelector('select')!.closest('.chart-full-controls.wide-only')).not.toBeNull();
+    expect(document.querySelector('select')!.closest('.chart-full-controls')).not.toBeNull();
     // A period picked there is the card's too, and the chart stays full screen with focus on the select.
     const fullPeriod = document.querySelector<HTMLSelectElement>('#chart-full-period')!;
     fullPeriod.focus();

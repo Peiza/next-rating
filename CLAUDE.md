@@ -97,7 +97,11 @@ the iPhone in full screen; "manual rounds" everywhere; the period and
 x-axis above the full-screen chart on wide screens; the chosen round on
 one line above the full-screen chart), and a plain Ko-fi link at the
 bottom of Settings and at the end of How it works (no Ko-fi script or
-widget, nothing on the Rating tab).
+widget, nothing on the Rating tab), and the polish from computer and
+Android testing (the chart's period and x-axis in one row of the same
+height; full-screen controls only on screens tall enough too; each tab
+remembers its scroll position; the Rounds card lists the rounds that
+count, the rest behind "Show more").
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -198,7 +202,14 @@ numbered questions, each with lettered options and your recommendation, so I
 can copy them. Don't use interactive question boxes. Changes reach main
 through pull requests that I merge; the workflow builds and tests every pull
 request and deploys every merge, so each version can be tested live on my
-phone. Done so far:
+phone. At the start of every new step, first run git switch main, git pull
+--ff-only and git fetch --prune, delete local branches that are already
+merged with git branch -d (never -D), then create the new feature branch
+from main. When a step is done, Claude pushes the branch and opens the
+pull request with gh (`C:\Program Files\GitHub CLI\gh.exe` when gh isn't
+on PATH), with the description and a checklist of what to test on the
+phones, waits for CI and reports whether it passed. Never merge: I always
+merge myself. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
@@ -206,8 +217,9 @@ web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
-polish, the polish from phone testing, the fixes from iPhone testing and
-the Ko-fi link (docs/finished-steps.md). Nothing else is planned: the
+polish, the polish from phone testing, the fixes from iPhone testing, the
+Ko-fi link and the polish from computer and Android testing
+(docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.

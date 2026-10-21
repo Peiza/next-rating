@@ -753,6 +753,49 @@ Built as (docs/plan-iphone-testing.md):
   is a flex row where only `.chart-detail-event` shrinks, with
   `white-space: pre` so each part keeps its leading space.
 
+## Polish from computer and Android testing
+Spec, after testing on a computer and a Pixel 8:
+1. The chart's period select and x-axis choice are equally tall, their
+   labels on one line, and "Even spacing" on one line. Side by side where
+   both fit (the card on a computer, full screen), stacked on phones; a
+   custom range's dates under them.
+2. Full screen, the period and x-axis show only on screens wide and tall
+   enough. A phone turned sideways (the Pixel 8 is wider than 64rem) keeps
+   the chart only.
+3. Rating and Settings each open where they were last scrolled while the
+   app is open. Tapping the tab already shown scrolls it to the top; a new
+   launch, another player and an import start at the top.
+4. The Rounds card lists the rounds newest first down to the oldest round
+   that counts or is dropped, and one more. Rounds above that which don't
+   count still show where they are. "Show N more rounds" shows the rest at
+   once, kept for that player while the app is open. With no round that
+   counts, the newest round and the button show.
+5. Claude opens the pull request with gh and reports CI; I merge.
+
+Built as (docs/plan-computer-android-polish.md):
+- `chartControls(prefix, …)` in views/chart.ts, used by the card and full
+  screen: `div.chart-controls` (flex, wrap, `align-items: flex-start`) with
+  the period field and the x-axis fieldset, then the custom range. Segment
+  labels are `calc(3rem - 4px)` tall, so a segmented control with its
+  border is as tall as an `.input` (every segmented control). The legend
+  floats at full width, so it lays out like a block `.label`. In the row the
+  segment labels don't wrap, are sized by their words, and keep room for the
+  check mark on both.
+- `.chart-full-controls` (no longer `.wide-only`) shows from
+  `(min-width: 64rem) and (min-height: 40rem)`.
+- `scrollTops` in main.ts, in memory only; `saveScroll()` records the tab's
+  `scrollY` when its own view is left or covered (`selectTab`,
+  `openOverlay`, the players panel, `selectPlayer`, `showBanner`).
+  `selectTab` restores it, or scrolls to the top for the tab already shown.
+  A card chart not yet measured is limited to 200–320px high (CARD_HEIGHT),
+  so the page keeps its height when the chart is drawn again.
+- `shownRounds()` in views/rating.ts; `RatingProps.rounds` with `expanded`
+  and `onExpand`, and `roundsExpanded` in main.ts, reset when another player
+  is shown. `#rounds-more` uses `rounds.more.one|other`; the first round it
+  adds is `#rounds-next` with `tabindex="-1"` and gets focus.
+- CLAUDE.md "Process": the branch routine at the start of a step, and pull
+  requests opened with gh.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -811,3 +854,6 @@ Built in this order:
   manual rounds (docs/plan-iphone-testing.md) (done)
 - Ko-fi link: a plain link at the bottom of Settings, at the end of How it
   works and in the README, opened in the same tab (done)
+- Polish from computer and Android testing: the chart controls, full-screen
+  controls only where there is height, remembered scroll positions and a
+  shorter Rounds card (docs/plan-computer-android-polish.md) (done)

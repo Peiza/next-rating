@@ -2,6 +2,9 @@
 legacy/
 tests/fixtures/
 
+# Personal Claude Code settings for this machine
+.claude/settings.local.json
+
 # Installed packages
 node_modules/
 

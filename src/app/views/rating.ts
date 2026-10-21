@@ -40,6 +40,8 @@ export interface RatingProps {
   onToggleCard?: (name: CardName) => void;
   /** Leaves an unofficial event out of the prediction, or counts it again. Without it, the Rounds card offers no choice. */
   onLeaveOut?: (key: string, leftOut: boolean) => void;
+  /** Whether the Rounds card shows every round, and the button that does. Without it, every round shows. */
+  rounds?: RoundsList;
   /** Opens How it works at a section, from a card's explanation. Without it, the explanations have no link. */
   onGuide?: (section: GuideSection) => void;
   /** False for the unsaved player, which gets an Add to favorites button. */
@@ -48,6 +50,15 @@ export interface RatingProps {
   now: Date;
   onAddFavorite: (pdgaNumber: number) => void;
 }
+
+export interface RoundsList {
+  expanded: boolean;
+  onExpand: () => void;
+}
+
+export const ROUNDS_MORE_ID = 'rounds-more';
+/** The first round "Show more" adds, which gets focus so a screen reader goes on from there. */
+export const ROUNDS_NEXT_ID = 'rounds-next';
 
 /** Where PDGA publishes when ratings are updated and which events an update counts. */
 const UPDATES_URL = 'https://www.pdga.com/faq/ratings/when-updated';
@@ -191,7 +202,7 @@ function roundEvent(round: ListedRound): HTMLElement | false {
   return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
 }
 
-function roundItem({ round, result }: ListedResult): HTMLElement {
+function roundItem({ round, result }: ListedResult, next = false): HTMLElement {
   const status = STATUS[result.status];
   const details = [
     formatDate(round.date),
@@ -201,7 +212,7 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
   ].filter(Boolean);
   return el(
     'li',
-    { class: `round round-${result.status}` },
+    next ? { id: ROUNDS_NEXT_ID, class: `round round-${result.status}`, tabindex: -1 } : { class: `round round-${result.status}` },
     el(
       'div',
       { class: 'round-main' },
@@ -466,8 +477,39 @@ function eventChoices(
   );
 }
 
-/** Every round, newest first, after the unofficial events to choose from and the events that have no rated round for the player yet. */
-function roundsBody(model: Model, onLeaveOut: RatingProps['onLeaveOut'], onGuide: RatingProps['onGuide']): Child[] {
+/** The statuses of the rounds the next update counts or drops. */
+const IN_UPDATE: ReadonlySet<RoundStatus> = new Set(['included', 'doubled', 'dropped']);
+
+/**
+ * How many rounds the Rounds card shows before "Show more": newest first,
+ * down to the oldest round the next update counts or drops, and one more
+ * that it does not count. Rounds above that which do not count show where
+ * they are. With no round that counts or is dropped, only the newest.
+ */
+export function shownRounds(rows: readonly ListedResult[]): number {
+  let oldest = -1;
+  rows.forEach((row, i) => {
+    if (IN_UPDATE.has(row.result.status)) oldest = i;
+  });
+  return Math.min(rows.length, oldest < 0 ? 1 : oldest + 2);
+}
+
+/** The rounds, newest first: those shown, then a button that shows the rest. */
+function roundList(rows: readonly ListedResult[], list: RoundsList | undefined): Child[] {
+  if (rows.length === 0) return [];
+  const shown = list ? shownRounds(rows) : rows.length;
+  const hidden = rows.length - shown;
+  if (list?.expanded || hidden === 0) {
+    return [el('ol', { class: 'rounds' }, ...rows.map((row, i) => roundItem(row, hidden > 0 && i === shown)))];
+  }
+  return [
+    el('ol', { class: 'rounds' }, ...rows.slice(0, shown).map((row) => roundItem(row))),
+    el('button', { id: ROUNDS_MORE_ID, class: 'button button-small rounds-more', type: 'button', onclick: list!.onExpand }, t('rounds.more', { count: hidden })),
+  ];
+}
+
+/** The rounds, after the unofficial events to choose from and the events that have no rated round for the player yet. */
+function roundsBody(model: Model, { onLeaveOut, onGuide, rounds }: RatingProps): Child[] {
   return [
     eventChoices(model, onLeaveOut, onGuide),
     model.eventsWithoutRounds.length > 0 &&
@@ -481,7 +523,7 @@ function roundsBody(model: Model, onLeaveOut: RatingProps['onLeaveOut'], onGuide
             .join(', '),
         }),
       ),
-    model.rows.length > 0 && el('ol', { class: 'rounds' }, ...model.rows.map(roundItem)),
+    ...roundList(model.rows, rounds),
   ];
 }
 
@@ -573,7 +615,7 @@ export function ratingView(props: RatingProps): HTMLElement {
       statsList(model.prediction.stats, model.prediction.exact),
     ]),
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
-      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props.onLeaveOut, onGuide)),
+      section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props)),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }

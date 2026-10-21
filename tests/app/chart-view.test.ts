@@ -71,6 +71,24 @@ describe('chart panel', () => {
     expect(root.querySelector<HTMLInputElement>('#chart-to')!.value).toBe('2026-10-12');
   });
 
+  it('puts the period and the x-axis in one row, in the card and full screen, with a custom range under it', () => {
+    const ids = (root: Element) => [...root.querySelectorAll('select, input')].map((node) => node.id);
+    const card = panel({ kind: 'custom', from: '2026-01-01', to: '2026-10-12' });
+    const row = card.querySelector('.chart-controls')!;
+    expect(ids(row)).toEqual(['chart-period', 'chart-axis-time', 'chart-axis-even']);
+    expect(row.nextElementSibling!.classList.contains('period-range')).toBe(true);
+    expect(ids(row.nextElementSibling!)).toEqual(['chart-from', 'chart-to']);
+
+    const chart = chartData(model, { kind: 'custom', from: '2026-01-01', to: '2026-10-12' }, TODAY);
+    const full = chartFullView({ chart, pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), axis: 'time', onAxis: vi.fn(), onClose: vi.fn() });
+    const fullRow = full.querySelector('.chart-full-controls > .chart-controls')!;
+    expect(ids(fullRow)).toEqual(['chart-full-period', 'chart-full-axis-time', 'chart-full-axis-even']);
+    expect(ids(fullRow.nextElementSibling!)).toEqual(['chart-full-from', 'chart-full-to']);
+
+    // Without rounds the card keeps the period alone in its row.
+    expect(ids(panel({ kind: 'year', year: 2020 }).querySelector('.chart-controls')!)).toEqual(['chart-period']);
+  });
+
   it('draws the x-axis by time or with even spacing, as chosen', () => {
     const onAxis = vi.fn();
     const root = panel({ kind: 'recent' }, { onAxis });
@@ -401,14 +419,15 @@ describe('chart panel', () => {
       expect(empty.querySelector('#chart-full-close')).not.toBeNull();
     });
 
-    it('shows the period and the x-axis above the chart on wide screens only, with ids of their own', () => {
+    it('shows the period and the x-axis above the chart on wide and tall screens only, with ids of their own', () => {
       const onPeriod = vi.fn();
       const onAxis = vi.fn();
       const view = document.body.appendChild(
         chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props, onPeriod, onAxis }),
       );
       const controls = view.querySelector('.chart-full-controls')!;
-      expect(controls.classList.contains('wide-only')).toBe(true);
+      // styles.css shows them from 64rem wide and 40rem high, so not on a phone turned sideways; not by .wide-only.
+      expect(controls.className).toBe('chart-full-controls');
       expect(controls.nextElementSibling!.id).toBe('chart-full-detail');
       expect([...controls.querySelectorAll('select, input')].map((node) => node.id)).toEqual(['chart-full-period', 'chart-full-axis-time', 'chart-full-axis-even']);
       expect(controls.querySelector<HTMLSelectElement>('#chart-full-period')!.value).toBe('recent');

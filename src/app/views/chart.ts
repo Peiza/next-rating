@@ -59,7 +59,7 @@ export const CHART_FULL_CLOSE_ID = 'chart-full-close';
  * scales to fit.
  */
 export const DEFAULT_SIZE = { width: 300, height: 200 } as const;
-/** In the card, the height is two thirds of the width, within these limits. */
+/** In the card, the height is two thirds of the width, within these limits (repeated in styles.css). */
 const CARD_HEIGHT = { min: 200, max: 320 } as const;
 /** Narrower or lower than this, the drawing is scaled down instead. */
 const MIN_SIZE = { width: 240, height: 160 } as const;
@@ -89,6 +89,16 @@ function axisControl(name: string, axis: ChartAxis, onAxis: (axis: ChartAxis) =>
     { value: 'even', id: `${name}-even`, label: 'chart.axis.even' },
   ];
   return segmented('chart.axis', name, options, axis, onAxis);
+}
+
+/**
+ * The period and the x-axis in one row, side by side where both fit, then a
+ * custom range's dates under them. The ids start with `prefix`: "chart" in
+ * the card, "chart-full" full screen. Without `withAxis` only the period shows.
+ */
+function chartControls(prefix: string, { chart, today, onPeriod, axis, onAxis }: ChartProps, withAxis: boolean): HTMLElement[] {
+  const [select, ...range] = periodControls({ id: prefix, ...chart, today, recent: true, onPeriod });
+  return [el('div', { class: 'chart-controls' }, select, withAxis && axisControl(`${prefix}-axis`, axis, onAxis)), ...range];
 }
 
 const MARKS: Record<PointMark, MessageKey> = {
@@ -611,13 +621,14 @@ function historyLink(pdgaNumber: number): HTMLElement {
 }
 
 /** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
-export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, table: tableState, onFullScreen }: ChartProps): HTMLElement[] {
-  const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
-  if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
+export function chartPanel(props: ChartProps): HTMLElement[] {
+  const { chart, pdgaNumber, axis, table: tableState, onFullScreen } = props;
+  if (chart.points.length === 0) {
+    return [...chartControls('chart', props, false), el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
+  }
   const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
   return [
-    ...controls,
-    axisControl('chart-axis', axis, onAxis),
+    ...chartControls('chart', props, true),
     ...plot(chart, { ...CARD_PLOT, axis, corner }),
     legend(chart),
     historyLink(pdgaNumber),
@@ -637,12 +648,14 @@ export interface ChartFullProps extends ChartProps {
 /**
  * The chart alone over the whole page, for a phone turned sideways: only the
  * chart, with the chosen round on one line above it and Exit full screen in
- * its corner. On wide screens, where there is room, the period and the
- * x-axis show above it too; the legend, link and table stay in the card. Its
- * heading is for screen readers. Back, Exit full screen or Escape close it.
- * Its ids differ from the card's, though the card is not shown under it.
+ * its corner. On screens wide and tall enough, where there is room (not a
+ * phone turned sideways), the period and the x-axis show above it too; the
+ * legend, link and table stay in the card. Its heading is for screen
+ * readers. Back, Exit full screen or Escape close it. Its ids differ from
+ * the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, today, onPeriod, axis, onAxis, onClose, rotateHint = false }: ChartFullProps): HTMLElement {
+export function chartFullView(props: ChartFullProps): HTMLElement {
+  const { chart, axis, onClose, rotateHint = false } = props;
   const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
@@ -660,12 +673,7 @@ export function chartFullView({ chart, today, onPeriod, axis, onAxis, onClose, r
       },
     },
     el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
-    el(
-      'div',
-      { class: 'chart-full-controls wide-only' },
-      ...periodControls({ id: 'chart-full', ...chart, today, recent: true, onPeriod }),
-      axisControl('chart-full-axis', axis, onAxis),
-    ),
+    el('div', { class: 'chart-full-controls' }, ...chartControls('chart-full', props, true)),
     ...body,
     rotateHint && el('p', { id: 'chart-rotate-hint', class: 'chart-rotate-hint' }, t('chart.rotateHint')),
   );
