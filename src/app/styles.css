@@ -1615,6 +1615,28 @@ a {
     display: revert;
   }
 
+  /* The period and the x-axis above the full-screen chart, side by side, since there is room. */
+  .chart-full-controls.wide-only {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0 1.5rem;
+  }
+
+  .chart-full-controls > .field {
+    flex: 0 1 20rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .chart-full-controls > .period-range {
+    flex: 0 1 24rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .chart-full-controls > .segmented {
+    margin-bottom: 0.75rem;
+  }
+
   .favorites,
   .menu-open .favorites {
     display: block;

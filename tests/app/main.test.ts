@@ -763,8 +763,17 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('chart-full-title');
     expect(document.querySelector('[role="dialog"]')!.getAttribute('aria-labelledby')).toBe('chart-full-title');
     expect(document.getElementById('chart-full-plot')).not.toBeNull();
-    // The chart is all the page shows, so no ids repeat, and the period is chosen in the card.
-    expect(document.querySelector('.tabbar, #chart-plot, select')).toBeNull();
+    // The chart is all the page shows, so no ids repeat; only wide screens show its own period select.
+    expect(document.querySelector('.tabbar, #chart-plot, #chart-period')).toBeNull();
+    expect(document.querySelector('select')!.closest('.chart-full-controls.wide-only')).not.toBeNull();
+    // A period picked there is the card's too, and the chart stays full screen with focus on the select.
+    const fullPeriod = document.querySelector<HTMLSelectElement>('#chart-full-period')!;
+    fullPeriod.focus();
+    fullPeriod.value = 'window';
+    fullPeriod.dispatchEvent(new Event('change'));
+    expect(stored().chartPeriod).toEqual({ kind: 'window' });
+    expect(document.activeElement?.id).toBe('chart-full-period');
+    expect(document.getElementById('chart-full-plot')).not.toBeNull();
 
     await clickBack('chart-full-close');
     expect(document.getElementById('chart-full-plot')).toBeNull();

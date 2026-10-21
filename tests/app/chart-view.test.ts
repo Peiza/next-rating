@@ -378,8 +378,10 @@ describe('chart panel', () => {
     it('shows only the chart, with Exit full screen in its corner', () => {
       const view = full();
       expect(view.querySelector('h1.visually-hidden')!.textContent).toBe('Chart');
-      expect([...view.querySelectorAll('[id]')].map((node) => node.id)).toEqual(['chart-full-title', 'chart-full-plot', 'chart-full-detail', 'chart-full-close']);
-      expect(view.querySelector('select, .chart-legend, .chart-history, .chart-table')).toBeNull();
+      const ids = (root: Element) => [...root.querySelectorAll('[id]')].map((node) => node.id);
+      const controls = view.querySelector('.chart-full-controls')!;
+      expect(ids(view).filter((id) => !ids(controls).includes(id))).toEqual(['chart-full-title', 'chart-full-plot', 'chart-full-detail', 'chart-full-close']);
+      expect(view.querySelector('.chart-legend, .chart-history, .chart-table')).toBeNull();
       const exit = view.querySelector<HTMLButtonElement>('.chart-frame-fill > #chart-full-close')!;
       expect(exit.getAttribute('aria-label')).toBe('Exit full screen');
       onClose.mockClear();
@@ -391,6 +393,29 @@ describe('chart panel', () => {
       const empty = chartFullView({ chart: chartData(model, { kind: 'year', year: 2020 }, TODAY), ...props });
       expect(empty.querySelector('.chart-empty')!.textContent).toBe('No rated rounds in this period.');
       expect(empty.querySelector('#chart-full-close')).not.toBeNull();
+    });
+
+    it('shows the period and the x-axis above the chart on wide screens only, with ids of their own', () => {
+      const onPeriod = vi.fn();
+      const onAxis = vi.fn();
+      const view = document.body.appendChild(
+        chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props, onPeriod, onAxis }),
+      );
+      const controls = view.querySelector('.chart-full-controls')!;
+      expect(controls.classList.contains('wide-only')).toBe(true);
+      expect(controls.nextElementSibling!.classList.contains('chart-frame')).toBe(true);
+      expect([...controls.querySelectorAll('select, input')].map((node) => node.id)).toEqual(['chart-full-period', 'chart-full-axis-time', 'chart-full-axis-even']);
+      expect(controls.querySelector<HTMLSelectElement>('#chart-full-period')!.value).toBe('recent');
+      const select = controls.querySelector<HTMLSelectElement>('#chart-full-period')!;
+      select.value = 'window';
+      select.dispatchEvent(new Event('change'));
+      expect(onPeriod).toHaveBeenLastCalledWith({ kind: 'window' });
+      controls.querySelector<HTMLInputElement>('#chart-full-axis-even')!.click();
+      expect(onAxis).toHaveBeenLastCalledWith('even');
+      // A custom range shows its dates there too, and an empty period keeps the controls.
+      const custom = chartFullView({ chart: chartData(model, { kind: 'custom', from: '2020-01-01', to: '2020-02-01' }, TODAY), ...props });
+      expect(custom.querySelector('.chart-full-controls #chart-full-from')).not.toBeNull();
+      expect(custom.querySelector('.chart-empty')).not.toBeNull();
     });
 
     it('says to turn the phone where the browser has no full screen', () => {

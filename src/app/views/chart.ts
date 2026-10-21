@@ -82,10 +82,14 @@ const KINDS: Record<PointKind, MessageKey> = {
   own: 'chart.kind.own',
 };
 
-const AXIS_OPTIONS: readonly Segment<ChartAxis>[] = [
-  { value: 'time', id: 'chart-axis-time', label: 'chart.axis.time' },
-  { value: 'even', id: 'chart-axis-even', label: 'chart.axis.even' },
-];
+/** The x-axis choice, its radios named after `name`: "chart-axis" in the card, "chart-full-axis" full screen. */
+function axisControl(name: string, axis: ChartAxis, onAxis: (axis: ChartAxis) => void): HTMLElement {
+  const options: Segment<ChartAxis>[] = [
+    { value: 'time', id: `${name}-time`, label: 'chart.axis.time' },
+    { value: 'even', id: `${name}-even`, label: 'chart.axis.even' },
+  ];
+  return segmented('chart.axis', name, options, axis, onAxis);
+}
 
 const MARKS: Record<PointMark, MessageKey> = {
   counts: 'chart.mark.counts',
@@ -612,7 +616,7 @@ export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, t
   const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
   return [
     ...controls,
-    segmented('chart.axis', 'chart-axis', AXIS_OPTIONS, axis, onAxis),
+    axisControl('chart-axis', axis, onAxis),
     ...plot(chart, { ...CARD_PLOT, axis, corner }),
     legend(chart),
     historyLink(pdgaNumber),
@@ -632,11 +636,12 @@ export interface ChartFullProps extends ChartProps {
 /**
  * The chart alone over the whole page, for a phone turned sideways: only the
  * chart, with the chosen round as a label in its corner and Exit full screen
- * in the other. The period, legend, link and table stay in the card; its
+ * in the other. On wide screens, where there is room, the period and the
+ * x-axis show above it too; the legend, link and table stay in the card. Its
  * heading is for screen readers. Back, Exit full screen or Escape close it.
  * Its ids differ from the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, axis, onClose, rotateHint = false }: ChartFullProps): HTMLElement {
+export function chartFullView({ chart, today, onPeriod, axis, onAxis, onClose, rotateHint = false }: ChartFullProps): HTMLElement {
   const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
@@ -654,6 +659,12 @@ export function chartFullView({ chart, axis, onClose, rotateHint = false }: Char
       },
     },
     el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
+    el(
+      'div',
+      { class: 'chart-full-controls wide-only' },
+      ...periodControls({ id: 'chart-full', ...chart, today, recent: true, onPeriod }),
+      axisControl('chart-full-axis', axis, onAxis),
+    ),
     ...body,
     rotateHint && el('p', { id: 'chart-rotate-hint', class: 'chart-rotate-hint' }, t('chart.rotateHint')),
   );
