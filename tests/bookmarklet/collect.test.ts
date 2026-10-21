@@ -462,8 +462,8 @@ describe('other pages', () => {
 });
 
 describe('after a markup change on pdga.com', () => {
-  it('sends the whole body without scripts and styles, and leaves the page alone', async () => {
-    const changed = detailsHtml('<script>track()</script><style>p { color: red }</style>').replace(
+  it('sends the whole document without scripts and styles, and leaves the page alone', async () => {
+    const changed = detailsHtml('<script>track()</script><script src="/x.js" defer></script><style>p { color: red }</style>').replace(
       'id="player-results-details"',
       'id="ratings-table"',
     );
@@ -478,7 +478,8 @@ describe('after a markup change on pdga.com', () => {
     expect(html).toContain('id="ratings-table"');
     expect(html).not.toContain('<script');
     expect(html).not.toContain('<style');
-    expect(doc.querySelectorAll('script, style')).toHaveLength(2);
+    expect(html).toContain('id="page-title"');
+    expect(doc.querySelectorAll('script, style')).toHaveLength(3);
 
     // The extractors find the table by its headers, so today's app still reads it.
     const { parts } = await received(envelope);

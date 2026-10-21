@@ -63,11 +63,10 @@ export function pageKind(path: string): PageKind {
   return (player ?? (season ? 'season' : (event ?? 'profile'))) as PageKind;
 }
 
-/** A Cloudflare challenge, recognised by its own markers as in detectPage. */
+/** A Cloudflare challenge, recognised by its own markers as in detectPage. A document's title comes trimmed. */
 export function isChallenge(doc: Document): boolean {
-  return /^just a moment/i.test(doc.title.trim()) || !!doc.querySelector('#challenge-form,script[src*="challenge-platform"]');
+  return /^just a moment/i.test(doc.title) || !!doc.querySelector('#challenge-form,script[src*="challenge-platform"]');
 }
-
 
 const MONTHS = 'janfebmaraprmayjunjulaugsepoctnovdec';
 
@@ -85,22 +84,16 @@ export interface CollectDeps {
 
 /**
  * The HTML of the parts of a page that the app reads. When the main content
- * is missing, as after a markup change on pdga.com, it is the whole body
- * instead, so an updated app can still read it. The body is copied into an
- * inert document, where its scripts and styles are removed; the page itself
- * is never changed.
+ * is missing, as after a markup change on pdga.com, it is the whole document
+ * instead, so an updated app can still read it, with its scripts and styles
+ * cut from the HTML text to keep it small. The page itself is never changed.
  */
 export function pageHtml(doc: Document, kind: PageKind): string {
   const [main, others] = PARTS[kind as ContentKind] ?? [];
-  let parts: (Element | null)[];
-  if (main && doc.querySelector(main)) {
-    parts = [...doc.querySelectorAll(`link[rel=canonical],#page-title,${others},${main}`)];
-  } else {
-    const body = doc.implementation.createHTMLDocument('').importNode(doc.body, true);
-    for (const element of body.querySelectorAll('script,style')) element.remove();
-    parts = [doc.querySelector('link[rel=canonical]'), body];
-  }
-  return parts.map((element) => element?.outerHTML ?? '').join('');
+  return main && doc.querySelector(main)
+    ? [...doc.querySelectorAll(`link[rel=canonical],#page-title,${others},${main}`)].map((part) => part.outerHTML).join('')
+    : // Serialized HTML closes every element with a plain end tag, so this finds each one's end.
+      doc.documentElement.outerHTML.replace(/<(script|style)[\s>][\s\S]*?<\/\1>/gi, '');
 }
 
 /**
@@ -117,7 +110,7 @@ export function dateKey(text: string): number {
 function eventRows(doc: Document): [string, number][] {
   return [...doc.querySelectorAll(`${RESULTS} tr`)].flatMap((row): [string, number][] => {
     const id = /\/tour\/event\/(\d+)/.exec(row.outerHTML)?.[1];
-    return id ? [[id, dateKey(row.textContent ?? '')]] : [];
+    return id ? [[id, dateKey(row.textContent!)]] : [];
   });
 }
 
