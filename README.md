@@ -42,9 +42,9 @@ App: https://peiza.github.io/next-rating/
   yet checked against a real player.
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
-- It opens on you, or, with "Open with: Last viewed player" in Settings, on
-  the player you looked at last. A bookmarklet import always opens the
-  imported player.
+- It opens on you, or, with "When the app opens: Show the last viewed player"
+  in Settings, on the player you looked at last. A bookmarklet import always
+  opens the imported player.
 
 ## The Rating tab
 
@@ -124,12 +124,17 @@ where a round comes from: a circle for official, a square for unofficial and
 a triangle for your own rounds. The fill shows what the next update does with
 it: filled counts, a ring counts twice, hollow does not count, and a cross
 marks a round that is dropped, left out or not counted by PDGA. The
-prediction's window is shaded, with lines for the official rating (dashed)
-and the prediction (solid). Tap a point, or use the arrow keys, to see its
-event, date and rating; the same rounds are also available as a table. The
-period is the last 24 months by default (ending at a planned round of your
-own when that is later than today), or a year, the rating window or a custom
-range, picked like the Top 8's and remembered.
+prediction's window is shaded, with lines across it for the official rating
+(dashed) and the prediction (solid), or one line when they are equal. They
+are today's values, so a period that does not reach the window has none; a
+link under the chart opens the player's ratings history on pdga.com for the
+official rating over time. Tap a point, or use the arrow keys, to see its
+event, date and rating above the chart; the same rounds are also available
+as a table. The chart is drawn at the card's width, and Full screen shows it
+on its own (in landscape on Android; on iPhone, turn the phone). The period
+is the last 24 months by default (ending at a planned round of your own when
+that is later than today), or a year, the rating window or a custom range,
+picked like the Top 8's and remembered.
 
 ## Offline and the home screen
 

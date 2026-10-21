@@ -5,7 +5,7 @@ import type { ChartPeriod } from './storage';
 /*
  * What the rating chart shows, without drawing it: the rated rounds in the
  * chosen period as points, the prediction's window, the official and the
- * predicted rating, and the axes' ticks. Pure, so the view only scales and
+ * predicted rating across that window, and the axes' ticks. Pure, so the view only scales and
  * draws.
  */
 
@@ -67,14 +67,29 @@ export interface ChartData {
   points: ChartPoint[];
   /** The prediction's window within the period, shaded; null when they do not meet. */
   band: { from: PlainDate; to: PlainDate } | null;
-  /** The official rating, drawn as a line; null when unknown. */
+  /**
+   * The official rating, drawn as a line across the band; null when unknown
+   * or without a band. Both lines are today's values, so they cover only the
+   * window they come from.
+   */
   official: number | null;
-  /** The predicted rating, drawn as a line; null without one. */
+  /** The predicted rating, drawn like the official one; null without one or without a band. */
   predicted: number | null;
-  /** The y range, from tick to tick; null with nothing to draw. */
-  y: { min: number; max: number; ticks: number[] } | null;
-  /** Month ticks, or for a range shorter than two months its two ends. */
-  xTicks: MonthTick[];
+  /** Both lines are drawn and equal, so the value shows once. */
+  same: boolean;
+  /**
+   * The ratings the y range must fit: the rounds and the lines drawn. Empty
+   * without rounds. The view picks the ticks, since how many fit depends on
+   * the size it draws at.
+   */
+  values: number[];
+}
+
+/** The y range, from tick to tick. */
+export interface RatingAxis {
+  min: number;
+  max: number;
+  ticks: number[];
 }
 
 /** Days since 1970-01-01, so dates can be placed on a line. */
@@ -109,20 +124,20 @@ export function chartYears(model: Model, period: ChartPeriod, today: PlainDate):
 
 /** Tick steps for ratings, smallest first. */
 const RATING_STEPS = [5, 10, 20, 25, 50, 100, 200, 250, 500];
-/** At most this many gaps between rating ticks. */
+/** At most this many gaps between rating ticks by default, as fit 200 px. */
 const MAX_RATING_GAPS = 5;
 
 /**
  * The y range: from the lowest to the highest value, widened to whole ticks
- * of the smallest step that needs at most five gaps. A single value gets a
- * step on each side.
+ * of the smallest step that needs at most `maxGaps` gaps. A single value gets
+ * a step on each side. Null without values.
  */
-export function ratingAxis(values: readonly number[]): ChartData['y'] {
+export function ratingAxis(values: readonly number[], maxGaps = MAX_RATING_GAPS): RatingAxis | null {
   if (values.length === 0) return null;
   const low = Math.min(...values);
   const high = Math.max(...values);
   const step =
-    RATING_STEPS.find((candidate) => Math.ceil(high / candidate) - Math.floor(low / candidate) <= MAX_RATING_GAPS) ??
+    RATING_STEPS.find((candidate) => Math.ceil(high / candidate) - Math.floor(low / candidate) <= maxGaps) ??
     RATING_STEPS[RATING_STEPS.length - 1]!;
   let min = Math.floor(low / step) * step;
   let max = Math.ceil(high / step) * step;
@@ -137,15 +152,15 @@ export function ratingAxis(values: readonly number[]): ChartData['y'] {
 
 /** Month steps for the x-axis, smallest first; 12 and up fall on January. */
 const MONTH_STEPS = [1, 2, 3, 6, 12, 24, 60];
-/** At most this many labelled x ticks, so they fit side by side at 320 px. */
+/** At most this many labelled x ticks by default, as fit side by side at 320 px. */
 const MAX_MONTH_TICKS = 5;
 
 /**
  * Ticks on the first of the month, every 1, 2, 3, 6 or 12 months, at most
- * five. A label names the year on the first tick and on each January. A range
- * with fewer than two month starts gets its two ends instead.
+ * `maxTicks`. A label names the year on the first tick and on each January.
+ * A range with fewer than two month starts gets its two ends instead.
  */
-export function monthTicks(from: PlainDate, to: PlainDate): MonthTick[] {
+export function monthTicks(from: PlainDate, to: PlainDate, maxTicks = MAX_MONTH_TICKS): MonthTick[] {
   const starts: { year: number; month: number }[] = [];
   let year = yearOf(from);
   let month = Number(from.slice(5, 7));
@@ -160,7 +175,7 @@ export function monthTicks(from: PlainDate, to: PlainDate): MonthTick[] {
     starts.push({ year, month });
   }
   if (starts.length < 2) return [from, to].map((date) => ({ date, year: true }));
-  const step = MONTH_STEPS.find((candidate) => starts.filter(({ year, month }) => (year * 12 + month - 1) % candidate === 0).length <= MAX_MONTH_TICKS) ?? 60;
+  const step = MONTH_STEPS.find((candidate) => starts.filter(({ year, month }) => (year * 12 + month - 1) % candidate === 0).length <= maxTicks) ?? 60;
   const picked = starts.filter(({ year, month }) => (year * 12 + month - 1) % step === 0);
   return picked.map(({ year, month }, i) => ({
     date: `${year}-${String(month).padStart(2, '0')}-01`,
@@ -203,8 +218,8 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
   const bandTo = window ? earlier(window.end, to) : null;
   const band = bandFrom && bandTo && compareDates(bandFrom, bandTo) <= 0 ? { from: bandFrom, to: bandTo } : null;
 
-  const official = model.player?.currentRating ?? null;
-  const predicted = model.prediction.rating;
+  const official = band ? (model.player?.currentRating ?? null) : null;
+  const predicted = band ? model.prediction.rating : null;
   const values = points.map((point) => point.rating);
   // The lines only matter next to rounds; on an empty period there is nothing to compare them with.
   if (values.length > 0) for (const line of [official, predicted]) if (line !== null) values.push(line);
@@ -221,7 +236,7 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
     band,
     official,
     predicted,
-    y: ratingAxis(values),
-    xTicks: monthTicks(from, to),
+    same: official !== null && official === predicted,
+    values,
   };
 }

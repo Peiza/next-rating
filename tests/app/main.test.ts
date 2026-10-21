@@ -580,6 +580,109 @@ describe('app start', () => {
     expect(select().value).toBe('window');
   });
 
+  it('opens the chart full screen as a history entry, which Close or back closes', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { chart: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const button = () => document.getElementById('chart-full-screen')!;
+    button().focus();
+    button().click();
+    expect(history.state).toMatchObject({ overlay: 'chart', depth: 1 });
+    expect(document.activeElement?.id).toBe('chart-full-title');
+    expect(document.querySelector('[role="dialog"]')!.getAttribute('aria-labelledby')).toBe('chart-full-title');
+    expect(document.getElementById('chart-full-plot')).not.toBeNull();
+    // The chart is all the page shows, so no ids repeat.
+    expect(document.querySelector('.tabbar, #chart-plot')).toBeNull();
+
+    const select = () => document.querySelector<HTMLSelectElement>('#chart-full-period')!;
+    select().focus();
+    select().value = 'window';
+    select().dispatchEvent(new Event('change'));
+    expect(document.activeElement).toBe(select());
+    expect(stored().chartPeriod).toEqual({ kind: 'window' });
+
+    await clickBack('chart-full-close');
+    expect(document.getElementById('chart-full-plot')).toBeNull();
+    expect(document.activeElement).toBe(button());
+    expect(document.querySelector<HTMLSelectElement>('#chart-period')!.value).toBe('window');
+
+    button().click();
+    await goBack();
+    expect(document.getElementById('chart-full-plot')).toBeNull();
+    expect(document.activeElement).toBe(button());
+
+    // A fresh load on its entry shows it again, and without a player to chart, the Rating tab.
+    history.pushState({ nextRating: 1, overlay: 'chart', menu: false, depth: 1 }, '', '/next-rating/');
+    await start('/next-rating/', false);
+    expect(document.getElementById('chart-full-plot')).not.toBeNull();
+    localStorage.clear();
+    await start('/next-rating/', false);
+    expect(document.getElementById('chart-full-plot')).toBeNull();
+    expect(document.querySelector('.tabbar')).not.toBeNull();
+    history.replaceState(null, '', '/next-rating/');
+  });
+
+  it('asks for full screen and landscape where the browser allows it, and closes when full screen ends', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { chart: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    let fullscreen: Element | null = null;
+    const lock = vi.fn(() => Promise.resolve());
+    const unlock = vi.fn();
+    const exit = vi.fn(() => {
+      fullscreen = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      return Promise.resolve();
+    });
+    const request = vi.fn(function (this: Element) {
+      fullscreen = this;
+      return Promise.resolve();
+    });
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, get: () => true });
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fullscreen });
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exit });
+    Object.defineProperty(document.documentElement, 'requestFullscreen', { configurable: true, value: request });
+    Object.defineProperty(screen, 'orientation', { configurable: true, value: { lock, unlock } });
+    try {
+      await start('/next-rating/');
+      document.getElementById('chart-full-screen')!.click();
+      expect(request).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(lock).toHaveBeenCalledWith('landscape'));
+
+      // Close leaves full screen, and closes the chart only once.
+      await clickBack('chart-full-close');
+      expect(exit).toHaveBeenCalledTimes(1);
+      expect(unlock).toHaveBeenCalled();
+      expect(history.state).toBeNull();
+
+      // Android's back leaves full screen first: the chart closes with it.
+      document.getElementById('chart-full-screen')!.click();
+      const closed = popped();
+      fullscreen = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      await closed;
+      expect(document.getElementById('chart-full-plot')).toBeNull();
+      expect(history.state).toBeNull();
+    } finally {
+      for (const name of ['fullscreenEnabled', 'fullscreenElement', 'exitFullscreen']) delete (document as unknown as Record<string, unknown>)[name];
+      delete (document.documentElement as unknown as Record<string, unknown>).requestFullscreen;
+      delete (screen as unknown as Record<string, unknown>).orientation;
+    }
+  });
+
   it('remembers whether the Top 8 counts own rounds across launches', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const date = new Date().toISOString().slice(0, 10);

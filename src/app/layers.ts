@@ -1,11 +1,12 @@
 /*
- * The pages that open over the current tab (the bookmarklet setup and How it
- * works) and the players panel on phones. Each one opened adds a history
- * entry with the same address, so the phone's back gesture closes it instead
- * of leaving the app. The entry's state says which of them it shows.
+ * The pages that open over the current tab (the bookmarklet setup, How it
+ * works and the full-screen chart) and the players panel on phones. Each one
+ * opened adds a history entry with the same address, so the phone's back
+ * gesture closes it instead of leaving the app. The entry's state says which
+ * of them it shows.
  */
 
-export type OverlayView = 'setup' | 'guide';
+export type OverlayView = 'setup' | 'guide' | 'chart';
 
 export interface Layers {
   overlay: OverlayView | null;
@@ -37,7 +38,7 @@ export function readLayers(state: unknown): Layers {
   const { nextRating, overlay, menu, depth } = state as Record<string, unknown>;
   if (nextRating !== 1 || !Number.isInteger(depth) || (depth as number) < 1 || (depth as number) > MAX_DEPTH) return NO_LAYERS;
   return {
-    overlay: overlay === 'setup' || overlay === 'guide' ? overlay : null,
+    overlay: overlay === 'setup' || overlay === 'guide' || overlay === 'chart' ? overlay : null,
     menu: menu === true,
     depth: depth as number,
   };

@@ -86,17 +86,32 @@ describe('chartData', () => {
     expect(custom.points.map((point) => [point.rating, point.mark])).toEqual([[900, 'not']]);
   });
 
-  it('draws the official and predicted ratings, and takes them into the y range', () => {
-    const chart = chartData(model, { kind: 'custom', from: '2026-10-01', to: '2026-10-12' }, TODAY);
+  it('draws the official and predicted ratings across the window, and takes them into the y range', () => {
+    const chart = chartData(model, { kind: 'custom', from: '2026-08-01', to: '2026-10-12' }, TODAY);
+    expect(chart.band).toEqual({ from: '2026-08-01', to: '2026-08-02' });
     expect(chart.official).toBe(948);
     expect(chart.predicted).toBe(model.prediction.rating);
-    expect(chart.y).toEqual({ min: 945, max: 960, ticks: [945, 950, 955, 960] });
+    expect(chart.same).toBe(model.prediction.rating === 948);
+    expect(ratingAxis(chart.values)).toEqual({ min: 945, max: 960, ticks: [945, 950, 955, 960] });
+  });
+
+  it('leaves the lines out of a period that does not meet the window', () => {
+    const chart = chartData(model, { kind: 'custom', from: '2026-10-01', to: '2026-10-12' }, TODAY);
+    expect(chart.band).toBeNull();
+    expect([chart.official, chart.predicted, chart.same]).toEqual([null, null, false]);
+    expect(ratingAxis(chart.values)).toEqual({ min: 955, max: 960, ticks: [955, 960] });
+  });
+
+  it('marks equal official and predicted ratings, so the value shows once', () => {
+    const same = buildModel({ ...stored, player: rawPlayer({ currentRating: String(model.prediction.rating) }) }, 100001, NOW);
+    expect(chartData(same, RECENT, TODAY).same).toBe(true);
+    expect(chartData(model, RECENT, TODAY).same).toBe(model.prediction.rating === 948);
   });
 
   it('has no y range without rounds in the period', () => {
     const chart = chartData(model, { kind: 'year', year: 2020 }, TODAY);
     expect(chart.points).toEqual([]);
-    expect(chart.y).toBeNull();
+    expect(chart.values).toEqual([]);
   });
 
   it('offers the years with a rated round, the current year and the chosen one', () => {
@@ -116,6 +131,11 @@ describe('ratingAxis', () => {
     expect(ratingAxis([950])).toEqual({ min: 945, max: 955, ticks: [945, 950, 955] });
     expect(ratingAxis([])).toBeNull();
   });
+
+  it('takes finer or coarser steps for more or fewer gaps', () => {
+    expect(ratingAxis([903, 1012], 8)!.ticks).toEqual([900, 920, 940, 960, 980, 1000, 1020]);
+    expect(ratingAxis([903, 1012], 2)!.ticks).toEqual([900, 1000, 1100]);
+  });
 });
 
 describe('monthTicks', () => {
@@ -130,6 +150,18 @@ describe('monthTicks', () => {
 
   it('ticks every quarter in a calendar year', () => {
     expect(monthTicks('2026-01-01', '2026-12-31').map((tick) => tick.date)).toEqual(['2026-01-01', '2026-04-01', '2026-07-01', '2026-10-01']);
+  });
+
+  it('ticks more often when more ticks fit', () => {
+    expect(monthTicks('2026-01-01', '2026-12-31', 6).map((tick) => tick.date)).toEqual([
+      '2026-01-01',
+      '2026-03-01',
+      '2026-05-01',
+      '2026-07-01',
+      '2026-09-01',
+      '2026-11-01',
+    ]);
+    expect(monthTicks('2024-10-12', '2026-10-12', 2).map((tick) => tick.date)).toEqual(['2025-01-01', '2026-01-01']);
   });
 
   it('ticks every month in a short range, and only the ends below two months', () => {

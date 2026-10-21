@@ -18,4 +18,6 @@ Process list in CLAUDE.md.
    each update, from pdga.com's ratings history page, as a stepped line in the
    rating chart. It needs one more page in the bookmarklet (so a new
    bookmarklet version and a higher page limit), a parser for that page and a
-   place in the stored import.
+   place in the stored import. Until then the chart draws the official
+   rating and the prediction only across the current window, and links to
+   that page (Chart follow-up in docs/finished-steps.md).

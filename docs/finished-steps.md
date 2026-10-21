@@ -97,9 +97,9 @@ manual per-page fallback.
      button opens the player's pdga.com ratings details page to refresh.
    - Store locally only: the language override, the theme choice, the
      players list order, which Rating tab cards are open, the Top 8 and chart
-     periods, the Open with choice and the last viewed player (kept only while Open
-     with is set to it), the bookmarklet version from the last hand-off and
-     the players' data. Each player (each favorite)
+     periods, the "When the app opens" choice and the last viewed player
+     (kept only while that is set to it), the bookmarklet version from the
+     last hand-off and the players' data. Each player (each favorite)
      keeps its own PDGA number, last import (show its timestamp), manual
      rounds and the unofficial events left out of its prediction. When the storage format changes, existing data is migrated,
      never silently dropped. On iOS, home screen web apps do not share
@@ -530,6 +530,62 @@ Built as (docs/plan-chart.md):
 - The contrast test requires the chart's colours to be theme tokens that
   reach 7:1 on the page and the shaded window.
 
+## Chart follow-up
+Spec, after testing the chart on the phone:
+1. Rename "Open with" to "When the app opens", with "Show you" and "Show
+   the last viewed player" (Swedish: "När appen öppnas", "Visa dig" and
+   "Visa senast visade spelaren").
+2. The official rating and the prediction are today's values, so in past
+   periods their lines only confuse. Draw them only across the current
+   rating window, leave them out when the period does not overlap it, and
+   show the value once when they are equal. pdga.com's ratings history page
+   (/player/<nr>/history) already shows the official rating over time, so
+   the chart does not recalculate it: a link "Ratings history on pdga.com"
+   under the chart opens it, in the same tab. (A calculated line at each past
+   update was planned and dropped for this; idea 5 in docs/ideas.md keeps an
+   exact line from that page for later.)
+3. Draw the chart at the card's measured width and redraw on resize, so it
+   fills the card on any screen while the text keeps a fixed size, instead
+   of the 24rem cap.
+4. A Full screen button opens the chart in a full-screen view, closed by
+   back or Close. Where supported (Android) it asks for landscape; on iPhone
+   the view follows the phone's rotation.
+5. Show the tapped point's details above the chart, under the period select,
+   so the finger does not cover them.
+
+Built as (docs/plan-chart-follow-up.md):
+- Labels only: the stored `openWith` field and its values stay.
+- Both lines span the band, the prediction's window clipped to the period
+  (one span for both, so they line up with the shading), with the value just
+  after the line's end; without a band both are null and stay out of the y
+  range. `same` in `chartData` draws one solid line with one label, and the
+  legend and the SVG summary read "Official rating and prediction 978".
+  `historyUrl` sits next to `detailsUrl` in src/app/views/pdga.ts; the link
+  shows also for a period without rounds.
+- `plot` draws in CSS pixels (viewBox = width × height) at the default 300 by
+  200 first, then a `ResizeObserver` on the frame draws it at the measured
+  whole-pixel width whenever that changes, keeping the chosen round; it
+  stops observing once the frame leaves the page. In the card the height is
+  two thirds of the width, 200 to 320 px; at least 240 by 160 px, narrower
+  frames scale it down. The ticks moved from `chartData` (which returns
+  `values` to fit) to the view: `monthTicks(from, to, maxTicks)` about one
+  per 52 px of width, `ratingAxis(values, maxGaps)` about one gap per 32 px
+  of height. The details line comes before the frame and keeps room for
+  two lines.
+- The full-screen chart is overlay `'chart'` in src/app/layers.ts, so it
+  has a history entry like the setup and How it works. While it shows, it is
+  all the page renders (header with the title and Close, the period select,
+  the details line, and the chart filling the rest; no legend, link or
+  table), with its own ids, as a modal dialog; focus goes to its heading and
+  back to the Full screen button. The button's tap asks
+  `requestFullscreen()` and then `screen.orientation.lock('landscape')`
+  where `document.fullscreenEnabled`, both failures ignored; once the chart
+  no longer shows, the app unlocks and leaves full screen. Android's back
+  first leaves the browser's full screen: `fullscreenchange` closes the
+  chart too, after 150 ms and only while the entry still shows it, so one
+  back never goes back twice. A fresh load on the entry shows the chart
+  without full screen, or the Rating tab when there is no player to chart.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -573,3 +629,6 @@ Built in this order:
 - Phone polish and Top 8 with own rounds (docs/plan-phone-polish.md) (done)
 - Rating chart, with notes for leagues and late reports and Open with the
   last viewed player (docs/plan-chart.md) (done)
+- Chart follow-up: lines across the window, the ratings history link,
+  measured size, full screen and the details above the chart
+  (docs/plan-chart-follow-up.md) (done)

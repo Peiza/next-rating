@@ -762,15 +762,12 @@ a {
 }
 
 /*
- * Rating chart. The SVG scales with the card; its text is set in the
- * drawing's units, about 11px at 320px and capped by the frame's width so it
- * does not grow large on wide screens. Shapes take their colour from the
- * point's kind (currentColor); hollow marks fill with the page colour.
+ * Rating chart. The view draws the SVG in CSS pixels at the frame's measured
+ * width (and, full screen, its height), so the text keeps its size on any
+ * screen; before that size is known the drawing scales to the frame. Shapes
+ * take their colour from the point's kind (currentColor); hollow marks fill
+ * with the page colour.
  */
-.chart-frame {
-  max-width: 24rem;
-}
-
 .chart-plot {
   display: block;
   width: 100%;
@@ -883,6 +880,70 @@ a {
   flex: none;
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.chart-history {
+  margin: 0;
+}
+
+.chart-full-button {
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.chart-corners {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2px;
+}
+
+/*
+ * The full-screen chart: all the page shows, over the safe areas of a phone
+ * turned sideways. The chart takes the room the rest leaves, so its frame
+ * gets a height of its own and the drawing fills it.
+ */
+.chart-full {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: max(0.5rem, env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right))
+    max(0.5rem, env(safe-area-inset-bottom)) max(var(--gutter), env(safe-area-inset-left));
+  background: var(--bg);
+}
+
+.chart-full-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-full-title {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.chart-full-period .field {
+  margin-bottom: 0;
+}
+
+.chart-full .chart-detail {
+  margin: 0.25rem 0;
+}
+
+.chart-frame-fill {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-frame-fill .chart-plot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .chart-table summary {
