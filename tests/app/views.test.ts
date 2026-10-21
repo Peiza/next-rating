@@ -95,10 +95,12 @@ describe('settings view', () => {
     language: null,
     preferred: ['sv-SE'],
     theme: null,
+    openWith: 'me',
     persistent: true,
     bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
+    onOpenWith: () => {},
     onOpenSetup: () => {},
     onOpenGuide: () => {},
   };
@@ -125,6 +127,21 @@ describe('settings view', () => {
     view.querySelector<HTMLInputElement>('#theme-device')!.click();
     expect(onTheme).toHaveBeenLastCalledWith(null);
     view.remove();
+  });
+
+  it('opens with you by default, or with the last viewed player', () => {
+    const onOpenWith = vi.fn();
+    const view = document.body.appendChild(settingsView({ ...props, onOpenWith }));
+    const radios = [...view.querySelectorAll<HTMLInputElement>('input[name="open-with"]')];
+    expect(view.querySelectorAll('.segmented legend')[1]!.textContent).toBe('Open with');
+    expect(radios.map((radio) => [view.querySelector(`label[for="${radio.id}"]`)!.textContent, radio.checked])).toEqual([
+      ['You', true],
+      ['Last viewed player', false],
+    ]);
+    view.querySelector<HTMLInputElement>('#open-with-last')!.click();
+    expect(onOpenWith).toHaveBeenLastCalledWith('last');
+    view.remove();
+    expect(settingsView({ ...props, openWith: 'last' }).querySelector<HTMLInputElement>('#open-with-last')!.checked).toBe(true);
   });
 
   it('offers the device setting and every language', () => {
@@ -370,6 +387,17 @@ describe('rating view', () => {
       expect(marked(page(xTier))).toHaveLength(2);
       expect(marked(page(stored))).toHaveLength(0);
       expect(page(stored).querySelector('#count-event-0-meta')!.textContent).toMatch(/^\S+$/);
+    });
+
+    it('mark a league on its event and its rounds, with a general hint above', () => {
+      const LEAGUE = 'League: counts only when the whole league is finished and reported';
+      const view = page({ ...stored, profileEvents: [rawProfileEvent({ tier: 'L' })] });
+      expect(view.querySelector('#event-choices .hint')!.textContent).toBe(
+        "Uncheck an event the next update won't count, for example one whose report arrives after the deadline.",
+      );
+      expect(view.querySelector('#count-event-0-meta')!.textContent).toMatch(new RegExp(`^\\S+ · ${LEAGUE}$`));
+      const marked = [...view.querySelectorAll('.round-meta')].filter((meta) => meta.textContent!.includes(LEAGUE));
+      expect(marked).toHaveLength(2);
     });
 
     it('offer no choice without a handler', () => {
@@ -1062,11 +1090,37 @@ describe('bookmarklet setup', () => {
     vi.unstubAllGlobals();
   });
 
-  it('explains X-tier events: what PDGA leaves out, the mark on unofficial rounds and leaving an event out', () => {
-    const xTier = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
-    for (const part of ['X-tier events', '5.10', 'mulligans', 'Not counted by PDGA', 'X-tier: may not count', 'one tap', 'Top 8 still counts']) {
-      expect(xTier).toContain(part);
+  it('explains the events the next update may not count: a late report, an unfinished league and X-tier', () => {
+    const section = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!;
+    expect(section.querySelector('h2')!.textContent).toBe('Events the next update may not count');
+    expect([...section.querySelectorAll('li')].map((item) => item.textContent!.split('.')[0])).toEqual([
+      'A late report',
+      'An unfinished league',
+      'An X-tier event PDGA leaves out',
+    ]);
+    const text = section.textContent!;
+    for (const part of [
+      'one tap',
+      'reported by its deadline',
+      'tier L on pdga.com',
+      'League: counts only when the whole league is finished and reported',
+      'X-tier (the tiers XA, XB, XC and XM on pdga.com)',
+      '5.10',
+      'mulligans',
+      'X-tier: may not count',
+      'Not counted by PDGA',
+      'Top 8 still counts',
+    ]) {
+      expect(text).toContain(part);
     }
+  });
+
+  it('keeps the PDGA term X-tier in Swedish and explains it once', () => {
+    setLanguage('sv');
+    const text = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
+    expect(text.split('X-tier (nivåerna XA, XB, XC och XM på pdga.com)')).toHaveLength(2);
+    expect(text).toContain('Liga: räknas först när hela ligan är klar och rapporterad');
+    expect(text).toContain('X-tier: räknas kanske inte');
   });
 
   it('goes back', () => {
@@ -1372,7 +1426,9 @@ describe('how it works', () => {
       persistent: true,
       bookmarklet: null,
       onLanguage: vi.fn(),
+      openWith: 'me',
       onTheme: vi.fn(),
+      onOpenWith: vi.fn(),
       onOpenSetup: vi.fn(),
       onOpenGuide,
     }).querySelector<HTMLButtonElement>('#open-guide')!.click();
@@ -1403,7 +1459,7 @@ describe('how it works', () => {
     const onGuide = vi.fn();
     const props = { model: buildModel(stored, 100001, NOW), cards: ALL_OPEN, onLeaveOut: vi.fn(), favorite: true, now: NOW, onAddFavorite: vi.fn() };
     const link = ratingView({ ...props, onGuide }).querySelector<HTMLButtonElement>('#event-choices #xtier-guide')!;
-    expect(link.getAttribute('aria-label')).toBe('How it works: X-tier events');
+    expect(link.getAttribute('aria-label')).toBe('How it works: Events the next update may not count');
     link.click();
     expect(onGuide).toHaveBeenCalledWith('xtier');
     expect(ratingView(props).querySelector('#xtier-guide')).toBeNull();

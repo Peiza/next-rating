@@ -348,6 +348,15 @@ describe('Rating tab settings', () => {
     expect(validateData({}).top8Own).toBe(false);
   });
 
+  it('open on "me" unless the last viewed player is chosen, and keep that player only while stored', () => {
+    expect(validateData({})).toMatchObject({ openWith: 'me', lastViewed: null });
+    const players = [{ pdgaNumber: 100001, favorite: true, import: null }, { pdgaNumber: 100002, favorite: false, import: null }];
+    expect(validateData({ openWith: 'last', lastViewed: 100002, players })).toMatchObject({ openWith: 'last', lastViewed: 100002 });
+    expect(validateData({ openWith: 'last', lastViewed: 100003, players }).lastViewed).toBeNull();
+    for (const bad of ['first', 1, null, true]) expect(validateData({ openWith: bad }).openWith).toBe('me');
+    for (const bad of ['100001', 1.5, -1, null]) expect(validateData({ lastViewed: bad, players }).lastViewed).toBeNull();
+  });
+
   it('count own rounds in the Top 8 only for a stored true', () => {
     expect(validateData({ top8Own: true }).top8Own).toBe(true);
     for (const bad of [false, 'true', 1, null]) expect(validateData({ top8Own: bad }).top8Own).toBe(false);

@@ -22,6 +22,10 @@ export type Theme = (typeof THEMES)[number];
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
 
+/** Who the app opens on: "me" (the default), or the player shown last. */
+export const OPEN_WITH = ['me', 'last'] as const;
+export type OpenWith = (typeof OPEN_WITH)[number];
+
 /** The collapsible cards on the Rating tab, in the order they show. */
 export const CARDS = ['why', 'manual', 'target', 'top8', 'stats', 'rounds'] as const;
 export type CardName = (typeof CARDS)[number];
@@ -95,6 +99,10 @@ export interface AppData {
   bookmarklet: string | null;
   /** The favorite the app opens on. */
   me: number | null;
+  /** Whether the app opens on "me" or on the player shown last. */
+  openWith: OpenWith;
+  /** The player shown last, kept only while `openWith` is 'last'; null when unknown. */
+  lastViewed: number | null;
   /** Favorites in the order they were added, and at most one unsaved player. */
   players: StoredPlayer[];
 }
@@ -108,6 +116,8 @@ export const EMPTY_DATA: AppData = {
   top8Own: false,
   bookmarklet: null,
   me: null,
+  openWith: 'me',
+  lastViewed: null,
   players: [],
 };
 
@@ -230,6 +240,7 @@ export function validateData(value: unknown): AppData {
   const { language, theme, playerOrder } = fields;
   const players = validatePlayers(fields.players);
   const me = pdgaNumberOf(fields.me);
+  const lastViewed = pdgaNumberOf(fields.lastViewed);
   return {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
@@ -239,6 +250,8 @@ export function validateData(value: unknown): AppData {
     top8Own: fields.top8Own === true,
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
+    openWith: OPEN_WITH.find((name) => name === fields.openWith) ?? 'me',
+    lastViewed: players.some((player) => player.pdgaNumber === lastViewed) ? lastViewed : null,
     players,
   };
 }

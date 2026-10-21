@@ -205,6 +205,15 @@ describe('unofficial events', () => {
     expect(xTierRows.map(({ result }) => result.status)).toEqual(['included', 'included']);
   });
 
+  it('knows a league by tier L, which still counts by default', () => {
+    const league = [rawProfileEvent({ eventId: '900003', name: 'Example XA', tier: 'L', date: '13-Sep-2026' }), rawProfileEvent()];
+    const model = buildModel({ ...base, profileEvents: league }, 100001, NOW);
+    expect(model.unofficialEvents.map((event) => [event.tier, event.xTier, event.league, event.leftOut])).toEqual([
+      ['L', false, true, false],
+      ['C', false, false, false],
+    ]);
+  });
+
   it('knows no tier without the profile page', () => {
     const model = buildModel({ ...base, profileEvents: undefined }, 100001, NOW);
     expect(model.unofficialEvents.map((event) => [event.tier, event.xTier])).toEqual([

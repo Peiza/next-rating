@@ -97,7 +97,9 @@ manual per-page fallback.
      button opens the player's pdga.com ratings details page to refresh.
    - Store locally only: the language override, the theme choice, the
      players list order, which Rating tab cards are open, the Top 8 period,
-     the bookmarklet version from the last hand-off and the players' data. Each player (each favorite)
+     the Open with choice and the last viewed player (kept only while Open
+     with is set to it), the bookmarklet version from the last hand-off and
+     the players' data. Each player (each favorite)
      keeps its own PDGA number, last import (show its timestamp), manual
      rounds and the unofficial events left out of its prediction. When the storage format changes, existing data is migrated,
      never silently dropped. On iOS, home screen web apps do not share

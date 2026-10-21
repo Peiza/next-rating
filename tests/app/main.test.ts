@@ -267,6 +267,47 @@ describe('app start', () => {
     expect(predicted()).toBe('960');
   });
 
+  it('opens on the last viewed player when Settings says so, and on an imported player after a hand-off', async () => {
+    await start('/next-rating/');
+    (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';
+    (document.getElementById('pdga-number') as HTMLInputElement).form!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await handOff([detailsHtml]);
+    await handOff([otherHtml, 'https://www.pdga.com/player/100002/details']);
+    document.getElementById('add-favorite')!.click();
+    expect(stored().lastViewed).toBeNull();
+
+    // With "You" a reload opens on you, and switching players writes nothing.
+    await start('/next-rating/');
+    expect(predicted()).toBe('960');
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('open-with-last')!.click();
+    expect(document.activeElement?.id).toBe('open-with-last');
+    expect(stored()).toMatchObject({ openWith: 'last', lastViewed: 100001 });
+
+    document.getElementById('players-menu')!.click();
+    document.getElementById('player-100002')!.click();
+    expect(stored().lastViewed).toBe(100002);
+    await start('/next-rating/');
+    expect(predicted()).toBe('1000');
+
+    // A hand-off still opens the imported player, who is then the last viewed.
+    await handOff([detailsHtml]);
+    expect(predicted()).toBe('960');
+    await start('/next-rating/');
+    expect(predicted()).toBe('960');
+
+    // A removed player falls back to you.
+    const players = stored().players.filter((player: { pdgaNumber: number }) => player.pdgaNumber !== 100002);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored(), lastViewed: 100002, players }));
+    await start('/next-rating/');
+    expect(predicted()).toBe('960');
+
+    // Back to "You": the last viewed player is forgotten.
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('open-with-me')!.click();
+    expect(stored()).toMatchObject({ openWith: 'me', lastViewed: null });
+  });
+
   it('gives event results to every stored player in them', async () => {
     localStorage.setItem(
       STORAGE_KEY,

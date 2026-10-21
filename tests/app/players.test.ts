@@ -39,6 +39,14 @@ describe('selection', () => {
     expect(initialSelection(EMPTY_DATA)).toBeNull();
   });
 
+  it('opens on the last viewed player when chosen, while that player is stored', () => {
+    const players = [player(100001), player(100002), player(100003, { favorite: false })];
+    expect(initialSelection({ ...data(players, 100001), openWith: 'last', lastViewed: 100003 })).toBe(100003);
+    expect(initialSelection({ ...data(players, 100001), openWith: 'me', lastViewed: 100003 })).toBe(100001);
+    expect(initialSelection({ ...data(players, 100001), openWith: 'last', lastViewed: 100009 })).toBe(100001);
+    expect(initialSelection({ ...data(players, 100001), openWith: 'last', lastViewed: null })).toBe(100001);
+  });
+
   it('names a player from the last import', () => {
     expect(playerName(player(100001, { import: IMPORT }))).toBe('Test Player');
     expect(playerName(player(100001))).toBe('');

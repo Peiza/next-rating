@@ -72,9 +72,14 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
   xtier: {
     title: 'guide.xtier.title',
     body: () => [
-      paragraph('guide.xtier.rule'),
+      paragraph('guide.xtier.choose'),
+      el(
+        'ul',
+        { class: 'guide-list' },
+        ...(['guide.xtier.late', 'guide.xtier.league', 'guide.xtier.rule'] as const).map((key) => el('li', {}, t(key))),
+      ),
+      paragraph('guide.xtier.tier'),
       paragraph('guide.xtier.official'),
-      paragraph('guide.xtier.unofficial'),
       paragraph('guide.xtier.top8'),
     ],
   },

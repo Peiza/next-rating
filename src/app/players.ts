@@ -26,8 +26,13 @@ export function playerName(player: StoredPlayer): string {
   return player.import?.player ? normalizePlayer(player.import.player).name : '';
 }
 
-/** Who the app shows when it opens: me, else the first favorite, else the unsaved player. */
+/**
+ * Who the app shows when it opens: the player shown last when Settings says
+ * so and that player is still stored, else me, else the first favorite, else
+ * the unsaved player.
+ */
 export function initialSelection(data: AppData): number | null {
+  if (data.openWith === 'last' && findPlayer(data, data.lastViewed)) return data.lastViewed;
   return data.me ?? data.players.find((player) => player.favorite)?.pdgaNumber ?? data.players[0]?.pdgaNumber ?? null;
 }
 

@@ -60,6 +60,14 @@ export function isXTier(tier: string | undefined): boolean {
   return /^x/i.test(tier ?? '');
 }
 
+/**
+ * A league (tier L) is rated only once the whole league is finished and
+ * reported, so its unofficial rounds may miss the next update.
+ */
+export function isLeague(tier: string | undefined): boolean {
+  return /^l$/i.test(tier ?? '');
+}
+
 /** An unofficial event with rated rounds, which the user can leave out of the prediction. */
 export interface UnofficialEvent {
   /** The engine's event key, which the stored choice refers to. */
@@ -69,6 +77,7 @@ export interface UnofficialEvent {
   /** The tier from the profile page, such as "XA"; '' when unknown. */
   tier: string;
   xTier: boolean;
+  league: boolean;
   leftOut: boolean;
   /**
    * For a left-out event: the prediction if it counted, and how far that is
@@ -175,6 +184,7 @@ function unofficialEvents(
       date: round.date,
       tier,
       xTier: isXTier(tier),
+      league: isLeague(tier),
       leftOut,
       ifCounted,
     });

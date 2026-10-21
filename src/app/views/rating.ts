@@ -12,13 +12,13 @@ import {
   formatEffect,
   formatRating,
 } from '../format';
-import { isXTier, STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
+import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
-import { roundLabel, roundWhere, xTierNote } from './round-text';
+import { eventNote, roundLabel, roundWhere, tierNote } from './round-text';
 import { targetCalculator, type TargetProps } from './target';
 import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
 
@@ -194,7 +194,7 @@ function roundItem({ round, result }: ListedResult): HTMLElement {
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
     t(SOURCE[round.source]),
-    xTierNote(round),
+    tierNote(round),
   ].filter(Boolean);
   return el(
     'li',
@@ -412,7 +412,8 @@ function statsList(stats: RatingStats, exact: number | null): HTMLElement {
 
 /**
  * The unofficial events, each with a Count checkbox: one tap leaves an event
- * out of the prediction, such as an X-tier event that may not count.
+ * out of the prediction, such as one reported after the deadline. X-tier
+ * events and leagues say why they may not count.
  */
 function eventChoices(
   { unofficialEvents }: Model,
@@ -444,7 +445,7 @@ function eventChoices(
     ),
     ...unofficialEvents.map((event, i) => {
       const id = `count-event-${i}`;
-      const meta = [formatDate(event.date), event.xTier ? t('round.xTier') : ''].filter(Boolean).join(' · ');
+      const meta = [formatDate(event.date), eventNote(event.tier)].filter(Boolean).join(' · ');
       return el(
         'div',
         { class: 'check' },
