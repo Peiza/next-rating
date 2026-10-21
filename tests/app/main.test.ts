@@ -390,6 +390,39 @@ describe('app start', () => {
     expect(predicted()).toBe('960');
   });
 
+  it('shows every round after "Show more" through re-renders, until another player is shown', async () => {
+    await start('/next-rating/');
+    (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';
+    (document.getElementById('pdga-number') as HTMLInputElement).form!.dispatchEvent(new Event('submit', { cancelable: true }));
+    // Two rounds that count, then two outside the window: the list ends with the first of those.
+    const older = [detailsRow({ eventId: '900010', date: '1-Jul-2023', rating: '900' }), detailsRow({ eventId: '900011', date: '1-Jun-2023', rating: '900' })];
+    await handOff([playerHeader('Test Player', '100001', '960') + detailsTable([detailsRow({ round: '1', rating: '950' }), detailsRow({ round: '2', rating: '970' }), ...older])]);
+    await handOff([otherHtml, 'https://www.pdga.com/player/100002/details']);
+    document.getElementById('add-favorite')!.click();
+    await start('/next-rating/');
+    const rounds = () => document.querySelectorAll('#rounds-body .round').length;
+    expect(rounds()).toBe(3);
+    const more = document.getElementById('rounds-more')!;
+    expect(more.textContent).toBe('Show 1 more round');
+    more.click();
+    expect(rounds()).toBe(4);
+    expect(document.getElementById('rounds-more')).toBeNull();
+    expect(document.activeElement?.id).toBe('rounds-next');
+
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('tab-rating')!.click();
+    expect(rounds()).toBe(4);
+
+    for (const pdgaNumber of [100002, 100001]) {
+      document.getElementById('players-menu')!.click();
+      const done = popped();
+      document.getElementById(`player-${pdgaNumber}`)!.click();
+      await done;
+    }
+    expect(rounds()).toBe(3);
+    expect(document.getElementById('rounds-more')).not.toBeNull();
+  });
+
   it('opens on the last viewed player when Settings says so, and on an imported player after a hand-off', async () => {
     await start('/next-rating/');
     (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';

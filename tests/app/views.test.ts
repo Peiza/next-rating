@@ -6,7 +6,9 @@ import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
-import { ratingView } from '../../src/app/views/rating';
+import { ratingView, shownRounds } from '../../src/app/views/rating';
+import type { ListedResult } from '../../src/app/model';
+import type { RoundStatus } from '../../src/engine';
 import { chartData } from '../../src/app/chart';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
@@ -509,6 +511,71 @@ describe('rating view', () => {
     });
   });
 
+  describe('the round list', () => {
+    // After the deadline two rounds of an unofficial event, then ten in September, the oldest dropped, then older rounds outside the window.
+    const september = Array.from({ length: 10 }, (_, i) =>
+      rawDetailsRow({ eventId: String(900100 + i), eventName: `Event ${i}`, date: `${i + 1}-Sep-2026`, rating: String(i === 0 ? 700 : 950 + i) }),
+    );
+    const older = (count: number) =>
+      Array.from({ length: count }, (_, i) => rawDetailsRow({ eventId: String(900200 + i), eventName: `Old ${i}`, date: `${3 - i}-Jan-2024`, rating: '900' }));
+    const data = (oldRounds: number): StoredImport => ({
+      at: '2026-10-01T10:00:00.000Z',
+      player: rawPlayer({ currentRating: '955' }),
+      details: [...september, ...older(oldRounds)],
+      events: [rawEvent({ eventId: '900300', date: '12-Oct-2026' })],
+    });
+
+    function page(from: StoredImport, expanded = false, onExpand = vi.fn()) {
+      const model = buildModel(from, 100001, NOW);
+      return ratingView({ model, cards: ALL_OPEN, rounds: { expanded, onExpand }, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    }
+    const statuses = (view: HTMLElement) => [...view.querySelectorAll('#rounds-body .round')].map((round) => round.classList[1]);
+
+    it('shows the rounds down to the oldest that counts or is dropped, and one more', () => {
+      const onExpand = vi.fn();
+      const view = page(data(3), false, onExpand);
+      expect(statuses(view)).toEqual([
+        'round-after-deadline',
+        'round-after-deadline',
+        ...Array(9).fill('round-included').map((status, i) => (i < 3 ? 'round-doubled' : status)),
+        'round-dropped',
+        'round-outside-window',
+      ]);
+      const more = view.querySelector<HTMLButtonElement>('#rounds-body .rounds + #rounds-more')!;
+      expect(more.className).toBe('button button-small rounds-more');
+      expect(more.textContent).toBe('Show 2 more rounds');
+      more.click();
+      expect(onExpand).toHaveBeenCalledOnce();
+      expect(page(data(2)).querySelector('#rounds-more')!.textContent).toBe('Show 1 more round');
+      setLanguage('sv');
+      expect(page(data(3)).querySelector('#rounds-more')!.textContent).toBe('Visa 2 rundor till');
+      expect(page(data(2)).querySelector('#rounds-more')!.textContent).toBe('Visa 1 runda till');
+    });
+
+    it('shows every round once expanded, with focus to go to the first one added', () => {
+      const view = page(data(3), true);
+      expect(statuses(view)).toHaveLength(15);
+      expect(view.querySelector('#rounds-more')).toBeNull();
+      const next = view.querySelector<HTMLElement>('#rounds-next')!;
+      expect(next.tabIndex).toBe(-1);
+      expect([...view.querySelectorAll('#rounds-body .round')].indexOf(next)).toBe(13);
+    });
+
+    it('has no button when nothing is hidden', () => {
+      expect(statuses(page(data(1)))).toHaveLength(13);
+      expect(page(data(1)).querySelector('#rounds-more, #rounds-next')).toBeNull();
+      expect(page(data(0)).querySelector('#rounds-more')).toBeNull();
+    });
+
+    it('shows only the newest round when none counts or is dropped', () => {
+      const rows = (...kinds: RoundStatus[]) => kinds.map((status) => ({ result: { status } }) as ListedResult);
+      expect(shownRounds(rows('after-deadline', 'outside-window', 'outside-window'))).toBe(1);
+      expect(shownRounds(rows())).toBe(0);
+      expect(shownRounds(rows('dnf', 'included', 'excluded', 'dropped', 'outside-window', 'dnf'))).toBe(5);
+      expect(shownRounds(rows('included'))).toBe(1);
+    });
+  });
+
   it("links each round's event name to its pdga.com page, in the same tab", () => {
     const rounds = [...ratingPage().querySelectorAll('.round')];
     const official = rounds[3]!.querySelector<HTMLAnchorElement>('.round-event a')!;
@@ -769,7 +836,7 @@ describe('rating tab cards', () => {
       'The average round rating your next rounds need to reach a rating at the update they count in.',
       "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",
       'The numbers behind the prediction: the window, dropped and doubled rounds, and averages.',
-      'Every round the app knows, newest first, and how it counts in the prediction.',
+      'The rounds that count, newest first, and how each counts in the prediction. Older rounds are a tap away, under the list.',
     ]);
   });
 

@@ -79,7 +79,7 @@ import {
 import { cardToggleId } from './views/card';
 import { CHART_FULL_TITLE_ID, chartFullView, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
-import { ratingView } from './views/rating';
+import { ROUNDS_NEXT_ID, ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
 import { DATE_FORMAT_ID, openWithId, settingsView, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
@@ -153,6 +153,8 @@ let targetQuery: TargetQuery | null = null;
 let targetMemo: { key: string; answer: TargetAnswer } | null = null;
 /** "How to refresh" opened or closed by hand; null follows the data age (open when it is old). */
 let refreshOpen: boolean | null = null;
+/** The Rounds card shows every round after "Show more", for this player while the app is open. */
+let roundsExpanded = false;
 /**
  * The player the manual entry and target calculator drafts belong to;
  * another player starts with them empty.
@@ -746,6 +748,7 @@ function currentView(): HTMLElement {
   if (manualPlayer !== selected) {
     manualPlayer = selected;
     refreshOpen = null;
+    roundsExpanded = false;
     manualDraft = emptyDraft(today());
     confirmClear = false;
     manualUndo = null;
@@ -763,6 +766,13 @@ function currentView(): HTMLElement {
       onToggleCard: toggleCard,
       onGuide: openGuide,
       onLeaveOut: leaveOut,
+      rounds: {
+        expanded: roundsExpanded,
+        onExpand: () => {
+          roundsExpanded = true;
+          render(ROUNDS_NEXT_ID);
+        },
+      },
       refresh: {
         open: refreshOpen ?? model.stale,
         onToggle: (open) => {
