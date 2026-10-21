@@ -1,6 +1,6 @@
 import { Script } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { buildBookmarklet, checkAppUrl, toBookmarkletUrl } from '../../scripts/bookmarklet';
+import { buildBookmarklet, checkAppUrl, LIVE_APP_URL, toBookmarkletUrl } from '../../scripts/bookmarklet';
 
 /*
  * The built bookmarklet, as users paste it into a bookmark. It runs on
@@ -9,18 +9,24 @@ import { buildBookmarklet, checkAppUrl, toBookmarkletUrl } from '../../scripts/b
  * from cookies, storage, form fields and clicks.
  */
 
-const APP_URL = 'https://example.github.io/next-rating/';
-const TARGET_BYTES = 5 * 1024;
+const APP_URL = LIVE_APP_URL;
+/**
+ * The URL field of a bookmark in Chrome on Android keeps 5000 characters
+ * (measured on a Pixel); the rest of a paste is cut off. The limit leaves
+ * room under it for later changes.
+ */
+const MAX_LENGTH = 4200;
 const FORBIDDEN = ['cookie', 'Storage', 'indexedDB', 'innerText', '.click(', 'window.open', '.value', 'eval', 'Function(', 'import('];
 
 describe('built bookmarklet', async () => {
+  // The live app URL, so the length is that of the bookmarklet users paste.
   const { url, modules } = await buildBookmarklet(APP_URL);
   const code = decodeURIComponent(url.slice('javascript:'.length));
 
-  it(`is a javascript: URL under ${TARGET_BYTES} bytes`, () => {
-    console.info(`Bookmarklet: ${url.length} bytes`);
+  it(`is a javascript: URL of at most ${MAX_LENGTH} characters`, () => {
+    console.info(`Bookmarklet: ${url.length} characters`);
     expect(url.startsWith('javascript:')).toBe(true);
-    expect(url.length).toBeLessThan(TARGET_BYTES);
+    expect(url.length).toBeLessThanOrEqual(MAX_LENGTH);
     expect(url).not.toMatch(/[\r\n]/);
   });
 

@@ -1,13 +1,13 @@
 import { defineConfig, type Plugin } from 'vitest/config';
-import { buildBookmarklet } from './scripts/bookmarklet.ts';
+import { buildBookmarklet, LIVE_APP_URL } from './scripts/bookmarklet.ts';
 import { serviceWorker } from './scripts/service-worker.ts';
 
 /*
- * The app's address. It is hard-coded in every installed bookmarklet, so it
- * must never change. NEXT_RATING_APP_URL overrides it for local testing
- * only, such as http://localhost:4173/ with `npm run preview`.
+ * The app's address (scripts/bookmarklet.ts). NEXT_RATING_APP_URL overrides
+ * it for local testing only, such as http://localhost:4173/ with
+ * `npm run preview`.
  */
-const APP_URL = process.env.NEXT_RATING_APP_URL || 'https://peiza.github.io/next-rating/';
+const APP_URL = process.env.NEXT_RATING_APP_URL || LIVE_APP_URL;
 
 /*
  * GitHub Pages cannot send headers, so the policy is a meta tag. It is only

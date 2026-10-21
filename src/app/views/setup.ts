@@ -1,6 +1,7 @@
 import { BOOKMARKLET_VERSION } from '../../bookmarklet/version';
 import { t, type MessageKey } from '../../i18n';
 import { el, type Child } from '../dom';
+import { formatCount } from '../format';
 import { detailsLink } from './pdga';
 import { segmented, type Segment } from './segmented';
 
@@ -114,6 +115,9 @@ const TROUBLE_FOR: Record<Platform, MessageKey[]> = {
 
 const TROUBLE: MessageKey[] = ['setup.trouble.address', 'setup.trouble.browsers', 'setup.trouble.homeScreen', 'setup.trouble.check'];
 
+/** How every bookmarklet ends (scripts/bookmarklet.ts), so a cut-off paste shows. */
+const BOOKMARKLET_END = ';void 0';
+
 function step(title: MessageKey, ...body: Child[]): HTMLElement {
   return el('li', { class: 'step' }, el('p', { class: 'step-title' }, t(title)), ...body);
 }
@@ -165,6 +169,8 @@ function copyStep(bookmarklet: string): HTMLElement {
 export function setupView({ bookmarklet, stored, pdgaNumber, platform, onPlatform, onBack }: SetupProps): HTMLElement {
   const steps = STEPS[platform];
   const note = NOTES[platform];
+  // The whole code's length and ending, to check a pasted bookmark against.
+  const whole = { length: formatCount(bookmarklet.length), end: BOOKMARKLET_END };
   // The page title while the setup shows (main.ts), so a bookmark made here already has this name.
   const name = t('setup.bookmarkName');
   return el(
@@ -192,7 +198,7 @@ export function setupView({ bookmarklet, stored, pdgaNumber, platform, onPlatfor
       'details',
       { id: 'setup-trouble', class: 'trouble' },
       el('summary', {}, t('setup.trouble.title')),
-      el('ul', { class: 'links' }, ...[...TROUBLE_FOR[platform], ...TROUBLE].map((key) => el('li', {}, t(key)))),
+      el('ul', { class: 'links' }, ...[...TROUBLE_FOR[platform], ...TROUBLE].map((key) => el('li', {}, t(key, whole)))),
     ),
     el('button', { id: 'setup-back', class: 'button button-block', type: 'button', onclick: onBack }, t('setup.back')),
   );

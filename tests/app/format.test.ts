@@ -4,6 +4,7 @@ import {
   formatAge,
   formatAverage,
   formatChange,
+  formatCount,
   formatDate,
   formatDateTime,
   formatDayMonth,
@@ -49,6 +50,12 @@ describe('formatting', () => {
     expect(formatRating(1024, 'sv-SE')).toBe('1024');
     expect(formatRating(1024, 'en-US')).toBe('1024');
     expect(formatRating(1024, 'de-DE')).toBe('1024');
+  });
+
+  it('groups the thousands of a count as on the device', () => {
+    expect(formatCount(4171, 'sv-SE')).toBe('4 171');
+    expect(formatCount(4171, 'en-US')).toBe('4,171');
+    expect(formatCount(4171, 'de-DE')).toBe('4.171');
   });
 
   it('formats averages with two decimals', () => {

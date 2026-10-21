@@ -1,6 +1,6 @@
-import type { Envelope, HandoffPage } from '../handoff/envelope';
+import type { Envelope, HandoffPage, HandoffStatus } from '../handoff/envelope';
 import { MAX_PAYLOAD, packText } from '../handoff/pack';
-import { detectPage, type PageKind } from '../parsers/page';
+import type { PageKind } from '../parsers/page';
 import { BOOKMARKLET_VERSION } from './version';
 
 /*
@@ -25,22 +25,21 @@ export const REQUEST_GAP = 1000;
 
 export type ContentKind = 'details' | 'profile' | 'season' | 'history' | 'event';
 
-/** The main content of each kind of page. Without it, or for a kind not listed, the whole body is sent. */
-const MAIN: Record<ContentKind, string> = {
-  details: '#player-results-details',
-  profile: 'table[id^="player-results-"]',
-  season: 'table[id^="player-results-"]',
-  history: '#player-results-history',
-  event: '.leaderboard',
-};
+/** The player's results tables, on both player pages and a season. */
+const RESULTS = 'table[id^="player-results-"]';
 
-/** The other parts the extractors read. Hole counts sit in .tooltip-templates, inside .leaderboard on event pages. */
-const PARTS: Record<ContentKind, string> = {
-  details: '.current-rating,.tooltip-templates',
-  profile: '.current-rating',
-  season: '#page-title',
-  history: '.current-rating',
-  event: '.tournament-date',
+/**
+ * For each kind of page: its main content, and the other parts the
+ * extractors read. Without the main content, or for a kind not listed, the
+ * whole body is sent. Hole counts sit in .tooltip-templates, inside
+ * .leaderboard on event pages.
+ */
+const PARTS: Record<ContentKind, [main: string, parts: string]> = {
+  details: ['#player-results-details', '.current-rating,.tooltip-templates'],
+  profile: [RESULTS, '.current-rating'],
+  season: [RESULTS, '#page-title'],
+  history: ['#player-results-history', '.current-rating'],
+  event: ['.leaderboard', '.tournament-date'],
 };
 
 /**
@@ -49,8 +48,26 @@ const PARTS: Record<ContentKind, string> = {
  */
 const PLAYER_PAGE = /^\/player\/\d+\/[a-z]{1,20}(\/\d{4})?$/;
 
-/** The player's results rows, on both player pages. */
-const RESULT_ROWS = 'table[id^="player-results-"] tr';
+/** A player's profile, details, history and season pages, and an event, by path. */
+const KIND = /^\/(?:player\/\d+(?:\/(details|history)|\/(stats)\/\d{4})?|tour\/(event)\/\d+)\/?$/;
+
+/**
+ * The kind of pdga.com page at a path, as detectPage (src/parsers/page.ts)
+ * tells it from a URL. The bookmarklet always knows the URL, so it does
+ * without detectPage's canonical link, and stays smaller.
+ */
+export function pageKind(path: string): PageKind {
+  const [found, player, season, event] = KIND.exec(path) ?? [];
+  return (found ? (player ?? (season ? 'season' : (event ?? 'profile'))) : 'unknown') as PageKind;
+}
+
+/** Cloudflare's challenge: a kind of page, a status and the value of its cf-mitigated header. */
+const CHALLENGE = 'challenge';
+
+/** A Cloudflare challenge, recognised by its own markers as in detectPage. A document's title comes trimmed. */
+export function isChallenge(doc: Document): boolean {
+  return /^just a moment/i.test(doc.title) || !!doc.querySelector('#challenge-form,script[src*="challenge-platform"]');
+}
 
 const MONTHS = 'janfebmaraprmayjunjulaugsepoctnovdec';
 
@@ -68,22 +85,16 @@ export interface CollectDeps {
 
 /**
  * The HTML of the parts of a page that the app reads. When the main content
- * is missing, as after a markup change on pdga.com, it is the whole body
- * instead, so an updated app can still read it. The body is copied into an
- * inert document, where its scripts and styles are removed; the page itself
- * is never changed.
+ * is missing, as after a markup change on pdga.com, it is the whole document
+ * instead, so an updated app can still read it, with its scripts and styles
+ * cut from the HTML text to keep it small. The page itself is never changed.
  */
 export function pageHtml(doc: Document, kind: PageKind): string {
-  const main = MAIN[kind as ContentKind];
-  let parts: (Element | null)[];
-  if (main && doc.querySelector(main)) {
-    parts = [...doc.querySelectorAll(`link[rel=canonical],#page-title,${PARTS[kind as ContentKind]},${main}`)];
-  } else {
-    const body = doc.implementation.createHTMLDocument('').importNode(doc.body, true);
-    for (const element of body.querySelectorAll('script,style')) element.remove();
-    parts = [doc.querySelector('link[rel=canonical]'), body];
-  }
-  return parts.map((element) => element?.outerHTML ?? '').join('');
+  const [main, others] = PARTS[kind as ContentKind] ?? [];
+  return main && doc.querySelector(main)
+    ? [...doc.querySelectorAll(`link[rel=canonical],#page-title,${others},${main}`)].map((part) => part.outerHTML).join('')
+    : // Serialized HTML closes every element with a plain end tag, so this finds each one's end.
+      doc.documentElement.outerHTML.replace(/<(script|style)[\s>][\s\S]*?<\/\1>/gi, '');
 }
 
 /**
@@ -96,11 +107,11 @@ export function dateKey(text: string): number {
   return date ? +date[3]! * 1e4 + (MONTHS.indexOf(date[2]!.toLowerCase()) / 3 + 1) * 100 + +date[1]! : 0;
 }
 
-/** Event ids and dates from the rows of a player page's results tables. */
+/** Event ids, from each row's first event link, and dates from the rows of a player page's results tables. */
 function eventRows(doc: Document): [string, number][] {
-  return [...doc.querySelectorAll(RESULT_ROWS)].flatMap((row): [string, number][] => {
-    const id = /\/tour\/event\/(\d+)/.exec(row.querySelector('a[href*="/tour/event/"]')?.getAttribute('href') ?? '')?.[1];
-    return id ? [[id, dateKey(row.textContent ?? '')]] : [];
+  return [...doc.querySelectorAll(`${RESULTS} tr`)].flatMap((row): [string, number][] => {
+    const id = /\/tour\/event\/(\d+)/.exec(row.outerHTML)?.[1];
+    return id ? [[id, dateKey(row.textContent!)]] : [];
   });
 }
 
@@ -143,101 +154,102 @@ export function previousSeasonPath(profile: Document, pdgaNumber: string, now: D
  * change, it removes nothing.
  */
 export function keepPlayerRows(doc: Document, pdgaNumber: string): void {
-  if (!doc.querySelector('td.pdga-number')) return;
+  const cell = 'td.pdga-number';
+  if (!doc.querySelector(cell)) return;
   for (const row of doc.querySelectorAll('tr')) {
-    if (row.querySelector('td') && row.querySelector('td.pdga-number')?.textContent?.trim() !== pdgaNumber) row.remove();
+    if (row.querySelector('td') && row.querySelector(cell)?.textContent?.trim() !== pdgaNumber) row.remove();
   }
 }
 
 export async function collect(doc: Document, url: string, deps: CollectDeps): Promise<Envelope> {
-  const page = detectPage(doc, url);
-  const envelope: Envelope = { v: 2, status: 'ok', page, bookmarklet: BOOKMARKLET_VERSION };
   const path = new URL(url).pathname.replace(/\/$/, '');
+  const page = isChallenge(doc) ? CHALLENGE : pageKind(path);
+  const onDetails = page === 'details';
+  // Only on a player's pages, the only ones it fetches from.
+  const pdgaNumber = /^\/player\/(\d+)/.exec(path)?.[1] ?? '';
+  let status: HandoffStatus = 'ok';
   const pages: HandoffPage[] = [];
   const failed: string[] = [];
   let done = 1;
   let planned = 1;
 
+  /** Adds a page to the hand-off, with the parts the app reads. */
+  function keep(path: string, from: Document, kind: PageKind): Document {
+    pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(from, kind) });
+    return from;
+  }
+
   /**
-   * Fetches one page. After a challenge or a failure, nothing more is
-   * fetched: this page and every later one are listed as failed instead.
+   * Fetches one page and adds it, an event page with only this player's
+   * rows. After a challenge or a failure, nothing more is fetched: this page
+   * and every later one are listed as failed instead.
    */
-  async function fetchPage(path: string, kind: ContentKind): Promise<Document | undefined> {
-    if (envelope.status === 'ok') {
+  async function read(path: string, kind: ContentKind): Promise<Document | undefined> {
+    if (status === 'ok') {
       await deps.wait(REQUEST_GAP);
       try {
         const response = await deps.fetch(path);
         const fetched = deps.parse(await response.text());
-        const found = detectPage(fetched, response.redirected ? response.url : PDGA_ORIGIN + path);
-        if (response.headers.get('cf-mitigated') === 'challenge' || found === 'challenge') {
-          envelope.status = 'challenge';
-        } else if (response.ok && found === kind) {
-          return fetched;
+        if (response.headers.get('cf-mitigated') === CHALLENGE || isChallenge(fetched)) {
+          status = CHALLENGE;
+        } else if (response.ok && (!response.redirected || pageKind(new URL(response.url).pathname) === kind)) {
+          // The path was built for this kind, so only a redirect can lead elsewhere.
+          if (kind === 'event') keepPlayerRows(fetched, pdgaNumber);
+          return keep(path, fetched, kind);
         }
       } catch {
-        // A network error, or a response that could not be read.
+        // A network error, or a page that could not be read.
       } finally {
         deps.progress(++done, planned);
       }
-      if (envelope.status === 'ok') envelope.status = 'partial';
+      if (status === 'ok') status = 'partial';
     }
     failed.push(PDGA_ORIGIN + path);
     return undefined;
   }
 
   try {
-    if (page === 'challenge') {
-      envelope.status = 'challenge';
+    if (page === CHALLENGE) {
+      status = CHALLENGE;
       failed.push(PDGA_ORIGIN + path);
-    } else if (page === 'event' || (page !== 'details' && PLAYER_PAGE.test(path))) {
-      pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
-    } else if (page !== 'details' && page !== 'profile') {
-      envelope.status = 'unsupported-page';
+    } else if (page === 'event' || (!onDetails && PLAYER_PAGE.test(path))) {
+      keep(path, doc, page);
+    } else if (!onDetails && page !== 'profile') {
+      status = 'unsupported-page';
     } else {
-      const pdgaNumber = /^\/player\/(\d+)/.exec(path)![1]!;
-      const other = page === 'details' ? `/player/${pdgaNumber}` : `/player/${pdgaNumber}/details`;
-      const otherKind = page === 'details' ? 'profile' : 'details';
-      const historyPath = `/player/${pdgaNumber}/history`;
-      pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
+      keep(path, doc, page);
       planned = 3;
       deps.progress(done, planned);
-      const fetched = await fetchPage(other, otherKind);
+      const fetched = await read(`/player/${pdgaNumber}${onDetails ? '' : '/details'}`, onDetails ? 'profile' : 'details');
       if (fetched) {
-        pages.push({ url: PDGA_ORIGIN + other, html: pageHtml(fetched, otherKind) });
-        const [details, profile] = page === 'details' ? [doc, fetched] : [fetched, doc];
+        const [details, profile] = onDetails ? [doc, fetched] : [fetched, doc];
         const seasons = [profile];
         const seasonPath = previousSeasonPath(profile, pdgaNumber, deps.now);
         if (seasonPath) {
           planned += 1;
-          const season = await fetchPage(seasonPath, 'season');
-          if (season) {
-            seasons.push(season);
-            pages.push({ url: PDGA_ORIGIN + seasonPath, html: pageHtml(season, 'season') });
-          }
+          const season = await read(seasonPath, 'season');
+          if (season) seasons.push(season);
         }
         // Without a readable details table, every event would look new.
-        const ids = details.querySelector(MAIN.details) ? newEventIds(details, ...seasons) : [];
+        const ids = details.querySelector(PARTS.details[0]) ? newEventIds(details, ...seasons) : [];
         planned += ids.length;
-        for (const id of ids) {
-          const eventPath = `/tour/event/${id}`;
-          const event = await fetchPage(eventPath, 'event');
-          if (event) {
-            keepPlayerRows(event, pdgaNumber);
-            pages.push({ url: PDGA_ORIGIN + eventPath, html: pageHtml(event, 'event') });
-          }
-        }
+        for (const id of ids) await read(`/tour/event/${id}`, 'event');
       }
       // Last, so a failure here costs no event page.
-      const history = await fetchPage(historyPath, 'history');
-      if (history) pages.push({ url: PDGA_ORIGIN + historyPath, html: pageHtml(history, 'history') });
+      await read(`/player/${pdgaNumber}/history`, 'history');
     }
   } catch {
-    envelope.status = 'error';
+    status = 'error';
   }
-  if (pages.length > 0) envelope.pages = pages;
-  if (failed.length > 0) envelope.failed = failed;
   deps.progress(planned, planned);
-  return envelope;
+  return {
+    v: 2,
+    status,
+    page,
+    bookmarklet: BOOKMARKLET_VERSION,
+    ...(pages.length > 0 && { pages }),
+    ...(failed.length > 0 && { failed }),
+  };
 }
 
 /**
@@ -254,7 +266,7 @@ export async function packEnvelope(envelope: Envelope, limit = MAX_PAYLOAD): Pro
     while (last > 0 && !pages[last]!.url.includes('/tour/event/')) last -= 1;
     if (payload.length <= limit || last < 1) return payload;
     const [dropped] = pages.splice(last, 1);
-    envelope.failed = [...(envelope.failed ?? []), dropped!.url];
+    (envelope.failed ??= []).push(dropped!.url);
     if (envelope.status === 'ok') envelope.status = 'partial';
   }
 }

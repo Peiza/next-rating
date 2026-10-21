@@ -67,8 +67,9 @@ manual per-page fallback.
      hand-off.
    - Read only page content (including content hidden behind a toggle, as
      above). Never read cookies, storage or form fields.
-   - Keep the minified bookmarklet small (target under 5 kB), since on phones it
-     is pasted into the bookmark URL field.
+   - Keep the minified bookmarklet small, since on phones it is pasted into
+     the bookmark URL field: at most 4,200 characters as a javascript: URL
+     (see "Bookmarklet size" below).
 4. Web app (PWA, works offline after first load). The full setup page was
    the last open part; it is built (see "Setup page" below).
    - Enter a PDGA number once (default player; the app works for any player).
@@ -837,6 +838,44 @@ Built as (docs/plan-rating-history.md):
 - `formatDateTime` uses `hourCycle: 'h23'` with Year first and Day first;
   Month first and Automatic keep the locale's clock. It is the only clock
   time in the app (the "Last import" line).
+
+## Bookmarklet size
+Spec, after a cut-off paste on a Pixel:
+1. Bookmarklet 1.2.0 was 5034 characters as pasted (the build test said
+   5036, measured with a longer test URL). Pasted into the URL field of a
+   bookmark in Chrome on Android, it was cut off near its end.
+2. Measured on a Pixel with test strings whose end shows their length: the
+   bookmark URL field in Chrome on Android keeps exactly 5,000 characters,
+   and cuts the rest of a paste. On a computer all 10,000 fit. No documented
+   limit was found for it or for Safari on iPhone.
+3. The app already copies the whole code with its Copy button, so copying
+   was not the problem. A short loader that fetches the code from the app
+   was turned down: it would run remote code on pdga.com.
+4. Shrink the code to at most 4,200 characters, with the same behavior and
+   the same v2 hand-off, and check that in the build test with the live app
+   URL. The setup page gives the code's length and ending, so a pasted
+   bookmark can be checked.
+
+Built as:
+- Bookmarklet 1.3.0, 4171 characters. `pageKind` and `isChallenge` in
+  src/bookmarklet/collect.ts tell pages apart by path, as `detectPage` does
+  from a URL, so the bookmarklet no longer bundles src/parsers/page.ts; a
+  test checks they agree. A fetched page counts when it is no challenge and
+  either was not redirected or was redirected to a page of the same kind.
+- `PARTS` holds each kind's main content and other parts; `read()` fetches a
+  page and keeps it, an event page with only the player's rows; the status
+  is a local variable until the envelope is built at the end.
+- After a markup change, the whole document is sent with its scripts and
+  styles cut from the serialized HTML by a regex, instead of an inert copy of
+  the body.
+- `packText` encodes base64url with one replace. The progress bar has no
+  transition, a width in `vw` (no `%25` in the URL) and its role and value
+  through ARIA reflection.
+- `LIVE_APP_URL` in scripts/bookmarklet.ts is the one place for the app URL;
+  vite.config.ts and the build test use it. The build test fails above
+  4,200 characters.
+- `setup.trouble.address` gives `{length}` (`formatCount`, grouped as on the
+  device) and `{end}` (";void 0").
 
 ## Test fixtures
 Requirements (built; the tests keep them):

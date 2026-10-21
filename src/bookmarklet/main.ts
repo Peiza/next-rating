@@ -15,10 +15,12 @@ async function run(): Promise<void> {
   if (document.getElementById(BAR_ID)) return;
   const bar = document.createElement('div');
   bar.id = BAR_ID;
-  // A progress bar goes from 0 to 100 unless it says otherwise.
-  bar.setAttribute('role', 'progressbar');
+  // A progress bar goes from 0 to 100 unless it says otherwise. ARIA
+  // reflection sets the attributes, as in every browser that runs the hand-off.
+  bar.role = 'progressbar';
   // CSSOM, which page Content Security Policies allow, unlike a style attribute.
-  bar.style.cssText = 'position:fixed;top:0;left:0;width:0;height:4px;background:#1a7f37;z-index:2147483647;transition:width .3s';
+  // Fixed and empty, it starts 0 wide.
+  bar.style.cssText = 'position:fixed;top:0;left:0;height:4px;background:#1a7f37;z-index:2147483647';
   document.body.append(bar);
 
   let payload = '';
@@ -29,9 +31,10 @@ async function run(): Promise<void> {
       wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       now: new Date(),
       progress: (done, planned) => {
-        const percent = String(Math.round((done / planned) * 100));
-        bar.style.width = `${percent}%`;
-        bar.setAttribute('aria-valuenow', percent);
+        const percent = Math.round((done / planned) * 100);
+        // vw, the viewport the fixed bar spans, needs no escape in the URL, unlike %.
+        bar.style.width = `${percent}vw`;
+        bar.ariaValueNow = `${percent}`;
       },
     });
     payload = await packEnvelope(envelope);

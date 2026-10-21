@@ -11,8 +11,6 @@ export async function packText(text: string): Promise<string> {
   const compressed = new Response(text).body!.pipeThrough(new CompressionStream('deflate-raw'));
   const bytes = new Uint8Array(await new Response(compressed).arrayBuffer());
   let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/[+/=]/g, (char) => (char === '+' ? '-' : char === '/' ? '_' : ''));
 }

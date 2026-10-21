@@ -118,6 +118,11 @@ export function formatRating(rating: number, locale = deviceLocale()): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0, useGrouping: false }).format(rating);
 }
 
+/** A count, such as of characters, grouped as on the device: "4,171", "4 171" in Swedish. */
+export function formatCount(count: number, locale = deviceLocale()): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(count);
+}
+
 /** An average with two decimals, "976,45" in Swedish. */
 export function formatAverage(value: number, locale = deviceLocale()): string {
   return new Intl.NumberFormat(locale, {
