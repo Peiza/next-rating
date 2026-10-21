@@ -809,3 +809,5 @@ Built in this order:
 - Fixes from iPhone testing: the date format, selects on iOS, the chart
   table, date fields, the full-screen hint, controls and round strip, and
   manual rounds (docs/plan-iphone-testing.md) (done)
+- Ko-fi link: a plain link at the bottom of Settings, at the end of How it
+  works and in the README, opened in the same tab (done)
