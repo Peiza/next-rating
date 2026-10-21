@@ -487,6 +487,11 @@ function setChartAxis(chartAxis: ChartAxis): void {
   render();
 }
 
+/** Stores whether the chart's table is open. The details element opened itself, so nothing is drawn again. */
+function setChartTable(chartTable: boolean): void {
+  if (chartTable !== store.get().chartTable) store.update({ chartTable });
+}
+
 /** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
 function setTop8Own(top8Own: boolean): void {
   store.update({ top8Own });
@@ -814,6 +819,7 @@ function chartProps(player: StoredPlayer, model: Model, now: Date): ChartProps {
     onPeriod: setChartPeriod,
     axis: store.get().chartAxis,
     onAxis: setChartAxis,
+    table: { open: store.get().chartTable, onToggle: setChartTable },
     onFullScreen: openChart,
   };
 }

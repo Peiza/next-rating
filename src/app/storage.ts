@@ -120,6 +120,8 @@ export interface AppData {
   chartPeriod: ChartPeriod;
   /** The chart's x-axis, the same for every player. */
   chartAxis: ChartAxis;
+  /** Whether the chart's "Show as table" is open, the same for every player. */
+  chartTable: boolean;
   /** Whether the Top 8 counts manual rounds too, the same for every player. */
   top8Own: boolean;
   /** The bookmarklet version of the last hand-off in this browser, or null before one. */
@@ -144,6 +146,7 @@ export const EMPTY_DATA: AppData = {
   top8Own: false,
   chartPeriod: DEFAULT_CHART_PERIOD,
   chartAxis: 'time',
+  chartTable: false,
   bookmarklet: null,
   me: null,
   openWith: 'me',
@@ -291,6 +294,7 @@ export function validateData(value: unknown): AppData {
     top8Own: fields.top8Own === true,
     chartPeriod: validateChartPeriod(fields.chartPeriod),
     chartAxis: CHART_AXES.find((name) => name === fields.chartAxis) ?? 'time',
+    chartTable: fields.chartTable === true,
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     openWith: OPEN_WITH.find((name) => name === fields.openWith) ?? 'me',

@@ -343,6 +343,15 @@ describe('chart panel', () => {
     expect([...table.querySelectorAll('tbody tr:first-child .chart-event > span')].map((span) => span.className)).toEqual(['chart-round-name', 'chart-round-status']);
   });
 
+  it('opens the table as kept, and reports when it opens or closes', () => {
+    const onToggle = vi.fn();
+    const table = panel({ kind: 'recent' }, { table: { open: true, onToggle } }).querySelector<HTMLDetailsElement>('#chart-table')!;
+    expect(table.open).toBe(true);
+    table.open = false;
+    table.dispatchEvent(new Event('toggle'));
+    expect(onToggle).toHaveBeenLastCalledWith(false);
+  });
+
   it('offers Full screen as a small button in the chart corner when it can open', () => {
     expect(panel().querySelector('#chart-full-screen')).toBeNull();
     const onFullScreen = vi.fn();

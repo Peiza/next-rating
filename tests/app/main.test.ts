@@ -662,6 +662,37 @@ describe('app start', () => {
     expect(select().value).toBe('window');
   });
 
+  it('keeps the chart table open across views, a language change and launches', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { chart: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    const table = () => document.querySelector<HTMLDetailsElement>('#chart-table')!;
+    expect(table().open).toBe(false);
+    table().open = true;
+    table().dispatchEvent(new Event('toggle'));
+    expect(stored().chartTable).toBe(true);
+
+    document.getElementById('tab-settings')!.click();
+    const language = document.querySelector<HTMLSelectElement>('#language')!;
+    language.value = 'sv';
+    language.dispatchEvent(new Event('change'));
+    document.getElementById('tab-rating')!.click();
+    expect(table().open).toBe(true);
+
+    await start('/next-rating/');
+    expect(table().open).toBe(true);
+    table().open = false;
+    table().dispatchEvent(new Event('toggle'));
+    expect(stored().chartTable).toBe(false);
+  });
+
   it('on a touch screen, puts focus near a select after a choice instead of on it, so iOS does not open it again', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(

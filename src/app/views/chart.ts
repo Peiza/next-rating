@@ -12,7 +12,7 @@ import {
   type PointMark,
   type RatingAxis,
 } from '../chart';
-import { el, present, svg, type Child } from '../dom';
+import { disclosure, el, present, svg, type Child, type Disclosure } from '../dom';
 import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format';
 import { historyUrl } from './pdga';
 import { periodControls, periodId, periodLabel } from './period';
@@ -42,6 +42,8 @@ export interface ChartProps {
   /** The x-axis, chosen in the card and kept full screen. */
   axis: ChartAxis;
   onAxis: (axis: ChartAxis) => void;
+  /** Whether "Show as table" is open, kept with the settings so a re-render does not close it. */
+  table?: Disclosure;
   /** Opens the full-screen view; without it the card has no Full screen button. */
   onFullScreen?: () => void;
 }
@@ -555,11 +557,11 @@ function legend(chart: ChartData): HTMLElement {
  * cell names the event, and under it, smaller, the status and the source, so
  * three columns fit a phone. Words wrap whole; dates and ratings keep to one line.
  */
-function table(chart: ChartData): HTMLElement {
+function table(chart: ChartData, state: Disclosure | undefined): HTMLElement {
   const head = (key: MessageKey) => el('th', { scope: 'col' }, t(key));
   return el(
     'details',
-    { class: 'chart-table' },
+    { id: 'chart-table', class: 'chart-table', ...disclosure(state) },
     el('summary', {}, t('chart.table')),
     el(
       'table',
@@ -604,7 +606,7 @@ function historyLink(pdgaNumber: number): HTMLElement {
 }
 
 /** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
-export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, onFullScreen }: ChartProps): HTMLElement[] {
+export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, table: tableState, onFullScreen }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
   if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
   const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
@@ -614,7 +616,7 @@ export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, o
     ...plot(chart, { ...CARD_PLOT, axis, corner }),
     legend(chart),
     historyLink(pdgaNumber),
-    table(chart),
+    table(chart, tableState),
   ];
 }
 
