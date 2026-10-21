@@ -7,7 +7,8 @@ import type { DateOrder } from './storage';
  * are in the app's language while the order of a numeric date follows the
  * device: an English app on a Swedish phone shows "Aug" and 2026-08-06.
  * Settings can fix the order instead (2026-10-21, 21/10/2026 or 10/21/2026),
- * and the dates with a month name follow it. Numbers follow the device locale
+ * and the dates with a month name follow it; Year first and Day first also
+ * give times a 24-hour clock. Numbers follow the device locale
  * (976,45 on a Swedish phone), and ratings never get a thousands separator.
  */
 
@@ -77,11 +78,17 @@ export function formatMonth(date: PlainDate, locale = dateLocale()): string {
   return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
-/** A point in time, such as an import timestamp, in the device's time zone. */
+/**
+ * A point in time, such as an import timestamp, in the device's time zone.
+ * Year first and Day first go with a 24-hour clock ("2026-10-21 14:50");
+ * Month first and Automatic keep the locale's clock, so US English keeps
+ * "2:50 PM". The `h23` cycle, as `hour12: false` reads "24:05" in some engines.
+ */
 export function formatDateTime(timestamp: string, locale = dateLocale(), order = dateOrder): string {
   if (order) {
     const at = new Date(timestamp);
-    return `${orderedDate(today(at), order)} ${new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(at)}`;
+    const clock = order === 'month' ? {} : ({ hourCycle: 'h23' } as const);
+    return `${orderedDate(today(at), order)} ${new Intl.DateTimeFormat(locale, { timeStyle: 'short', ...clock }).format(at)}`;
   }
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));
 }

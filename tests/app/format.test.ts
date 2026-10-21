@@ -104,6 +104,22 @@ describe('a date format from Settings', () => {
     expect(formatDateTime(at, 'sv-SE', 'day')).toBe('21/10/2026 15:04');
     expect(formatDateTime(at, 'sv-SE', 'month')).toBe('10/21/2026 15:04');
   });
+
+  it('uses a 24-hour clock with Year first and Day first, also in US English', () => {
+    const afternoon = new Date(2026, 9, 21, 15, 4).toISOString();
+    expect(formatDateTime(afternoon, 'en-US', 'year')).toBe('2026-10-21 15:04');
+    expect(formatDateTime(afternoon, 'en-US', 'day')).toBe('21/10/2026 15:04');
+    // Midnight is 00, not 24.
+    expect(formatDateTime(new Date(2026, 9, 21, 0, 5).toISOString(), 'en-US', 'year')).toBe('2026-10-21 00:05');
+  });
+
+  it('keeps AM and PM in US English with Month first and Automatic', () => {
+    const afternoon = new Date(2026, 9, 21, 15, 4).toISOString();
+    // ICU puts a narrow no-break space before PM; any space matches.
+    expect(formatDateTime(afternoon, 'en-US', 'month')).toMatch(/^10\/21\/2026 3:04\sPM$/);
+    expect(formatDateTime(afternoon, 'en-US', null)).toMatch(/^10\/21\/26, 3:04\sPM$/);
+    expect(formatDateTime(afternoon, 'sv-SE', null)).toBe('2026-10-21 15:04');
+  });
 });
 
 describe('formatAge', () => {
