@@ -198,7 +198,14 @@ numbered questions, each with lettered options and your recommendation, so I
 can copy them. Don't use interactive question boxes. Changes reach main
 through pull requests that I merge; the workflow builds and tests every pull
 request and deploys every merge, so each version can be tested live on my
-phone. Done so far:
+phone. At the start of every new step, first run git switch main, git pull
+--ff-only and git fetch --prune, delete local branches that are already
+merged with git branch -d (never -D), then create the new feature branch
+from main. When a step is done, Claude pushes the branch and opens the
+pull request with gh (`C:\Program Files\GitHub CLI\gh.exe` when gh isn't
+on PATH), with the description and a checklist of what to test on the
+phones, waits for CI and reports whether it passed. Never merge: I always
+merge myself. Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
