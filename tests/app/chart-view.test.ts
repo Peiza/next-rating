@@ -314,11 +314,11 @@ describe('chart panel', () => {
     });
   });
 
-  it('explains only the shapes and marks the period has, then the window and the lines', () => {
+  it('explains only the shapes and marks the period has, then the window with its dates and the lines', () => {
     const legend = (from: typeof model) =>
       [...panel({ kind: 'custom', from: '2026-09-02', to: '2026-09-30' }, {}, from).querySelectorAll('.chart-legend li')];
     const items = legend(differs);
-    expect(items.map((item) => item.textContent)).toEqual(['Official', 'Counts', 'Counts twice', 'Rating window', `Prediction ${moved}`, 'Official rating 950']);
+    expect(items.map((item) => item.textContent)).toEqual(['Official', 'Counts', 'Counts twice', expect.stringMatching(/^Rating window, \d{2}\/\d{2}\/\d{4} to \d{2}\/\d{2}\/\d{4}$/), `Prediction ${moved}`, 'Official rating 950']);
     expect(items.every((item) => item.querySelector('svg[aria-hidden="true"]'))).toBe(true);
     expect(legend(model).at(-1)!.textContent).toBe('Official rating and prediction 955');
   });

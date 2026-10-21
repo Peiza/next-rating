@@ -527,6 +527,11 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
   return full ? [frame] : [detail, frame];
 }
 
+/** The band's legend names the whole window's dates, which the period select leaves out. */
+function bandText({ window }: ChartData): string {
+  return window ? t('chart.bandRange', { start: formatDate(window.start), end: formatDate(window.end) }) : t('chart.band');
+}
+
 /** Only the kinds and marks the period has, then the band and the lines. */
 function legend(chart: ChartData): HTMLElement {
   const kinds = (Object.keys(KINDS) as PointKind[]).filter((kind) => chart.points.some((point) => point.kind === kind));
@@ -538,7 +543,7 @@ function legend(chart: ChartData): HTMLElement {
     { class: 'chart-legend' },
     ...kinds.map((kind) => item(icon(marker(kind, 'counts', 10, 10)), t(KINDS[kind]))),
     ...marks.map((mark) => item(icon(marker('official', mark, 10, 10)), t(MARKS[mark]))),
-    chart.band && item(icon(svg('rect', { class: 'chart-band', x: 1, y: 3, width: 18, height: 14 })), t('chart.band')),
+    chart.band && item(icon(svg('rect', { class: 'chart-band', x: 1, y: 3, width: 18, height: 14 })), bandText(chart)),
     chart.same && item(icon(line('predicted')), t('chart.both', { rating: formatRating(chart.predicted!) })),
     !chart.same && chart.predicted !== null && item(icon(line('predicted')), t('chart.predicted', { rating: formatRating(chart.predicted) })),
     !chart.same && chart.official !== null && item(icon(line('official')), t('chart.official', { rating: formatRating(chart.official) })),

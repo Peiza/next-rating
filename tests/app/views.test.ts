@@ -837,13 +837,22 @@ describe('top 8 panel', () => {
     expect([...select.options].map((option) => [option.value, option.textContent])).toEqual([
       ['year:2026', '2026'],
       ['year:2025', '2025'],
-      ['window', expect.stringMatching(/^Rating window \(12 months, \S+ to \S+\)$/)],
+      // Without its dates, which would not fit the select on a phone.
+      ['window', 'Rating window (12 months)'],
       ['custom', 'Custom range'],
     ]);
     // The current year by default, and the period is not repeated under the select.
     expect(select.value).toBe('year:2026');
     expect(view.querySelector('.top8-band')).toBeNull();
     expect(view.querySelector('#top8-from')).toBeNull();
+    expect(view.querySelector('#top8-window-dates')).toBeNull();
+  });
+
+  it('names the window dates under the select while the rating window is picked', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const view = page({ top: topEight(model, { kind: 'window' }, '2026-10-04') });
+    expect(view.querySelector('#top8-window-dates')!.textContent).toMatch(/^\d{2}\/\d{2}\/\d{4} to \d{2}\/\d{2}\/\d{4}$/);
+    expect(view.querySelector('#top8-period')!.getAttribute('aria-describedby')).toBe('top8-window-dates');
   });
 
   it('reports the picked period, with no year for the current one', () => {
