@@ -18,6 +18,10 @@ export const V1_KEY = 'next-rating:v1';
 export const THEMES = ['light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
 
+/** How dates read when Settings overrides the automatic format: 2026-10-21, 21/10/2026 or 10/21/2026. */
+export const DATE_ORDERS = ['year', 'day', 'month'] as const;
+export type DateOrder = (typeof DATE_ORDERS)[number];
+
 /** How the players panel orders favorites after "me": by name, or newest import first. */
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
@@ -104,6 +108,8 @@ export interface AppData {
   language: string | null;
   /** The theme picked in Settings; null follows the device. */
   theme: Theme | null;
+  /** The date format picked in Settings; null follows the app's language and the device's region. */
+  dateOrder: DateOrder | null;
   /** The order picked in the players panel. */
   playerOrder: PlayerOrder;
   /** Which Rating tab cards are open, the same for every player. */
@@ -131,6 +137,7 @@ export interface AppData {
 export const EMPTY_DATA: AppData = {
   language: null,
   theme: null,
+  dateOrder: null,
   playerOrder: 'name',
   cards: DEFAULT_CARDS,
   top8Period: DEFAULT_TOP_PERIOD,
@@ -277,6 +284,7 @@ export function validateData(value: unknown): AppData {
   return {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
+    dateOrder: DATE_ORDERS.find((name) => name === fields.dateOrder) ?? null,
     playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
     cards: validateCards(fields.cards),
     top8Period: validateTopPeriod(fields.top8Period),

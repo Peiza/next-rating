@@ -1,13 +1,29 @@
 import type { PlainDate } from '../engine/dates';
 import { activeLanguage } from '../i18n';
+import type { DateOrder } from './storage';
 
 /*
  * Dates follow the app's language with the device's region, so month names
  * are in the app's language while the order of a numeric date follows the
  * device: an English app on a Swedish phone shows "Aug" and 2026-08-06.
- * Numbers follow the device locale (976,45 on a Swedish phone), and ratings
- * never get a thousands separator.
+ * Settings can fix the order instead (2026-10-21, 21/10/2026 or 10/21/2026),
+ * and the dates with a month name follow it. Numbers follow the device locale
+ * (976,45 on a Swedish phone), and ratings never get a thousands separator.
  */
+
+/** The date format picked in Settings; null follows the locale. */
+let dateOrder: DateOrder | null = null;
+
+export function setDateOrder(order: DateOrder | null): void {
+  dateOrder = order;
+}
+
+/** A calendar date in a fixed order, with the separators that order is known by. */
+function orderedDate(date: PlainDate, order: DateOrder): string {
+  if (order === 'year') return date;
+  const [year, month, day] = date.split('-') as [string, string, string];
+  return order === 'day' ? `${day}/${month}/${year}` : `${month}/${day}/${year}`;
+}
 
 export function deviceLocale(): string {
   const tag = (typeof navigator !== 'undefined' && (navigator.languages?.[0] ?? navigator.language)) || 'en';
@@ -29,7 +45,8 @@ export function dateLocale(language = activeLanguage(), device = deviceLocale())
 }
 
 /** Formats a calendar date, "2026-08-06" in Swedish. UTC keeps it from shifting a day. */
-export function formatDate(date: PlainDate, locale = dateLocale()): string {
+export function formatDate(date: PlainDate, locale = dateLocale(), order = dateOrder): string {
+  if (order) return orderedDate(date, order);
   const [year, month, day] = date.split('-').map(Number) as [number, number, number];
   return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -39,12 +56,19 @@ export function formatDate(date: PlainDate, locale = dateLocale()): string {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
-/** A day and month without the year, "10 Nov" in British English and "10 nov." in Swedish. */
-export function formatDayMonth(date: PlainDate, locale = dateLocale()): string {
+/**
+ * A day and month without the year, "10 Nov" in British English and "10
+ * nov." in Swedish. A fixed date format puts the month first only for Month
+ * first ("Nov 10"), keeping the language's month name.
+ */
+export function formatDayMonth(date: PlainDate, locale = dateLocale(), order = dateOrder): string {
   const [year, month, day] = date.split('-').map(Number) as [number, number, number];
-  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year, month - 1, day)),
-  );
+  const format = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const at = new Date(Date.UTC(year, month - 1, day));
+  if (!order) return format.format(at);
+  const parts = format.formatToParts(at);
+  const [dayText, monthText] = ['day', 'month'].map((type) => parts.find((part) => part.type === type)?.value ?? '');
+  return order === 'month' ? `${monthText} ${dayText}` : `${dayText} ${monthText}`;
 }
 
 /** A month's short name, "Oct" in English and "okt." in Swedish, for the chart's axis. */
@@ -54,7 +78,11 @@ export function formatMonth(date: PlainDate, locale = dateLocale()): string {
 }
 
 /** A point in time, such as an import timestamp, in the device's time zone. */
-export function formatDateTime(timestamp: string, locale = dateLocale()): string {
+export function formatDateTime(timestamp: string, locale = dateLocale(), order = dateOrder): string {
+  if (order) {
+    const at = new Date(timestamp);
+    return `${orderedDate(today(at), order)} ${new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(at)}`;
+  }
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));
 }
 

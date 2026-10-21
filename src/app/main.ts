@@ -5,7 +5,7 @@ import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus,
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { readPages } from './handoff';
-import { today } from './format';
+import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
 import { buildModel, manualToRounds, type Model } from './model';
@@ -33,6 +33,7 @@ import {
   type CardName,
   type ChartAxis,
   type ChartPeriod,
+  type DateOrder,
   type OpenWith,
   type PlayerOrder,
   type StoredManualRound,
@@ -80,7 +81,7 @@ import { CHART_FULL_TITLE_ID, chartFullView, type ChartProps } from './views/cha
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
-import { openWithId, settingsView, themeId } from './views/settings';
+import { DATE_FORMAT_ID, openWithId, settingsView, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startTabId, startView, type StartTab } from './views/start';
 
@@ -173,6 +174,17 @@ function applyLanguage(): void {
  */
 function pageTitle(): string {
   return overlay?.view === 'setup' ? t('setup.bookmarkName') : t('app.name');
+}
+
+/** Dates follow the app's language and the device's region unless Settings fixes their order. */
+function applyDateOrder(): void {
+  setDateOrder(store.get().dateOrder);
+}
+
+function setDateOrderOverride(dateOrder: DateOrder | null): void {
+  store.update({ dateOrder });
+  applyDateOrder();
+  render(DATE_FORMAT_ID);
 }
 
 /** --bg of each theme in styles.css, for the browser's toolbar colour. */
@@ -695,10 +707,13 @@ function currentView(): HTMLElement {
       language: data.language,
       preferred: preferredLanguages(),
       theme: data.theme,
+      dateOrder: data.dateOrder,
+      today: today(),
       persistent: store.persistent,
       bookmarklet: data.bookmarklet,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
+      onDateOrder: setDateOrderOverride,
       openWith: data.openWith,
       onOpenWith: setOpenWith,
       onOpenSetup: openSetup,
@@ -896,6 +911,7 @@ window.addEventListener('storage', (event) => {
   if (!findPlayer(data, selected)) selected = initialSelection(data);
   applyTheme();
   applyLanguage();
+  applyDateOrder();
   render();
 });
 
@@ -936,6 +952,7 @@ overlay = restored.overlay && { view: restored.overlay, opener: `tab-${tab}` };
 const payload = takeFragment();
 applyTheme();
 applyLanguage();
+applyDateOrder();
 render();
 if (payload !== null) void receiveHandoff(payload);
 registerServiceWorker(() => {

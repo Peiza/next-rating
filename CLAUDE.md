@@ -58,9 +58,10 @@ single build-time setting.
   language. Missing keys fall back to English.
 - Dates and numbers are formatted through Intl. Dates follow the app's
   language with the device's region (an English app on a Swedish phone shows
-  2026-08-06 and Aug); numbers follow the device locale (976,45 on a Swedish
-  phone). Ratings never get a thousands separator (a 1024 round shows as
-  1024).
+  2026-08-06 and Aug), unless Settings picks a date format (Year first
+  2026-10-21, Day first 21/10/2026, Month first 10/21/2026); numbers follow
+  the device locale (976,45 on a Swedish phone). Ratings never get a
+  thousands separator (a 1024 round shows as 1024).
 
 ## Architecture
 Built (docs/finished-steps.md, same numbering): 1 rating engine, 2 parsers,

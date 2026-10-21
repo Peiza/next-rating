@@ -1,6 +1,8 @@
-import { languages, resolveLanguage, t } from '../../i18n';
+import type { PlainDate } from '../../engine';
+import { languages, resolveLanguage, t, type MessageKey } from '../../i18n';
 import { el } from '../dom';
-import type { OpenWith, Theme } from '../storage';
+import { formatDate } from '../format';
+import { DATE_ORDERS, type DateOrder, type OpenWith, type Theme } from '../storage';
 import { segmented, type Segment } from './segmented';
 import { bookmarkletStatus } from './setup';
 
@@ -11,6 +13,10 @@ export interface SettingsProps {
   preferred: readonly string[];
   /** The theme override; null follows the device. */
   theme: Theme | null;
+  /** The date format override; null follows the language and the device's region. */
+  dateOrder: DateOrder | null;
+  /** Today, which each date format option shows as its example. */
+  today: PlainDate;
   /** Whether the app opens on "me" or on the player shown last. */
   openWith: OpenWith;
   persistent: boolean;
@@ -18,6 +24,7 @@ export interface SettingsProps {
   bookmarklet: string | null;
   onLanguage: (language: string | null) => void;
   onTheme: (theme: Theme | null) => void;
+  onDateOrder: (order: DateOrder | null) => void;
   onOpenWith: (openWith: OpenWith) => void;
   onOpenSetup: () => void;
   onOpenGuide: () => void;
@@ -65,8 +72,44 @@ function languagePicker(language: string | null, preferred: readonly string[], o
   );
 }
 
+export const DATE_FORMAT_ID = 'date-format';
+
+const DATE_LABELS: Record<DateOrder, MessageKey> = {
+  year: 'settings.dateYear',
+  day: 'settings.dateDay',
+  month: 'settings.dateMonth',
+};
+
+/** Each option shows today in its format, Automatic as the device would show it. */
+function datePicker(dateOrder: DateOrder | null, today: PlainDate, onDateOrder: (order: DateOrder | null) => void) {
+  const hintId = `${DATE_FORMAT_ID}-hint`;
+  return el(
+    'div',
+    { class: 'field' },
+    el('label', { for: DATE_FORMAT_ID, class: 'label' }, t('settings.dateFormat')),
+    el(
+      'select',
+      {
+        id: DATE_FORMAT_ID,
+        class: 'input',
+        'aria-describedby': hintId,
+        onchange: (event) => {
+          const value = (event.target as HTMLSelectElement).value;
+          onDateOrder(DATE_ORDERS.find((order) => order === value) ?? null);
+        },
+      },
+      el('option', { value: '', selected: dateOrder === null }, t('settings.dateAuto', { example: formatDate(today, undefined, null) })),
+      ...DATE_ORDERS.map((order) =>
+        el('option', { value: order, selected: dateOrder === order }, t(DATE_LABELS[order], { example: formatDate(today, undefined, order) })),
+      ),
+    ),
+    el('p', { id: hintId, class: 'hint' }, t('settings.dateFormatHint')),
+  );
+}
+
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { language, preferred, theme, openWith, persistent, bookmarklet, onLanguage, onTheme, onOpenWith, onOpenSetup, onOpenGuide } = props;
+  const { language, preferred, theme, dateOrder, today, openWith, persistent, bookmarklet } = props;
+  const { onLanguage, onTheme, onDateOrder, onOpenWith, onOpenSetup, onOpenGuide } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -74,6 +117,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     el('h1', { id: 'view-title', class: 'wide-only' }, t('settings.title')),
     !persistent && el('p', { class: 'warning' }, t('settings.storageUnavailable')),
     languagePicker(language, preferred, onLanguage),
+    datePicker(dateOrder, today, onDateOrder),
     segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),
     segmented('settings.openWith', 'open-with', OPEN_WITH_OPTIONS, openWith, onOpenWith),
     el('h2', {}, t('settings.bookmarklet')),

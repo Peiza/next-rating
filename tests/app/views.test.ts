@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el, textWithNodes } from '../../src/app/dom';
+import { formatDate } from '../../src/app/format';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
@@ -138,11 +139,14 @@ describe('settings view', () => {
     language: null,
     preferred: ['sv-SE'],
     theme: null,
+    dateOrder: null,
+    today: '2026-10-21',
     openWith: 'me',
     persistent: true,
     bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
+    onDateOrder: () => {},
     onOpenWith: () => {},
     onOpenSetup: () => {},
     onOpenGuide: () => {},
@@ -192,6 +196,32 @@ describe('settings view', () => {
     expect(options.map((option) => option.getAttribute('value'))).toEqual(['', 'en', 'sv']);
     expect(options[0]!.textContent).toContain('Svenska');
     expect(options[2]!.getAttribute('lang')).toBe('sv');
+  });
+
+  it('offers Automatic and each date order, with today as the example', () => {
+    const options = [...settingsView(props).querySelectorAll<HTMLOptionElement>('#date-format option')];
+    expect(options.map((option) => option.value)).toEqual(['', 'year', 'day', 'month']);
+    expect(options.map((option) => option.textContent)).toEqual([
+      `Automatic (${formatDate('2026-10-21', undefined, null)})`,
+      'Year first (2026-10-21)',
+      'Day first (21/10/2026)',
+      'Month first (10/21/2026)',
+    ]);
+    expect(options[0]!.selected).toBe(true);
+    const picked = settingsView({ ...props, dateOrder: 'day' });
+    expect(picked.querySelector<HTMLSelectElement>('#date-format')!.value).toBe('day');
+    expect(picked.querySelector('#date-format-hint')!.textContent).toContain('Date pickers');
+  });
+
+  it('changes the date format', () => {
+    const onDateOrder = vi.fn();
+    const select = settingsView({ ...props, onDateOrder }).querySelector<HTMLSelectElement>('#date-format')!;
+    select.value = 'month';
+    select.dispatchEvent(new Event('change'));
+    expect(onDateOrder).toHaveBeenLastCalledWith('month');
+    select.value = '';
+    select.dispatchEvent(new Event('change'));
+    expect(onDateOrder).toHaveBeenLastCalledWith(null);
   });
 
   it('shows the build id', () => {
@@ -1502,9 +1532,12 @@ describe('how it works', () => {
       language: null,
       preferred: ['en'],
       theme: null,
+      dateOrder: null,
+      today: '2026-10-21',
       persistent: true,
       bookmarklet: null,
       onLanguage: vi.fn(),
+      onDateOrder: vi.fn(),
       openWith: 'me',
       onTheme: vi.fn(),
       onOpenWith: vi.fn(),

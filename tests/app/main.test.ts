@@ -299,6 +299,36 @@ describe('app start', () => {
     meta.remove();
   });
 
+  it('applies the date format from Settings and keeps it after a reload', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    document.getElementById('tab-settings')!.click();
+    const select = () => document.querySelector<HTMLSelectElement>('#date-format')!;
+    expect(select().value).toBe('');
+    select().focus();
+    select().value = 'day';
+    select().dispatchEvent(new Event('change'));
+    expect(stored().dateOrder).toBe('day');
+    expect(document.activeElement).toBe(select());
+    document.getElementById('tab-rating')!.click();
+    expect(document.getElementById('refresh-help')!.textContent).toContain('01/10/2026');
+
+    await start('/next-rating/');
+    expect(document.getElementById('refresh-help')!.textContent).toContain('01/10/2026');
+    document.getElementById('tab-settings')!.click();
+    select().value = 'year';
+    select().dispatchEvent(new Event('change'));
+    document.getElementById('tab-rating')!.click();
+    expect(document.getElementById('refresh-help')!.textContent).toContain('2026-10-01');
+  });
+
   it('keeps each player apart and opens on "me" after a reload', async () => {
     await start('/next-rating/');
     (document.getElementById('pdga-number') as HTMLInputElement).value = '100001';
