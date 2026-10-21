@@ -626,7 +626,7 @@ describe('rating tab cards', () => {
       onClear: vi.fn(),
     };
     const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
-    const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), pdgaNumber: 100001, today: '2026-10-04', onPeriod: vi.fn() };
+    const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), pdgaNumber: 100001, today: '2026-10-04', onPeriod: vi.fn(), axis: 'time' as const, onAxis: vi.fn() };
     return ratingView({ model, manual, target, top8, chart, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 

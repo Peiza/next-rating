@@ -35,7 +35,7 @@ const differs = buildModel({ ...stored, player: rawPlayer({ currentRating: '950'
 const moved = String(differs.prediction.rating);
 
 function panel(period: ChartPeriod = { kind: 'recent' }, extra: Partial<ChartProps> = {}, from = model): HTMLElement {
-  const props: ChartProps = { chart: chartData(from, period, TODAY), pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), ...extra };
+  const props: ChartProps = { chart: chartData(from, period, TODAY), pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), axis: 'time', onAxis: vi.fn(), ...extra };
   const root = document.createElement('div');
   root.append(...chartPanel(props));
   return document.body.appendChild(root);
@@ -69,6 +69,28 @@ describe('chart panel', () => {
     const root = panel({ kind: 'custom', from: '2026-01-01', to: '2026-10-12' });
     expect(root.querySelector<HTMLInputElement>('#chart-from')!.value).toBe('2026-01-01');
     expect(root.querySelector<HTMLInputElement>('#chart-to')!.value).toBe('2026-10-12');
+  });
+
+  it('draws the x-axis by time or with even spacing, as chosen', () => {
+    const onAxis = vi.fn();
+    const root = panel({ kind: 'recent' }, { onAxis });
+    expect(root.querySelector('fieldset legend')!.textContent).toBe('X-axis');
+    const time = root.querySelector<HTMLInputElement>('#chart-axis-time')!;
+    const even = root.querySelector<HTMLInputElement>('#chart-axis-even')!;
+    expect([time.checked, even.checked]).toEqual([true, false]);
+    expect(root.querySelector('label[for="chart-axis-even"]')!.textContent).toBe('Even spacing');
+    even.click();
+    expect(onAxis).toHaveBeenCalledWith('even');
+
+    // Ten September rounds take most of the width once every round gets the same width.
+    const xs = (from: HTMLElement) =>
+      [...plot(from).querySelectorAll('.chart-official circle.chart-shape')].map((shape) => Number(shape.getAttribute('cx')));
+    const byTime = xs(root);
+    const spaced = xs(panel({ kind: 'recent' }, { axis: 'even' }));
+    expect(byTime.at(-1)! - byTime[1]!).toBeLessThan(15);
+    expect(spaced.at(-1)! - spaced[1]!).toBeGreaterThan(100);
+    const gaps = spaced.slice(2).map((x, i) => x - spaced[i + 1]!);
+    for (const gap of gaps) expect(gap).toBeCloseTo(gaps[0]!);
   });
 
   it('draws official rounds as circles, unofficial as squares and your own as triangles', () => {
@@ -329,7 +351,7 @@ describe('chart panel', () => {
 
   describe('full screen', () => {
     const onClose = vi.fn();
-    const props = { pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), onClose };
+    const props = { pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), axis: 'time' as const, onAxis: vi.fn(), onClose };
     const full = () => document.body.appendChild(chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props }));
     const label = (view: HTMLElement) => view.querySelector<HTMLElement>('#chart-full-detail')!;
 

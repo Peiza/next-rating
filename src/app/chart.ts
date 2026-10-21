@@ -1,15 +1,15 @@
 import { compareDates, subtractMonths, type PlainDate, type RoundStatus } from '../engine';
 import type { ListedResult, Model } from './model';
-import type { ChartPeriod } from './storage';
+import type { ChartAxis, ChartPeriod } from './storage';
 
 /*
  * What the rating chart shows, without drawing it: the rated rounds in the
  * chosen period as points, the prediction's window, the official and the
- * predicted rating across that window, and the axes' ticks. Pure, so the view only scales and
- * draws.
+ * predicted rating across that window, and the axes' ticks and scales. Pure,
+ * so the view only sizes and draws.
  */
 
-export type { ChartPeriod };
+export type { ChartAxis, ChartPeriod };
 
 /** The default period's length. */
 export const RECENT_MONTHS = 24;
@@ -181,6 +181,74 @@ export function monthTicks(from: PlainDate, to: PlainDate, maxTicks = MAX_MONTH_
     date: `${year}-${String(month).padStart(2, '0')}-01`,
     year: step >= 12 || i === 0 || month === 1,
   }));
+}
+
+/** A month tick and its place along the x-axis, from 0 (the period's start) to 1 (its end). */
+export interface PlacedTick extends MonthTick {
+  at: number;
+}
+
+/**
+ * Where things go along the x-axis, from 0 at the period's start to 1 at
+ * its end. By time, every day has the same width. With even spacing, every
+ * round has the same width and the dates follow the rounds: a date sits in
+ * the gap before its first round (or, as the end of a range, after its
+ * last), so a busy month spreads out and a month without rounds takes no
+ * room.
+ */
+export interface XScale {
+  /** The place of the round at this index of `points`. */
+  point: (index: number) => number;
+  /** Where a range from this date starts: the band and the lines. */
+  start: (date: PlainDate) => number;
+  /** Where a range to this date ends. */
+  end: (date: PlainDate) => number;
+  /** Month ticks for a plot this many pixels wide, with about `gap` pixels for each label. */
+  ticks: (width: number, gap: number) => PlacedTick[];
+}
+
+function timeScale(chart: ChartData): XScale {
+  const start = dayNumber(chart.from);
+  const days = Math.max(1, dayNumber(chart.to) - start);
+  const at = (date: PlainDate) => (dayNumber(date) - start) / days;
+  return {
+    point: (index) => at(chart.points[index]!.date),
+    start: at,
+    end: at,
+    ticks: (width, gap) => monthTicks(chart.from, chart.to, Math.max(2, Math.floor(width / gap))).map((tick) => ({ ...tick, at: at(tick.date) })),
+  };
+}
+
+function nextDay(date: PlainDate): PlainDate {
+  return new Date((dayNumber(date) + 1) * 86_400_000).toISOString().slice(0, 10);
+}
+
+function evenScale(chart: ChartData): XScale {
+  const { points } = chart;
+  const count = Math.max(1, points.length);
+  /** The gap before the first round on or after the date. */
+  const before = (date: PlainDate) => points.filter((point) => compareDates(point.date, date) < 0).length / count;
+  return {
+    point: (index) => (index + 0.5) / count,
+    start: before,
+    end: (date) => before(nextDay(date)),
+    ticks: (width, gap) => {
+      // A tick for each month with a round, in the gap before its first round.
+      const months = [...new Set(points.map((point) => `${point.date.slice(0, 7)}-01`))];
+      const ticks: PlacedTick[] = [];
+      for (const date of months) {
+        const at = before(date);
+        const last = ticks.at(-1);
+        if (last && (at - last.at) * width < gap) continue;
+        ticks.push({ date, at, year: !last || last.date.slice(0, 4) !== date.slice(0, 4) });
+      }
+      return ticks;
+    },
+  };
+}
+
+export function xScale(chart: ChartData, axis: ChartAxis): XScale {
+  return axis === 'even' ? evenScale(chart) : timeScale(chart);
 }
 
 /** The dates a period covers, both inclusive. */

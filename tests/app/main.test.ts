@@ -591,6 +591,14 @@ describe('app start', () => {
       }),
     );
     await start('/next-rating/');
+    // The x-axis is kept with the settings, and focus stays on the choice.
+    const even = () => document.querySelector<HTMLInputElement>('#chart-axis-even')!;
+    even().focus();
+    even().click();
+    expect(stored().chartAxis).toBe('even');
+    expect(document.activeElement).toBe(even());
+    expect(even().checked).toBe(true);
+
     const button = () => document.getElementById('chart-full-screen')!;
     button().focus();
     button().click();

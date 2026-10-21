@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chartData, chartYears, dayNumber, monthTicks, ratingAxis, type ChartPeriod } from '../../src/app/chart';
+import { chartData, chartYears, dayNumber, monthTicks, ratingAxis, xScale, type ChartPeriod } from '../../src/app/chart';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
@@ -178,6 +178,53 @@ describe('monthTicks', () => {
       '2022-01-01',
       '2024-01-01',
       '2026-01-01',
+    ]);
+  });
+});
+
+describe('xScale', () => {
+  // Six rounds: 31 Dec 2025, 1 Jan 2026, two on 2 Aug 2026 and two on 12 Oct 2026; the band runs to 2 Aug 2026.
+  const chart = chartData(model, RECENT, TODAY);
+
+  it('places rounds, ranges and ticks by date', () => {
+    const scale = xScale(chart, 'time');
+    const days = dayNumber(TODAY) - dayNumber('2024-10-12');
+    expect(scale.point(0)).toBeCloseTo((dayNumber('2025-12-31') - dayNumber('2024-10-12')) / days);
+    expect(scale.point(2)).toBe(scale.point(3));
+    expect(scale.start('2024-10-12')).toBe(0);
+    expect(scale.end(TODAY)).toBe(1);
+    expect(scale.start('2026-08-02')).toBe(scale.end('2026-08-02'));
+    // The same ticks as monthTicks, about one per 52 px.
+    const ticks = scale.ticks(260, 52);
+    expect(ticks.map(({ date, year }) => ({ date, year }))).toEqual(monthTicks('2024-10-12', TODAY, 5));
+    expect(ticks[0]!.at).toBeCloseTo((dayNumber(ticks[0]!.date) - dayNumber('2024-10-12')) / days);
+  });
+
+  it('gives every round the same width with even spacing, rounds of one day too', () => {
+    const scale = xScale(chart, 'even');
+    expect(chart.points.map((_, i) => scale.point(i))).toEqual([0.5, 1.5, 2.5, 3.5, 4.5, 5.5].map((slot) => slot / 6));
+    // A range starts in the gap before its first round and ends after its last.
+    expect(scale.start('2024-10-12')).toBe(0);
+    expect(scale.start('2026-08-02')).toBeCloseTo(2 / 6);
+    expect(scale.end('2026-08-02')).toBeCloseTo(4 / 6);
+    expect(scale.end(TODAY)).toBe(1);
+    // Between rounds, a date takes no room.
+    expect(scale.start('2026-03-15')).toBe(scale.end('2026-07-31'));
+  });
+
+  it('ticks the months with rounds, in the gap before each first round, as many as fit', () => {
+    const scale = xScale(chart, 'even');
+    expect(scale.ticks(600, 52)).toEqual([
+      { date: '2025-12-01', at: 0, year: true },
+      { date: '2026-01-01', at: 1 / 6, year: true },
+      { date: '2026-08-01', at: 2 / 6, year: false },
+      { date: '2026-10-01', at: 4 / 6, year: false },
+    ]);
+    // January is too close to December at 200 px; August then names the year.
+    expect(scale.ticks(200, 52)).toEqual([
+      { date: '2025-12-01', at: 0, year: true },
+      { date: '2026-08-01', at: 2 / 6, year: true },
+      { date: '2026-10-01', at: 4 / 6, year: false },
     ]);
   });
 });

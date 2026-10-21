@@ -58,6 +58,10 @@ export const DEFAULT_TOP_PERIOD: TopPeriod = { kind: 'year', year: null };
 export type ChartPeriod = { kind: 'recent' } | TopPeriod;
 
 export const DEFAULT_CHART_PERIOD: ChartPeriod = { kind: 'recent' };
+
+/** The chart's x-axis: by date (the default), or the same width for every round. */
+export const CHART_AXES = ['time', 'even'] as const;
+export type ChartAxis = (typeof CHART_AXES)[number];
 /** The years a stored Top 8 period can name. */
 const TOP_YEARS = [1970, 2200] as const;
 
@@ -108,6 +112,8 @@ export interface AppData {
   top8Period: TopPeriod;
   /** The chart period, the same for every player. */
   chartPeriod: ChartPeriod;
+  /** The chart's x-axis, the same for every player. */
+  chartAxis: ChartAxis;
   /** Whether the Top 8 counts manual rounds too, the same for every player. */
   top8Own: boolean;
   /** The bookmarklet version of the last hand-off in this browser, or null before one. */
@@ -130,6 +136,7 @@ export const EMPTY_DATA: AppData = {
   top8Period: DEFAULT_TOP_PERIOD,
   top8Own: false,
   chartPeriod: DEFAULT_CHART_PERIOD,
+  chartAxis: 'time',
   bookmarklet: null,
   me: null,
   openWith: 'me',
@@ -275,6 +282,7 @@ export function validateData(value: unknown): AppData {
     top8Period: validateTopPeriod(fields.top8Period),
     top8Own: fields.top8Own === true,
     chartPeriod: validateChartPeriod(fields.chartPeriod),
+    chartAxis: CHART_AXES.find((name) => name === fields.chartAxis) ?? 'time',
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     openWith: OPEN_WITH.find((name) => name === fields.openWith) ?? 'me',

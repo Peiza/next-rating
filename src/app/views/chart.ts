@@ -1,9 +1,9 @@
 import type { PlainDate } from '../../engine';
 import { t, type MessageKey } from '../../i18n';
 import {
-  dayNumber,
-  monthTicks,
   ratingAxis,
+  xScale,
+  type ChartAxis,
   type ChartData,
   type ChartPeriod,
   type ChartPoint,
@@ -17,6 +17,7 @@ import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format
 import { historyUrl } from './pdga';
 import { periodControls, periodId, periodLabel } from './period';
 import { roundLabel, roundWhere, tierNote } from './round-text';
+import { segmented, type Segment } from './segmented';
 
 /*
  * The Chart card on the Rating tab: round ratings over time as inline SVG,
@@ -38,6 +39,9 @@ export interface ChartProps {
   /** Today, which ends a custom range when one is first picked. */
   today: PlainDate;
   onPeriod: (period: ChartPeriod) => void;
+  /** The x-axis, chosen in the card and kept full screen. */
+  axis: ChartAxis;
+  onAxis: (axis: ChartAxis) => void;
   /** Opens the full-screen view; without it the card has no Full screen button. */
   onFullScreen?: () => void;
 }
@@ -76,6 +80,11 @@ const KINDS: Record<PointKind, MessageKey> = {
   own: 'chart.kind.own',
 };
 
+const AXIS_OPTIONS: readonly Segment<ChartAxis>[] = [
+  { value: 'time', id: 'chart-axis-time', label: 'chart.axis.time' },
+  { value: 'even', id: 'chart-axis-even', label: 'chart.axis.even' },
+];
+
 const MARKS: Record<PointMark, MessageKey> = {
   counts: 'chart.mark.counts',
   twice: 'chart.mark.twice',
@@ -97,17 +106,20 @@ interface Layout {
   top: number;
   bottom: number;
   axis: RatingAxis;
-  ticks: MonthTick[];
-  x: (date: PlainDate) => number;
+  ticks: { tick: MonthTick; x: number }[];
+  /** The round at this index of the chart's points. */
+  point: (index: number) => number;
+  /** A range's ends: the band and the lines. */
+  start: (date: PlainDate) => number;
+  end: (date: PlainDate) => number;
   y: (rating: number) => number;
 }
 
-function layoutOf(chart: ChartData, width: number, height: number): Layout {
+function layoutOf(chart: ChartData, xAxisKind: ChartAxis, width: number, height: number): Layout {
   const [left, right, top, bottom] = [MARGIN.left, width - MARGIN.right, MARGIN.top, height - MARGIN.bottom];
   const axis = ratingAxis(chart.values, Math.max(2, Math.floor((bottom - top) / GAP_HEIGHT)))!;
-  const ticks = monthTicks(chart.from, chart.to, Math.max(2, Math.floor((right - left) / TICK_WIDTH)));
-  const start = dayNumber(chart.from);
-  const days = Math.max(1, dayNumber(chart.to) - start);
+  const scale = xScale(chart, xAxisKind);
+  const x = (at: number) => left + at * (right - left);
   return {
     width,
     height,
@@ -116,8 +128,10 @@ function layoutOf(chart: ChartData, width: number, height: number): Layout {
     top,
     bottom,
     axis,
-    ticks,
-    x: (date) => left + ((dayNumber(date) - start) / days) * (right - left),
+    ticks: scale.ticks(right - left, TICK_WIDTH).map((tick) => ({ tick, x: x(tick.at) })),
+    point: (index) => x(scale.point(index)),
+    start: (date) => x(scale.start(date)),
+    end: (date) => x(scale.end(date)),
     y: (rating) => top + ((axis.max - rating) / (axis.max - axis.min)) * (bottom - top),
   };
 }
@@ -179,10 +193,10 @@ function xAxis(layout: Layout): SVGElement {
     'g',
     { class: 'chart-axis' },
     svg('line', { class: 'chart-baseline', x1: left, x2: right, y1: bottom, y2: bottom }),
-    ...layout.ticks.flatMap((tick) => {
-      const x = layout.x(tick.date);
-      return [svg('line', { class: 'chart-baseline', x1: x, x2: x, y1: bottom, y2: bottom + 4 }), tickLabel(tick, x, layout)];
-    }),
+    ...layout.ticks.flatMap(({ tick, x }) => [
+      svg('line', { class: 'chart-baseline', x1: x, x2: x, y1: bottom, y2: bottom + 4 }),
+      tickLabel(tick, x, layout),
+    ]),
   );
 }
 
@@ -197,7 +211,7 @@ function ratingLines(chart: ChartData, layout: Layout): SVGElement[] {
     chart.official !== null && !chart.same && { value: chart.official, kind: 'official' },
     chart.predicted !== null && { value: chart.predicted, kind: 'predicted' },
   ].filter((line): line is { value: number; kind: string } => line !== false);
-  const [x1, x2] = [layout.x(chart.band.from), layout.x(chart.band.to)];
+  const [x1, x2] = [layout.start(chart.band.from), layout.end(chart.band.to)];
   const labels = lines.map((line) => layout.y(line.value));
   if (labels.length === 2 && Math.abs(labels[0]! - labels[1]!) < LABEL_GAP) {
     const middle = (labels[0]! + labels[1]!) / 2;
@@ -285,6 +299,8 @@ export interface PlotOptions {
    * height for the width, with the chosen round in a line above the chart.
    */
   full: boolean;
+  /** The x-axis: by date (the default), or the same width for every round. */
+  axis?: ChartAxis;
   corner?: Corner;
 }
 
@@ -303,7 +319,7 @@ const LABEL_CLEARANCE = 12;
  * the arrow keys step through the points, Home and End jump to the first and
  * last.
  */
-export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotOptions = CARD_PLOT): HTMLElement[] {
+export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', corner }: PlotOptions = CARD_PLOT): HTMLElement[] {
   const highlight = svg('circle', { class: 'chart-selected', r: 10, cx: -100, cy: -100, visibility: 'hidden' });
   // The label stays empty, and so hidden, until a round is chosen.
   const detail = full
@@ -451,8 +467,8 @@ export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotO
     // The points move, so a tooltip would no longer be by its point.
     hideTip();
     size = { width, height };
-    const layout = layoutOf(chart, width, height);
-    placed = chart.points.map((point) => ({ point, x: layout.x(point.date), y: layout.y(point.rating) }));
+    const layout = layoutOf(chart, axis, width, height);
+    placed = chart.points.map((point, i) => ({ point, x: layout.point(i), y: layout.y(point.rating) }));
     drawing.setAttribute('viewBox', `0 0 ${width} ${height}`);
     drawing.setAttribute('width', String(width));
     drawing.setAttribute('height', String(height));
@@ -461,9 +477,9 @@ export function plot(chart: ChartData, { plotId, detailId, full, corner }: PlotO
         chart.band &&
           svg('rect', {
             class: 'chart-band',
-            x: layout.x(chart.band.from),
+            x: layout.start(chart.band.from),
             y: layout.top,
-            width: Math.max(1, layout.x(chart.band.to) - layout.x(chart.band.from)),
+            width: Math.max(1, layout.end(chart.band.to) - layout.start(chart.band.from)),
             height: layout.bottom - layout.top,
           }),
         yAxis(layout),
@@ -564,11 +580,18 @@ function historyLink(pdgaNumber: number): HTMLElement {
 }
 
 /** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
-export function chartPanel({ chart, pdgaNumber, today, onPeriod, onFullScreen }: ChartProps): HTMLElement[] {
+export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, onFullScreen }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
   if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
   const corner = onFullScreen && { id: CHART_FULL_BUTTON_ID, label: 'chart.fullScreen' as const, inward: false, onClick: onFullScreen };
-  return [...controls, ...plot(chart, { ...CARD_PLOT, corner }), legend(chart), historyLink(pdgaNumber), table(chart)];
+  return [
+    ...controls,
+    segmented('chart.axis', 'chart-axis', AXIS_OPTIONS, axis, onAxis),
+    ...plot(chart, { ...CARD_PLOT, axis, corner }),
+    legend(chart),
+    historyLink(pdgaNumber),
+    table(chart),
+  ];
 }
 
 export interface ChartFullProps extends ChartProps {
@@ -582,12 +605,12 @@ export interface ChartFullProps extends ChartProps {
  * heading is for screen readers. Back, Exit full screen or Escape close it.
  * Its ids differ from the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, onClose }: ChartFullProps): HTMLElement {
+export function chartFullView({ chart, axis, onClose }: ChartFullProps): HTMLElement {
   const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
       ? [el('div', { class: 'chart-frame chart-frame-fill' }, el('p', { class: 'chart-empty' }, t('chart.empty')), cornerButton(corner))]
-      : plot(chart, { plotId: 'chart-full-plot', detailId: 'chart-full-detail', full: true, corner });
+      : plot(chart, { plotId: 'chart-full-plot', detailId: 'chart-full-detail', full: true, axis, corner });
   return el(
     'div',
     {
