@@ -89,6 +89,8 @@ export interface AppData {
   cards: CardState;
   /** The Top 8 period, the same for every player. */
   top8Period: TopPeriod;
+  /** Whether the Top 8 counts manual rounds too, the same for every player. */
+  top8Own: boolean;
   /** The bookmarklet version of the last hand-off in this browser, or null before one. */
   bookmarklet: string | null;
   /** The favorite the app opens on. */
@@ -103,6 +105,7 @@ export const EMPTY_DATA: AppData = {
   playerOrder: 'name',
   cards: DEFAULT_CARDS,
   top8Period: DEFAULT_TOP_PERIOD,
+  top8Own: false,
   bookmarklet: null,
   me: null,
   players: [],
@@ -233,6 +236,7 @@ export function validateData(value: unknown): AppData {
     playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
     cards: validateCards(fields.cards),
     top8Period: validateTopPeriod(fields.top8Period),
+    top8Own: fields.top8Own === true,
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     players,

@@ -738,6 +738,13 @@ a {
 }
 
 /* From and to side by side; both date fields fit at 320 px. */
+/* "Include my own rounds", a .check on its own between the period and the card. */
+.top8-own {
+  align-items: center;
+  margin: -0.5rem 0 0.5rem;
+  border-bottom: none;
+}
+
 .top8-range {
   display: grid;
   grid-template-columns: 1fr 1fr;

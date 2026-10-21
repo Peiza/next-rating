@@ -420,6 +420,12 @@ function setTop8Period(top8Period: TopPeriod): void {
   render();
 }
 
+/** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
+function setTop8Own(top8Own: boolean): void {
+  store.update({ top8Own });
+  render();
+}
+
 /** Focus goes to the answer, so a phone keyboard closes and a screen reader reads it. */
 function calculate(query: TargetQuery): void {
   targetQuery = query;
@@ -646,9 +652,10 @@ function currentView(): HTMLElement {
         onCalculate: calculate,
       },
       top8: {
-        top: topEight(model, data.top8Period, today(now)),
+        top: topEight(model, data.top8Period, today(now), data.top8Own),
         today: today(now),
         onPeriod: setTop8Period,
+        onOwn: setTop8Own,
       },
       manual: {
         rounds: player.manualRounds,

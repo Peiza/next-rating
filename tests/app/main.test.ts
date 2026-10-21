@@ -513,6 +513,40 @@ describe('app start', () => {
     expect(select().value).toBe('window');
   });
 
+  it('remembers whether the Top 8 counts own rounds across launches', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const date = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { top8: true },
+        players: [
+          {
+            pdgaNumber: 100001,
+            favorite: true,
+            import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] },
+            manualRounds: [{ id: 'm1', rating: 1111, date, eventName: '', holes: null }],
+          },
+        ],
+      }),
+    );
+    await start('/next-rating/');
+    const box = () => document.querySelector<HTMLInputElement>('#top8-own')!;
+    const high = () => document.querySelector('.top8-rounds')?.textContent ?? '';
+    expect(box().checked).toBe(false);
+    expect(high()).not.toContain('1111');
+    box().focus();
+    box().checked = true;
+    box().dispatchEvent(new Event('change'));
+    expect(document.activeElement).toBe(box());
+    expect(stored().top8Own).toBe(true);
+    expect(high()).toContain('1111');
+
+    await start('/next-rating/');
+    expect(box().checked).toBe(true);
+  });
+
   it('shows what another tab stored', async () => {
     await start('/next-rating/');
     expect(predicted()).toBeUndefined();

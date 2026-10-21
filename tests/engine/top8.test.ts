@@ -88,3 +88,15 @@ describe('isTopRound', () => {
     expect(isTopRound(round(null, '2026-02-01'))).toBe(false);
   });
 });
+
+describe('own rounds', () => {
+  it('counts manual rounds only when asked, never a DNF or unrated one', () => {
+    const manual = round(1050, '2026-03-01', { source: 'manual' });
+    expect(isTopRound(manual, { own: true })).toBe(true);
+    expect(isTopRound(round(950, '2026-02-01', { source: 'manual', dnf: true }), { own: true })).toBe(false);
+    expect(isTopRound(round(null, '2026-02-01', { source: 'manual' }), { own: true })).toBe(false);
+    const rounds = [round(1000, '2026-02-01'), manual];
+    expect(ratings(topRounds(rounds, FROM, TO).rounds)).toEqual([1000]);
+    expect(ratings(topRounds(rounds, FROM, TO, { own: true }).rounds)).toEqual([1050, 1000]);
+  });
+});

@@ -16,6 +16,7 @@ import { eventUrl } from './pdga';
 export const GMS_URL = 'https://www.pdga.com/global-masters-series';
 
 export const TOP8_PERIOD_ID = 'top8-period';
+export const TOP8_OWN_ID = 'top8-own';
 const FROM_ID = 'top8-from';
 const TO_ID = 'top8-to';
 const RANGE_STATUS_ID = 'top8-range-status';
@@ -25,6 +26,23 @@ export interface Top8Props {
   /** Today, which ends a custom range when one is first picked. */
   today: PlainDate;
   onPeriod: (period: TopPeriod) => void;
+  /** Counts the user's own (manual) rounds in the Top 8, or stops counting them. */
+  onOwn: (own: boolean) => void;
+}
+
+/** Shown only when the player has a rated manual round, since only then does it change anything. */
+function ownSwitch({ top, onOwn }: Top8Props): HTMLElement {
+  return el(
+    'div',
+    { class: 'check top8-own' },
+    el('input', {
+      id: TOP8_OWN_ID,
+      type: 'checkbox',
+      checked: top.own,
+      onchange: (change) => onOwn((change.target as HTMLInputElement).checked),
+    }),
+    el('label', { for: TOP8_OWN_ID }, t('top8.own')),
+  );
 }
 
 /** The select's value for a period: "year:2026", "window" or "custom". */
@@ -105,15 +123,18 @@ function roundLabel(label: string): string {
   return /^\d+$/.test(label) ? t('top8.round', { number: label }) : label;
 }
 
+/** A round; the user's own reads "Own" where a round number would be, with its event name if it has one. */
 function row(round: ListedRound): HTMLElement {
-  const name =
-    round.eventName && round.eventId !== null
+  const own = round.source === 'manual';
+  const name = own
+    ? round.eventName || t('top8.ownRound')
+    : round.eventName && round.eventId !== null
       ? el('a', { href: eventUrl(round.eventId), rel: 'noreferrer' }, round.eventName)
       : round.eventName;
   return el(
     'li',
-    { class: 'top8-row' },
-    el('span', { class: 'top8-label' }, roundLabel(round.roundLabel)),
+    { class: own ? 'top8-row top8-row-own' : 'top8-row' },
+    el('span', { class: 'top8-label' }, own ? t('top8.ownLabel') : roundLabel(round.roundLabel)),
     el('span', { class: 'top8-event' }, name),
     el('span', { class: 'top8-rating' }, formatRating(round.rating!)),
   );
@@ -164,12 +185,16 @@ export function top8Teaser(top: TopEight): string {
   return t('top8.teaser', { average: formatRating(average), period });
 }
 
-/** The card's content: the period (with its dates for a custom range), then the GMS-style card. */
+/**
+ * The card's content: the period (with its dates for a custom range), the
+ * switch for the user's own rounds, then the GMS-style card.
+ */
 export function top8Panel(props: Top8Props): HTMLElement[] {
-  const { period } = props.top;
+  const { period, hasOwn } = props.top;
   return [
     periodSelect(props),
     ...(period.kind === 'custom' ? [customRange(period, props.onPeriod)] : []),
+    ...(hasOwn ? [ownSwitch(props)] : []),
     gmsCard(props.top),
   ];
 }
