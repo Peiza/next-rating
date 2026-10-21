@@ -235,7 +235,8 @@ manual per-page fallback.
    update and says why (`targetUpdate` in src/app/target.ts). The scan
    leaves out rounds that cannot matter (outside the window, DNF, after the
    deadline), and main.ts memoizes the answer, so a re-render does not run
-   it again.
+   it again. The rounds dated today became a chosen date later (Target
+   date, below).
 10. Top 8 panel, in its own collapsible panel on the Rating tab, styled like
    the PDGA Global Masters Series (GMS) player card but for any player. Visual
    style only: no PDGA logos or other PDGA assets.
@@ -379,6 +380,41 @@ Built as (docs/plan-x-tier.md):
 - Rule check: the fifth player reproduces PDGA's flags and official rating;
   4 rounds excluded by PDGA, leave one out matches for all players.
 
+## Target date
+Spec (idea 3 of docs/ideas.md): a date in the target calculator.
+1. A date field "Last round on", default today, up to one year ahead like
+   manual rounds. The hypothetical rounds get that date. Since they are
+   newer than all stored rounds, only the date of the last one matters: it
+   anchors the 12-month window.
+2. The result names the update it applies to, using the report deadline for
+   that date.
+3. Under the result, the rounds that leave the window because of that date,
+   with their ratings, so it is clear why an early or a late date changes
+   the answer.
+4. The hint mentions the date: "Counts 18-hole rounds, the last one on
+   {date}, with the same rules as the prediction."
+
+Built as (docs/plan-target-date.md):
+- `targetAverage` returns `leaving`: the rounds that count (included or
+  doubled) without the new rounds and are outside the window with them.
+  The probe run the scan already makes decides it, since the window follows
+  from dates and round counts alone. Rounds already dropped as outliers are
+  not listed. With fewer than 8 rounds the 24-month window applies, so the
+  round count can matter as well as the date.
+- The earliest date is today, or the newest stored round when that is later
+  (`targetDates` in src/app/target.ts), so the new rounds are always the
+  newest; the latest is `latestManualDate`.
+- `targetUpdate` gives the first update whose report deadline is on or after
+  the date. A date on the Monday or Tuesday of an update week misses that
+  deadline (`missed`) and counts in the update after; up to the next
+  update's deadline it is always the next update, as before.
+- The answer starts with the update for the date ("With the last round on
+  …, this is for the 10 Nov update (report deadline 8 Nov).", or "A last
+  round on … misses the 8 Nov report deadline, so this is for the 8 Dec
+  update."), and ends with the rounds that leave the window, oldest first,
+  or "No rounds leave the window by …". The hint follows the date field as
+  it changes.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -417,3 +453,5 @@ Built in this order:
   (docs/plan-setup-page.md), after the design pass feedback (done)
 - X-tier events and rounds PDGA leaves out (docs/plan-x-tier.md), after the
   top bar and closed-card header feedback (done)
+- Target date: a date in the target calculator (docs/plan-target-date.md)
+  (done)

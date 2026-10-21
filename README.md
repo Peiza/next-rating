@@ -80,16 +80,23 @@ with Undo.
 
 ## Reaching a target rating
 
-"Reach a target rating" takes a target, such as 1000, and a number of
-upcoming rounds (3 by default). It shows the average round rating those
-rounds need for the next update to reach the target. The app works this out
-with the same rules as the prediction: it adds that many 18-hole rounds dated
-today and finds the lowest whole rating that gets there, with the window,
-dropped outliers and double weighting all applied. It also says when the
-target is already reached (and what keeps it there), or when even rounds
-rated 1150 would not reach it. On the Monday and Tuesday of update week,
-rounds played that day count only in the following update, and the answer
-is for that update.
+"Reach a target rating" takes a target, such as 1000, a number of upcoming
+rounds (3 by default) and the date of the last one (today by default, up to
+a year ahead). It shows the average round rating those rounds need to reach
+the target at the update they count in. The app works this out with the
+same rules as the prediction: it adds that many 18-hole rounds on that date
+and finds the lowest whole rating that gets there, with the window, dropped
+outliers and double weighting all applied. It also says when the target is
+already reached (and what keeps it there), or when even rounds rated 1150
+would not reach it.
+
+The date matters twice. It decides the update: the first one whose report
+deadline is on or after it, so a date on the Monday or Tuesday of update
+week counts only in the following update. And since the new rounds are the
+newest, the date ends the 12-month window: the answer lists the rounds that
+leave the window because of it, with their ratings, so it is clear why an
+early or a late date changes the answer. The date can be no earlier than
+today, or than the newest stored round when that is later.
 
 ## Top 8
 

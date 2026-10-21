@@ -574,7 +574,13 @@ describe('rating tab cards', () => {
 
   function page(cards?: CardState, onToggleCard = vi.fn()) {
     const model = buildModel(stored, 100001, NOW);
-    const target = { draft: { target: '1000', count: '3' }, answer: null, onDraft: vi.fn(), onCalculate: vi.fn() };
+    const target = {
+      draft: { target: '1000', count: '3', date: '2026-10-04' },
+      dates: { min: '2026-10-04', max: '2027-10-04' },
+      answer: null,
+      onDraft: vi.fn(),
+      onCalculate: vi.fn(),
+    };
     const manual = {
       rounds: [],
       draft: { rating: '', date: '2026-10-04', eventName: '', holes: '' },
@@ -641,7 +647,7 @@ describe('rating tab cards', () => {
     expect(intros.map((intro) => intro.textContent)).toEqual([
       'What moved the prediction away from the official rating, largest effect first.',
       'Add round ratings that are not on pdga.com yet, or rounds you expect to play.',
-      'The average round rating your next rounds need to reach a rating at the next update.',
+      'The average round rating your next rounds need to reach a rating at the update they count in.',
       "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",
       'The numbers behind the prediction: the window, dropped and doubled rounds, and averages.',
       'Every round the app knows, newest first, and how it counts in the prediction.',

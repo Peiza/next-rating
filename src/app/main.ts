@@ -36,7 +36,14 @@ import {
   type Theme,
 } from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
-import { calculateTarget, emptyTargetDraft, type TargetAnswer, type TargetDraft, type TargetQuery } from './target';
+import {
+  calculateTarget,
+  emptyTargetDraft,
+  targetDates,
+  type TargetAnswer,
+  type TargetDraft,
+  type TargetQuery,
+} from './target';
 import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
@@ -363,7 +370,7 @@ function calculate(query: TargetQuery): void {
 function targetAnswer(player: StoredPlayer, model: Model, date: PlainDate): TargetAnswer | null {
   if (targetQuery === null) return null;
   const key = JSON.stringify([player.pdgaNumber, player.import?.at, player.manualRounds, player.leftOut, targetQuery, date]);
-  if (targetMemo?.key !== key) targetMemo = { key, answer: calculateTarget(model, targetQuery, date) };
+  if (targetMemo?.key !== key) targetMemo = { key, answer: calculateTarget(model, targetQuery) };
   return targetMemo.answer;
 }
 
@@ -541,7 +548,8 @@ function currentView(): HTMLElement {
   if (player?.import) {
     const now = new Date();
     const model = buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds), player.leftOut);
-    targetDraft ??= emptyTargetDraft(model.prediction.rating);
+    const dates = targetDates(model, today(now));
+    targetDraft ??= emptyTargetDraft(model.prediction.rating, dates.min);
     return ratingView({
       model,
       cards: data.cards,
@@ -556,6 +564,7 @@ function currentView(): HTMLElement {
       },
       target: {
         draft: targetDraft,
+        dates,
         answer: targetAnswer(player, model, today(now)),
         onDraft: (field, value) => {
           targetDraft = { ...targetDraft!, [field]: value };

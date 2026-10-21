@@ -67,8 +67,9 @@ local storage, offline PWA, setup page, How it works), 5 favorites, 6 change
 explanation, 7 polish after favorites, 8 deadline-aware prediction, 9 target
 calculator, 10 Top 8 panel; then the Rating tab design pass (one card
 pattern, remembered open cards and Top 8 period), the setup page with How it
-works, and X-tier events (rounds PDGA leaves out; unofficial X-tier events
-marked, any unofficial event can be left out).
+works, X-tier events (rounds PDGA leaves out; unofficial X-tier events
+marked, any unofficial event can be left out), and a date in the target
+calculator (the update for that date and the rounds that leave the window).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -174,7 +175,8 @@ minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
-with How it works and X-tier events (docs/finished-steps.md). Nothing else is planned: the
+with How it works, X-tier events and the target date
+(docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 
