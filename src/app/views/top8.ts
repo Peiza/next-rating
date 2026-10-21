@@ -52,8 +52,8 @@ function periodValue({ period, year }: TopEight): string {
 
 /** The window option names its length and dates, so the line below does not need to. */
 function windowLabel(window: TopEight['window']): string {
-  if (!window) return t('top8.window');
-  return t('top8.windowOption', {
+  if (!window) return t('period.window');
+  return t('period.windowOption', {
     months: t('stats.windowMonths', { count: window.months }),
     start: formatDate(window.start),
     end: formatDate(window.end),
@@ -79,13 +79,13 @@ function periodSelect({ top, today, onPeriod }: Top8Props): HTMLElement {
   return el(
     'div',
     { class: 'field' },
-    el('label', { for: TOP8_PERIOD_ID, class: 'label' }, t('top8.period')),
+    el('label', { for: TOP8_PERIOD_ID, class: 'label' }, t('period.label')),
     el(
       'select',
       { id: TOP8_PERIOD_ID, class: 'input', onchange: change },
       ...top.years.map((year) => option(`year:${year}`, String(year))),
       option('window', windowLabel(top.window)),
-      option('custom', t('top8.custom')),
+      option('custom', t('period.custom')),
     ),
   );
 }
@@ -100,7 +100,7 @@ function customRange(period: { from: PlainDate; to: PlainDate }, onPeriod: Top8P
     if (missing || compareDates(start, end) > 0) {
       (missing ?? (event.target as HTMLInputElement)).setAttribute('aria-invalid', 'true');
       status.className = 'status error';
-      status.textContent = t(missing ? 'top8.rangeMissing' : 'top8.rangeOrder');
+      status.textContent = t(missing ? 'period.rangeMissing' : 'period.rangeOrder');
       return;
     }
     onPeriod({ kind: 'custom', from: start, to: end });
@@ -112,8 +112,8 @@ function customRange(period: { from: PlainDate; to: PlainDate }, onPeriod: Top8P
   return el(
     'div',
     { class: 'top8-range' },
-    el('div', { class: 'field' }, el('label', { for: FROM_ID, class: 'label' }, t('top8.from')), from),
-    el('div', { class: 'field' }, el('label', { for: TO_ID, class: 'label' }, t('top8.to')), to),
+    el('div', { class: 'field' }, el('label', { for: FROM_ID, class: 'label' }, t('period.from')), from),
+    el('div', { class: 'field' }, el('label', { for: TO_ID, class: 'label' }, t('period.to')), to),
     status,
   );
 }
@@ -167,8 +167,8 @@ function gmsCard(top: TopEight): HTMLElement {
 
 /** The period as the closed card names it: the year, the rating window, or the custom dates. */
 function periodLabel({ period, year }: TopEight): string {
-  if (period.kind === 'custom') return t('top8.range', { from: formatDate(period.from), to: formatDate(period.to) });
-  return year !== null ? String(year) : t('top8.window');
+  if (period.kind === 'custom') return t('period.range', { from: formatDate(period.from), to: formatDate(period.to) });
+  return year !== null ? String(year) : t('period.window');
 }
 
 /**

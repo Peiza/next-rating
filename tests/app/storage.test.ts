@@ -3,6 +3,7 @@ import { eventForPlayer, type StoredImport } from '../../src/app/import';
 import {
   createStore,
   DEFAULT_CARDS,
+  DEFAULT_CHART_PERIOD,
   DEFAULT_TOP_PERIOD,
   EMPTY_DATA,
   MAX_EVENT_NAME,
@@ -12,6 +13,7 @@ import {
   migrateV1,
   STORAGE_KEY,
   V1_KEY,
+  validateChartPeriod,
   validateData,
   validateTopPeriod,
   type StoredPlayer,
@@ -391,15 +393,37 @@ describe('Rating tab settings', () => {
     }
   });
 
+  it('read a chart period like a Top 8 one, and fall back to the last 24 months', () => {
+    expect(DEFAULT_CHART_PERIOD).toEqual({ kind: 'recent' });
+    expect(validateData({}).chartPeriod).toEqual(DEFAULT_CHART_PERIOD);
+    expect(validateChartPeriod({ kind: 'recent' })).toEqual({ kind: 'recent' });
+    expect(validateChartPeriod({ kind: 'year', year: null })).toEqual({ kind: 'year', year: null });
+    expect(validateChartPeriod({ kind: 'window' })).toEqual({ kind: 'window' });
+    expect(validateChartPeriod({ kind: 'custom', from: '2025-03-01', to: '2025-04-01' })).toEqual({
+      kind: 'custom',
+      from: '2025-03-01',
+      to: '2025-04-01',
+    });
+    for (const bad of [{ kind: 'year', year: 1900 }, { kind: 'custom', from: '2025-04-01', to: '2025-03-01' }, { kind: 'recent', months: 'x' }, 'recent', null]) {
+      expect(validateChartPeriod(bad)).toEqual({ kind: 'recent' });
+    }
+  });
+
   it('survive a round trip through storage, and load as defaults from data saved before they existed', () => {
     const storage = new MemoryStorage();
     storage.setItem(STORAGE_KEY, JSON.stringify({ language: 'sv', theme: null, playerOrder: 'name', me: null, players: [] }));
     expect(createStore(storage).get()).toEqual({ ...EMPTY_DATA, language: 'sv' });
-    createStore(storage).update({ cards: { ...DEFAULT_CARDS, top8: true }, top8Period: { kind: 'window' }, top8Own: true });
+    createStore(storage).update({
+      cards: { ...DEFAULT_CARDS, top8: true },
+      top8Period: { kind: 'window' },
+      top8Own: true,
+      chartPeriod: { kind: 'year', year: 2025 },
+    });
     const data = createStore(storage).get();
     expect(data.cards.top8).toBe(true);
     expect(data.top8Period).toEqual({ kind: 'window' });
     expect(data.top8Own).toBe(true);
+    expect(data.chartPeriod).toEqual({ kind: 'year', year: 2025 });
   });
 });
 
