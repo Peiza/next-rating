@@ -836,8 +836,9 @@ Built as (docs/plan-rating-history.md):
   update" and "Prediction 978 at the 10 Nov update", and both in the SVG
   summary. The ratings history link stays.
 - `formatDateTime` uses `hourCycle: 'h23'` with Year first and Day first;
-  Month first and Automatic keep the locale's clock. It is the only clock
-  time in the app (the "Last import" line).
+  Month first and Automatic keep the clock of the device's region, also in
+  the English app (24-hour on a Swedish phone, AM/PM on a US one). It is the
+  only clock time in the app (the "Last import" line).
 
 ## Bookmarklet size
 Spec, after a cut-off paste on a Pixel:

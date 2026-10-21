@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   dateLocale,
   formatAge,
@@ -13,6 +13,8 @@ import {
   formatRating,
   setDateOrder,
 } from '../../src/app/format';
+import type { DateOrder } from '../../src/app/storage';
+import { setLanguage } from '../../src/i18n';
 
 describe('formatting', () => {
   it('formats dates in the locale', () => {
@@ -81,7 +83,10 @@ describe('formatting', () => {
 });
 
 describe('a date format from Settings', () => {
-  afterEach(() => setDateOrder(null));
+  afterEach(() => {
+    setDateOrder(null);
+    vi.unstubAllGlobals();
+  });
 
   it('puts the year, day or month first, whatever the locale', () => {
     for (const locale of ['en-US', 'sv-SE']) {
@@ -126,6 +131,26 @@ describe('a date format from Settings', () => {
     expect(formatDateTime(afternoon, 'en-US', 'month')).toMatch(/^10\/21\/2026 3:04\sPM$/);
     expect(formatDateTime(afternoon, 'en-US', null)).toMatch(/^10\/21\/26, 3:04\sPM$/);
     expect(formatDateTime(afternoon, 'sv-SE', null)).toBe('2026-10-21 15:04');
+  });
+
+  it("takes the clock from the device's region, also in an English app", () => {
+    setLanguage('en');
+    const afternoon = new Date(2026, 9, 21, 15, 4).toISOString();
+    const onDevice =(device: string, order: DateOrder | null) => {
+      vi.stubGlobal('navigator', { languages: [device], language: device });
+      setDateOrder(order);
+      return formatDateTime(afternoon);
+    };
+    // A Swedish-region phone keeps 24 hours with every date format.
+    expect(onDevice('sv-SE', null)).toBe('2026-10-21, 15:04');
+    expect(onDevice('sv-SE', 'month')).toBe('10/21/2026 15:04');
+    expect(onDevice('sv-SE', 'year')).toBe('2026-10-21 15:04');
+    expect(onDevice('sv-SE', 'day')).toBe('21/10/2026 15:04');
+    // A US-region device keeps AM and PM unless Year first or Day first is picked.
+    expect(onDevice('en-US', null)).toMatch(/^10\/21\/26, 3:04\sPM$/);
+    expect(onDevice('en-US', 'month')).toMatch(/^10\/21\/2026 3:04\sPM$/);
+    expect(onDevice('en-US', 'year')).toBe('2026-10-21 15:04');
+    expect(onDevice('en-US', 'day')).toBe('21/10/2026 15:04');
   });
 });
 
