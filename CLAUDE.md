@@ -76,10 +76,12 @@ previous season in January), the rating chart (with notes for leagues
 and late reports, and the last viewed player when the app opens), the
 chart follow-up (lines across the window only, a link to the ratings
 history on pdga.com, drawn at its measured size, full screen, the tapped
-round above the chart), and the chart polish (only the chart full screen,
+round above the chart), the chart polish (only the chart full screen,
 with the round in a corner label; a corner Full screen button; a hover
 tooltip on computers; an x-axis with even spacing; a table that keeps dates
-and ratings on one line).
+and ratings on one line), and the first visit polish (the start view's and
+the players panel's headings in the phone top bar; step 1 finds your PDGA
+number by number or by a name search on pdga.com).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -187,8 +189,8 @@ explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
-rating chart, the chart follow-up and the chart polish
-(docs/finished-steps.md). Nothing else is planned: the
+rating chart, the chart follow-up, the chart polish and the first visit
+polish (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 
