@@ -43,6 +43,15 @@ export interface RawProfileEvent {
   date: string;
 }
 
+/** One update on the ratings history page. */
+export interface RawHistoryRow {
+  /** The update's effective date, for example "13-Oct-2026". */
+  date: string;
+  rating: string;
+  /** Rounds used. */
+  rounds: string;
+}
+
 export interface RawEventRound {
   score: string;
   rating: string;
@@ -107,6 +116,13 @@ export interface ProfileEvent {
   name: string;
   tier: string;
   date: PlainDate | null;
+}
+
+/** The official rating from one ratings update on. */
+export interface HistoryEntry {
+  date: PlainDate;
+  rating: number;
+  rounds: number | null;
 }
 
 export interface EventRound {

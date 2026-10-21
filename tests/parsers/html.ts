@@ -81,6 +81,17 @@ export function yearLinks(pdgaNumber: string, current: number, earlier: number[]
     .join('')}</ul></div></div>`;
 }
 
+/** The ratings history table, newest first like pdga.com: [effective date, rating, rounds used]. */
+export function historyTable(rows: [date: string, rating: string, rounds: string][]): string {
+  const cells = rows.map(
+    ([date, rating, rounds], i) =>
+      `<tr class="${i % 2 ? 'even' : 'odd'}"><td class="date" data-text="0">${date}</td><td class="player-rating">${rating}</td><td class="round">${rounds}</td> </tr>`,
+  );
+  return `<table id="player-results-history" class="sticky-enabled">
+    <thead><tr><th class="dates">Effective Date</th><th class="player-rating">Rating</th><th class="round">Rounds Used</th> </tr></thead>
+    <tbody>${cells.join('')}</tbody></table>`;
+}
+
 export function profileRow(eventId: string, division: string, date: string): string {
   return `<tr><td class="place">3</td><td class="tournament"><a href="/tour/event/${eventId}#${division}">Example Open</a></td>
     <td class="tier">B</td><td class="dates">${date}</td></tr>`;
