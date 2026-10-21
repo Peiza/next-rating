@@ -105,5 +105,36 @@ describe.skipIf(!fixtures)('the previous season on pdga.com pages', () => {
     expect(unreadable).toEqual([]);
     expect(parts.profileEvents).toHaveLength(events);
     expect(parts.profileEvents!.every((event) => event.date.includes(String(year)))).toBe(true);
+    expect(parts.profileEvents!.every((event) => event.tier !== '')).toBe(true);
+  });
+
+  it.skipIf(!season)('fetches and sends the saved previous season in January, cut to its results tables', async () => {
+    const { year, events, html: seasonHtml } = season!;
+    const seasonPath = `/player/${expected.pdgaNumber}/stats/${year}`;
+    const requests: string[] = [];
+    const deps: CollectDeps = {
+      fetch: async (path) => {
+        requests.push(path);
+        if (path === `/player/${expected.pdgaNumber}`) return new Response(html.profile);
+        return path === seasonPath ? new Response(seasonHtml) : new Response('', { status: 404 });
+      },
+      parse: parseHtml,
+      wait: async () => {},
+      progress: () => {},
+      now: new Date(year + 1, 0, 5),
+    };
+    const envelope = await collect(parseHtml(html.details), `https://www.pdga.com/player/${expected.pdgaNumber}/details`, deps);
+    expect(envelope.status).toBe('ok');
+    // Every event of the saved seasons is older than the newest rated round or already rated.
+    expect(requests).toEqual([`/player/${expected.pdgaNumber}`, seasonPath]);
+    const sent = envelope.pages!.find(({ url }) => url.endsWith(seasonPath))!;
+    // The season selector found the results tables, so the page is not sent whole.
+    expect(sent.html).toContain('id="player-results-');
+    expect(sent.html).not.toContain('year-link');
+    expect(sent.html.length).toBeLessThan(seasonHtml.length / 2);
+
+    const { parts, unreadable } = readPages((await decodeHandoff(await packEnvelope(envelope))).pages ?? []);
+    expect(unreadable).toEqual([]);
+    expect(parts.profileEvents).toHaveLength(expected.profile.events + events);
   });
 });

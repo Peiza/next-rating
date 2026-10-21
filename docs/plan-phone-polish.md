@@ -123,5 +123,6 @@ Taken with the recommended answers to the plan's questions:
 - A manual round in the Top 8 reads "Own" in place of the round label, with
   its event name or "Own round".
 - A fresh load on a history entry with a layer shows that layer.
-- The season page's markup is assumed to match the profile's results
-  tables; a saved copy (`season` in expected.json) turns on its fixture test.
+- The season page's markup was checked against a saved copy (`season` in
+  expected.json): the same results tables as the profile, so no parser or
+  selector change was needed.

@@ -464,10 +464,12 @@ Built as (docs/plan-phone-polish.md):
   `newEventIds` takes both seasons. The season page is sent cut to its
   results tables (page kind `season`, so `MAX_PAGES` is 13), and the app
   adds its events to the profile events, so a December X-tier event keeps
-  its mark. Bookmarklet 1.1.0, 4743 bytes. Checked against the saved
-  profile's tabs; the season page's own markup is assumed to match the
-  profile's results tables until a saved copy is in the fixtures
-  (`season` in expected.json, test skipped without it).
+  its mark. Bookmarklet 1.1.0, 4743 bytes. Checked against a saved profile
+  and a saved previous-season page (`season` in expected.json; the tests
+  are skipped without it): the season page has the same results tables as
+  the profile, so the profile's extractor and selector read it unchanged, and
+  a January run on the saved pages fetches the season, sends only its tables
+  and fetches no event already older than the rated rounds.
 
 ## Test fixtures
 Requirements (built; the tests keep them):
