@@ -622,6 +622,11 @@ export function chartPanel({ chart, pdgaNumber, today, onPeriod, axis, onAxis, t
 
 export interface ChartFullProps extends ChartProps {
   onClose: () => void;
+  /**
+   * True where the browser cannot show the page full screen (Safari on
+   * iPhone): a line under the chart says to turn the phone, while upright.
+   */
+  rotateHint?: boolean;
 }
 
 /**
@@ -631,7 +636,7 @@ export interface ChartFullProps extends ChartProps {
  * heading is for screen readers. Back, Exit full screen or Escape close it.
  * Its ids differ from the card's, though the card is not shown under it.
  */
-export function chartFullView({ chart, axis, onClose }: ChartFullProps): HTMLElement {
+export function chartFullView({ chart, axis, onClose, rotateHint = false }: ChartFullProps): HTMLElement {
   const corner: Corner = { id: CHART_FULL_CLOSE_ID, label: 'chart.exitFullScreen', inward: true, onClick: onClose };
   const body =
     chart.points.length === 0
@@ -650,5 +655,6 @@ export function chartFullView({ chart, axis, onClose }: ChartFullProps): HTMLEle
     },
     el('h1', { id: CHART_FULL_TITLE_ID, class: 'visually-hidden', tabindex: -1 }, t('chart.title')),
     ...body,
+    rotateHint && el('p', { id: 'chart-rotate-hint', class: 'chart-rotate-hint' }, t('chart.rotateHint')),
   );
 }

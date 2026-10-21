@@ -829,7 +829,11 @@ function chartFull(): HTMLElement | null {
   const player = findPlayer(store.get(), selected);
   if (!player?.import) return null;
   const now = new Date();
-  return chartFullView({ ...chartProps(player, modelOf(player, now), now), onClose: closeOverlay });
+  return chartFullView({
+    ...chartProps(player, modelOf(player, now), now),
+    onClose: closeOverlay,
+    rotateHint: !document.fullscreenEnabled,
+  });
 }
 
 /**

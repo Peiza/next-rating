@@ -393,6 +393,14 @@ describe('chart panel', () => {
       expect(empty.querySelector('#chart-full-close')).not.toBeNull();
     });
 
+    it('says to turn the phone where the browser has no full screen', () => {
+      expect(full().querySelector('#chart-rotate-hint')).toBeNull();
+      const view = chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props, rotateHint: true });
+      const hint = view.querySelector('#chart-rotate-hint')!;
+      expect(hint.textContent).toBe("Turn your phone sideways for a wider chart. If it doesn't turn, switch off rotation lock in Control Center.");
+      expect(view.lastElementChild).toBe(hint);
+    });
+
     it('names the chosen round in a label in the chart corner, empty until one is chosen', () => {
       const view = full();
       expect(label(view).className).toBe('chart-label');

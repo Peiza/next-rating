@@ -1051,6 +1051,20 @@ a {
   min-height: 0;
 }
 
+/* Where the browser has no full screen (iPhone): turn the phone. Only while it is upright, so it takes no height sideways. */
+.chart-rotate-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+@media (orientation: landscape) {
+  .chart-rotate-hint {
+    display: none;
+  }
+}
+
 .chart-frame-fill .chart-plot {
   position: absolute;
   inset: 0;
