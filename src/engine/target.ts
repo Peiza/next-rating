@@ -12,7 +12,10 @@ export const MAX_TARGET_ROUND = 1150;
 export interface TargetOptions {
   /** Number of hypothetical 18-hole rounds. */
   count: number;
-  /** Their date: today. */
+  /**
+   * Their date. They are newer than every stored round, so this date ends
+   * the window.
+   */
   date: PlainDate;
   /** The report deadline of the update they count in, as in predictRating. */
   deadline?: PlainDate;
@@ -35,6 +38,11 @@ export interface TargetResult {
   average: number | null;
   /** The prediction with `count` rounds at `average`, or at MAX_TARGET_ROUND when out of reach. */
   rating: number | null;
+  /**
+   * Ids of the rounds that count in `without` but are outside the window
+   * once the new rounds are added, in input order.
+   */
+  leaving: string[];
 }
 
 /**
@@ -75,7 +83,8 @@ export function targetAverage(rounds: readonly RoundInput[], target: number, opt
     ...(leaveOut !== undefined && { leaveOut }),
   };
   const reaches = (rating: number | null) => rating !== null && rating >= target;
-  const without = predictRating(rounds, { ...predict, currentRating }).rating;
+  const before = predictRating(rounds, { ...predict, currentRating });
+  const without = before.rating;
   const reached = reaches(without);
 
   // The window follows from the dates alone, and the new rounds' date is
@@ -90,10 +99,15 @@ export function targetAverage(rounds: readonly RoundInput[], target: number, opt
   const relevant = rounds
     .filter((_, i) => !ignored.has(probe.rounds[count + i]!.status))
     .map(({ pdga: _flags, ...round }) => round);
+  // The same window shows which counted rounds the new rounds push out.
+  const counted = new Set(['included', 'doubled']);
+  const leaving = rounds
+    .filter((_, i) => counted.has(before.rounds[i]!.status) && probe.rounds[count + i]!.status === 'outside-window')
+    .map((round) => round.id);
   const ratingAt = (average: number) => predictRating([...upcoming(count, date, average), ...relevant], predict).rating;
 
   let rating = probe.rating;
-  if (!reaches(rating)) return { without, reached, average: null, rating };
+  if (!reaches(rating)) return { without, reached, average: null, rating, leaving };
 
   let average = MAX_TARGET_ROUND;
   for (let next = MAX_TARGET_ROUND - 1; next >= 0; next -= 1) {
@@ -102,5 +116,5 @@ export function targetAverage(rounds: readonly RoundInput[], target: number, opt
     average = next;
     rating = at;
   }
-  return { without, reached, average, rating };
+  return { without, reached, average, rating, leaving };
 }

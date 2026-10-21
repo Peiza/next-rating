@@ -36,7 +36,7 @@ describe('targetAverage', () => {
     // (6 × 950 + 2 × 3 × R) / 12 must round to 970, so R ≥ 989.
     const rounds = monthly([950, 950, 950, 950, 950, 950]);
     const result = targetAverage(rounds, 970, { count: 3, date: TODAY });
-    expect(result).toEqual({ without: 950, reached: false, average: 989, rating: 970 });
+    expect(result).toEqual({ without: 950, reached: false, average: 989, rating: 970, leaving: [] });
     expect(predictWith(rounds, 3, TODAY, 989)).toBe(970);
     expect(predictWith(rounds, 3, TODAY, 988)).toBe(969);
   });
@@ -47,13 +47,40 @@ describe('targetAverage', () => {
     expect(result.average).toBe(1002);
   });
 
-  it('lets an old round leave the window, since the new rounds are dated today', () => {
-    const rounds = [...monthly(SPREAD), round(950, '2025-07-01')];
+  it('lets an old round leave the window, since the new rounds end it on their date', () => {
+    const old = round(950, '2025-07-01');
+    const rounds = [...monthly(SPREAD), old];
     const today = targetAverage(rounds, 1000, { count: 3, date: TODAY });
     const soon = targetAverage(rounds, 1000, { count: 3, date: '2026-06-02' });
     expect(today.average!).toBeLessThan(soon.average!);
+    expect(today.leaving).toEqual([old.id]);
+    expect(soon.leaving).toEqual([]);
     const prediction = predictRating([round(today.average!, TODAY, { source: 'manual' }), ...rounds]);
     expect(prediction.rounds.at(-1)!.status).toBe('outside-window');
+  });
+
+  it('lists no round when the new rounds share the newest round date', () => {
+    const rounds = monthly(SPREAD);
+    expect(targetAverage(rounds, 1000, { count: 3, date: '2026-06-01' }).leaving).toEqual([]);
+  });
+
+  it('lists only rounds that counted, not a dropped outlier', () => {
+    const low = round(700, '2025-07-01');
+    const old = round(950, '2025-08-01');
+    const rounds = [...monthly(SPREAD), low, old];
+    const statuses = predictRating(rounds).rounds.slice(-2).map((result) => result.status);
+    expect(statuses).toEqual(['dropped', 'included']);
+    expect(targetAverage(rounds, 1000, { count: 3, date: TODAY }).leaving).toEqual([old.id]);
+  });
+
+  it('lists the rounds the 12-month window leaves out once enough new rounds end the 24-month fallback', () => {
+    // 5 rounds from February to June 2026, so the window is 24 months and
+    // holds the November 2024 round. 3 new rounds make 8 inside 12 months.
+    const old = round(1000, '2024-11-01');
+    const rounds = [...monthly([950, 950, 950, 950, 950]), old];
+    expect(targetAverage(rounds, 970, { count: 3, date: TODAY }).leaving).toEqual([old.id]);
+    // 2 new rounds make only 7, so the 24-month window from October 2024 keeps it.
+    expect(targetAverage(rounds, 970, { count: 2, date: TODAY }).leaving).toEqual([]);
   });
 
   it('never counts an official round PDGA left out', () => {
@@ -129,6 +156,7 @@ describe('targetAverage', () => {
       reached: false,
       average: 1000,
       rating: 1000,
+      leaving: [],
     });
   });
 

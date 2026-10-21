@@ -53,7 +53,7 @@ function answer(result: Partial<TargetAnswer['result']>, extra: Partial<TargetAn
     update: NOVEMBER,
     following: false,
     missed: NOVEMBER.deadline,
-    result: { without: 990, reached: false, average: 1012, rating: 1000, ...result },
+    result: { without: 990, reached: false, average: 1012, rating: 1000, leaving: [], ...result },
     ...extra,
   };
 }
@@ -116,7 +116,7 @@ describe('calculateTarget', () => {
       update: NOVEMBER,
       following: false,
       missed: NOVEMBER.deadline,
-      result: { without: 950, reached: false, average: 976, rating: 970 },
+      result: { without: 950, reached: false, average: 976, rating: 970, leaving: [] },
     });
   });
 
