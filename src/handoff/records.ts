@@ -1,6 +1,7 @@
-import { normalizeEvent, normalizePlayer, normalizeProfileEvents, normalizeRatingsDetails } from '../parsers';
+import { normalizeEvent, normalizePlayer, normalizeProfileEvents, normalizeRatingsDetails, normalizeRatingsHistory } from '../parsers';
 import { RAW_DETAILS_KEYS } from '../parsers/details';
-import type { RawDetailsRow, RawEvent, RawEventRound, RawPlayer, RawProfileEvent } from '../parsers/types';
+import { RAW_HISTORY_KEYS } from '../parsers/history';
+import type { RawDetailsRow, RawEvent, RawEventRound, RawHistoryRow, RawPlayer, RawProfileEvent } from '../parsers/types';
 import { LIMITS, asList, asRecord, asText } from '../parsers/values';
 
 /*
@@ -20,6 +21,8 @@ export interface ImportParts {
   details?: RawDetailsRow[];
   profileEvents?: RawProfileEvent[];
   events?: RawEvent[];
+  /** The ratings history page's rows, newest first as on pdga.com. */
+  history?: RawHistoryRow[];
 }
 
 const PLAYER_KEYS = ['pdgaNumber', 'name', 'currentRating', 'ratingDate'] as const satisfies readonly (keyof RawPlayer)[];
@@ -47,6 +50,12 @@ export function cleanProfileEvents(value: unknown): RawProfileEvent[] {
   const events = asList(value, LIMITS.rows, 'profile events').map((event) => pick(event, PROFILE_EVENT_KEYS, 'profile event'));
   normalizeProfileEvents(events);
   return events;
+}
+
+export function cleanHistory(value: unknown): RawHistoryRow[] {
+  const rows = asList(value, LIMITS.rows, 'ratings history').map((row) => pick(row, RAW_HISTORY_KEYS, 'ratings history row'));
+  normalizeRatingsHistory(rows);
+  return rows;
 }
 
 export function cleanEvent(value: unknown): RawEvent {
@@ -84,6 +93,7 @@ export function cleanParts(record: Record<string, unknown>): ImportParts {
   if (record.details !== undefined) parts.details = cleanDetails(record.details);
   if (record.profileEvents !== undefined) parts.profileEvents = cleanProfileEvents(record.profileEvents);
   if (record.events !== undefined) parts.events = asList(record.events, MAX_EVENTS, 'events').map(cleanEvent);
+  if (record.history !== undefined) parts.history = cleanHistory(record.history);
   return parts;
 }
 
@@ -92,6 +102,7 @@ export function hasParts(parts: ImportParts): boolean {
     parts.player !== undefined ||
     parts.details !== undefined ||
     parts.profileEvents !== undefined ||
-    parts.events !== undefined
+    parts.events !== undefined ||
+    parts.history !== undefined
   );
 }

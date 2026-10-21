@@ -3,7 +3,7 @@ import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds, STALE_DAYS } from '../../src/app/model';
 import type { StoredManualRound } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
-import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawEventRow, rawHistoryRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
 const AT = '2026-10-01T10:00:00.000Z';
 const NOW = new Date(AT);
@@ -292,5 +292,28 @@ describe('stale data', () => {
   it(`is stale only when the last import is more than ${STALE_DAYS} days old`, () => {
     expect(buildModel(stored({ details }), 100001, at(STALE_DAYS)).stale).toBe(false);
     expect(buildModel(stored({ details }), 100001, at(STALE_DAYS, 1)).stale).toBe(true);
+  });
+});
+
+describe('ratings history', () => {
+  const history = [rawHistoryRow('8-Sep-2026', '950', '20'), rawHistoryRow('11-Aug-2026', '947', '18')];
+
+  it('is empty before an import brings it', () => {
+    expect(buildModel(stored({ player: rawPlayer(), details }), 100001, NOW).history).toEqual([]);
+  });
+
+  it('lists the updates oldest first', () => {
+    const model = buildModel(stored({ player: rawPlayer({ ratingDate: '(as of 08-Sep-2026)' }), details, history }), 100001, NOW);
+    expect(model.history).toEqual([
+      { date: '2026-08-11', rating: 947, rounds: 18 },
+      { date: '2026-09-08', rating: 950, rounds: 20 },
+    ]);
+  });
+
+  it('adds a newer update from the player header', () => {
+    const player = rawPlayer({ currentRating: '953', ratingDate: '(as of 13-Oct-2026)' });
+    const model = buildModel(stored({ player, details, history }), 100001, NOW);
+    expect(model.history.at(-1)).toEqual({ date: '2026-10-13', rating: 953, rounds: null });
+    expect(model.history).toHaveLength(3);
   });
 });

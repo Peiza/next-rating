@@ -10,7 +10,7 @@ import {
 } from '../../src/app/import';
 import { MAX_EVENTS } from '../../src/handoff';
 import type { RawEvent } from '../../src/parsers/types';
-import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawEventRow, rawHistoryRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
 const FIRST = '2026-10-01T10:00:00.000Z';
 const LATER = '2026-10-02T18:30:00.000Z';
@@ -79,6 +79,19 @@ describe('applyImport', () => {
     const newEvent = rawEvent({ eventId: '900003' });
     const next = applyImport(stored, { events: [newEvent] }, LATER, PLAYER)!;
     expect(next).toEqual({ ...stored, at: LATER, events: [own(rawEvent()), own(newEvent)] });
+  });
+
+  it('stores the ratings history, and keeps it through an import without one', () => {
+    const history = [rawHistoryRow(), rawHistoryRow('11-Aug-2026', '947', '18')];
+    const withHistory = applyImport(fullImport(), { player: rawPlayer(), history }, LATER, PLAYER)!;
+    expect(withHistory.history).toEqual(history);
+    // A hand-off from bookmarklet 1.1.0 brings no history.
+    const older = applyImport(withHistory, { player: rawPlayer(), details: [rawDetailsRow()] }, LATER, PLAYER)!;
+    expect(older.history).toEqual(history);
+    const newer = applyImport(older, { history: [rawHistoryRow('13-Oct-2026', '952', '21')] }, LATER, PLAYER)!;
+    expect(newer.history).toEqual([rawHistoryRow('13-Oct-2026', '952', '21')]);
+    expect(validateStoredImport(JSON.parse(JSON.stringify(newer)))).toEqual(newer);
+    expect(validateStoredImport({ ...newer, history: [{ date: 5 }] })).toBeNull();
   });
 
   it("keeps only the player's rows of an event page", () => {

@@ -1,6 +1,13 @@
 import type { HandoffPage } from '../handoff/envelope';
-import { cleanDetails, cleanEvent, cleanPlayer, cleanProfileEvents, type ImportParts } from '../handoff/records';
-import { detectPage, extractEvent, extractPlayer, extractProfileEvents, extractRatingsDetails } from '../parsers';
+import { cleanDetails, cleanEvent, cleanHistory, cleanPlayer, cleanProfileEvents, type ImportParts } from '../handoff/records';
+import {
+  detectPage,
+  extractEvent,
+  extractPlayer,
+  extractProfileEvents,
+  extractRatingsDetails,
+  extractRatingsHistory,
+} from '../parsers';
 import type { RawPlayer } from '../parsers/types';
 import { parseInert } from './inert';
 
@@ -53,6 +60,12 @@ export function readPages(pages: readonly HandoffPage[]): HandoffPages {
           const events = extractProfileEvents(doc);
           if (events.length > 0) parts.profileEvents = [...cleanProfileEvents(events), ...(parts.profileEvents ?? [])];
         }
+      } else if (kind === 'history') {
+        owner ??= Number(/\/player\/(\d+)/.exec(url)![1]);
+        const header = player(extractPlayer(doc));
+        if (header) parts.player = header;
+        const rows = extractRatingsHistory(doc);
+        if (rows.length > 0) parts.history = cleanHistory(rows);
       } else if (kind === 'season') {
         // The previous season, sent in January: its events join the profile's, for their tiers. Its header is not used.
         owner ??= Number(/\/player\/(\d+)/.exec(url)![1]);

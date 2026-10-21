@@ -1,6 +1,6 @@
 import type { Envelope, HandoffPage } from '../handoff/envelope';
 import { MAX_PAYLOAD, packText } from '../handoff/pack';
-import { detectPage } from '../parsers/page';
+import { detectPage, type PageKind } from '../parsers/page';
 import { BOOKMARKLET_VERSION } from './version';
 
 /*
@@ -10,7 +10,9 @@ import { BOOKMARKLET_VERSION } from './version';
  * change on pdga.com is fixed by deploying the app. The bookmarklet only
  * decides which pages to fetch: on a player page it fetches the other player
  * page, then recent events that the ratings details do not include yet,
- * with only this player's rows. Requests are same-origin GETs, one at a
+ * with only this player's rows, and last the ratings history. On any other
+ * page of a player it sends that page alone, so the app can read a page it
+ * learns later without a new bookmarklet. Requests are same-origin GETs, one at a
  * time, about a second apart, one attempt each. Hidden round ratings on
  * Unofficial Results pages are in the HTML either way; nothing is clicked.
  */
@@ -21,13 +23,14 @@ export const MAX_EVENT_PAGES = 10;
 /** Milliseconds between requests. */
 export const REQUEST_GAP = 1000;
 
-export type ContentKind = 'details' | 'profile' | 'season' | 'event';
+export type ContentKind = 'details' | 'profile' | 'season' | 'history' | 'event';
 
-/** The main content of each kind of page. Without it, the whole body is sent. */
+/** The main content of each kind of page. Without it, or for a kind not listed, the whole body is sent. */
 const MAIN: Record<ContentKind, string> = {
   details: '#player-results-details',
   profile: 'table[id^="player-results-"]',
   season: 'table[id^="player-results-"]',
+  history: '#player-results-history',
   event: '.leaderboard',
 };
 
@@ -36,8 +39,15 @@ const PARTS: Record<ContentKind, string> = {
   details: '.current-rating,.tooltip-templates',
   profile: '.current-rating',
   season: '#page-title',
+  history: '.current-rating',
   event: '.tournament-date',
 };
+
+/**
+ * Any other page of a player, sent alone, in the shape the app's hand-off
+ * check accepts: /player/<nr>/<word>, with a year after it as on a season.
+ */
+const PLAYER_PAGE = /^\/player\/\d+\/[a-z]{1,20}(\/\d{4})?$/;
 
 /** The player's results rows, on both player pages. */
 const RESULT_ROWS = 'table[id^="player-results-"] tr';
@@ -63,10 +73,11 @@ export interface CollectDeps {
  * inert document, where its scripts and styles are removed; the page itself
  * is never changed.
  */
-export function pageHtml(doc: Document, kind: ContentKind): string {
+export function pageHtml(doc: Document, kind: PageKind): string {
+  const main = MAIN[kind as ContentKind];
   let parts: (Element | null)[];
-  if (doc.querySelector(MAIN[kind])) {
-    parts = [...doc.querySelectorAll(`link[rel=canonical],#page-title,${PARTS[kind]},${MAIN[kind]}`)];
+  if (main && doc.querySelector(main)) {
+    parts = [...doc.querySelectorAll(`link[rel=canonical],#page-title,${PARTS[kind as ContentKind]},${main}`)];
   } else {
     const body = doc.implementation.createHTMLDocument('').importNode(doc.body, true);
     for (const element of body.querySelectorAll('script,style')) element.remove();
@@ -175,19 +186,20 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
   }
 
   try {
-    if (page === 'event') {
-      pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
-    } else if (page === 'challenge') {
+    if (page === 'challenge') {
       envelope.status = 'challenge';
       failed.push(PDGA_ORIGIN + path);
+    } else if (page === 'event' || (page !== 'details' && PLAYER_PAGE.test(path))) {
+      pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
     } else if (page !== 'details' && page !== 'profile') {
       envelope.status = 'unsupported-page';
     } else {
       const pdgaNumber = /^\/player\/(\d+)/.exec(path)![1]!;
       const other = page === 'details' ? `/player/${pdgaNumber}` : `/player/${pdgaNumber}/details`;
       const otherKind = page === 'details' ? 'profile' : 'details';
+      const historyPath = `/player/${pdgaNumber}/history`;
       pages.push({ url: PDGA_ORIGIN + path, html: pageHtml(doc, page) });
-      planned = 2;
+      planned = 3;
       deps.progress(done, planned);
       const fetched = await fetchPage(other, otherKind);
       if (fetched) {
@@ -215,6 +227,9 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
           }
         }
       }
+      // Last, so a failure here costs no event page.
+      const history = await fetchPage(historyPath, 'history');
+      if (history) pages.push({ url: PDGA_ORIGIN + historyPath, html: pageHtml(history, 'history') });
     }
   } catch {
     envelope.status = 'error';
@@ -228,16 +243,18 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
 /**
  * Packs the envelope for the URL fragment. While it is too large, fetched
  * event pages are dropped from the end and listed as failed, so the user can
- * run the bookmarklet on them one by one. The page it ran on is always kept.
+ * run the bookmarklet on them one by one. The page it ran on and the player
+ * pages, the history after the events included, are always kept.
  */
 export async function packEnvelope(envelope: Envelope, limit = MAX_PAYLOAD): Promise<string> {
   for (;;) {
     const payload = await packText(JSON.stringify(envelope));
     const pages = envelope.pages ?? [];
-    const last = pages[pages.length - 1];
-    if (payload.length <= limit || pages.length < 2 || !last!.url.includes('/tour/event/')) return payload;
-    pages.pop();
-    envelope.failed = [...(envelope.failed ?? []), last!.url];
+    let last = pages.length - 1;
+    while (last > 0 && !pages[last]!.url.includes('/tour/event/')) last -= 1;
+    if (payload.length <= limit || last < 1) return payload;
+    const [dropped] = pages.splice(last, 1);
+    envelope.failed = [...(envelope.failed ?? []), dropped!.url];
     if (envelope.status === 'ok') envelope.status = 'partial';
   }
 }

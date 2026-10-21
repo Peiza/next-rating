@@ -19,6 +19,8 @@ import {
   normalizePlayer,
   normalizeProfileEvents,
   normalizeRatingsDetails,
+  normalizeRatingsHistory,
+  type HistoryEntry,
   type ListedRound,
   type PlayerInfo,
 } from '../parsers';
@@ -115,6 +117,8 @@ export interface Model {
   prediction: Prediction;
   /** The update the prediction is for; new rounds after its deadline count in the following one. */
   nextUpdate: RatingUpdate;
+  /** The official rating from each update on, oldest first; empty before an import brings the ratings history. */
+  history: HistoryEntry[];
   /** Why the prediction differs from the official state, largest effect first. Null without official rounds. */
   changes: ListedChange[] | null;
   /**
@@ -193,6 +197,21 @@ function unofficialEvents(
 }
 
 /**
+ * The stored ratings history, oldest first. When the player header shows a
+ * newer update than the history, as when only the details were imported
+ * since, that update is added, so the last step is the current rating.
+ */
+export function historyOf(stored: StoredImport, player: PlayerInfo | null): HistoryEntry[] {
+  const history = normalizeRatingsHistory(stored.history ?? []);
+  const last = history.at(-1);
+  const { currentRating, ratingDate } = player ?? {};
+  if (last && currentRating != null && ratingDate != null && compareDates(ratingDate, last.date) > 0) {
+    history.push({ date: ratingDate, rating: currentRating, rounds: null });
+  }
+  return history;
+}
+
+/**
  * `leftOut` holds the event keys of the unofficial events the user left out
  * of the prediction; keys of other events are ignored.
  */
@@ -244,6 +263,7 @@ export function buildModel(
     rows,
     prediction,
     nextUpdate,
+    history: historyOf(stored, player),
     changes,
     difference: explanation?.difference ?? null,
     netChange: explanation ? explanation.total + (explanation.difference ?? 0) : null,

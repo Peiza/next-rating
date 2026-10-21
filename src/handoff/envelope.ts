@@ -24,9 +24,10 @@ const PAGE_KINDS = ['details', 'profile', 'season', 'history', 'event', 'challen
 
 /**
  * Pages in one hand-off: the current page, the other player page, the
- * previous season's results in January, and up to 10 event pages.
+ * previous season's results in January, up to 10 event pages and the
+ * ratings history.
  */
-export const MAX_PAGES = 13;
+export const MAX_PAGES = 14;
 /** Pages that could not be fetched, at most this many. */
 export const MAX_FAILED = 20;
 
@@ -36,7 +37,12 @@ const VERSION = /^\d+(?:\.\d+){0,2}$/;
 export function isBookmarkletVersion(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 20 && VERSION.test(value);
 }
-export const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/details|\/stats\/\d{4})?|tour\/event\/\d{1,8})$/;
+/**
+ * A pdga.com page a hand-off may bring: a player's pages (any
+ * /player/<nr>/<word>, with a year after it as on a season, since the
+ * bookmarklet sends any page of a player it runs on) or an event.
+ */
+export const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/[a-z]{1,20}(?:\/\d{4})?)?|tour\/event\/\d{1,8})$/;
 
 /** A pdga.com page as the bookmarklet sent it: the parts the app reads, as HTML. */
 export interface HandoffPage {
