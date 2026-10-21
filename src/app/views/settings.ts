@@ -57,7 +57,8 @@ export function settingsView(props: SettingsProps): HTMLElement {
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
-    el('h1', { id: 'view-title' }, t('settings.title')),
+    // On phones the top bar shows the heading instead, so only one h1 shows.
+    el('h1', { id: 'view-title', class: 'wide-only' }, t('settings.title')),
     !persistent && el('p', { class: 'warning' }, t('settings.storageUnavailable')),
     languagePicker(language, preferred, onLanguage),
     segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),

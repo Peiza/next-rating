@@ -67,6 +67,7 @@ import {
   playerButtonId,
   playerLabel,
   playersPanel,
+  TOPBAR_TITLE_ID,
   topBar,
   WIDE_QUERY,
 } from './views/players';
@@ -257,7 +258,7 @@ function showLayers(next: Layers): void {
   if (before.menu && !next.menu) focusId = MENU_BUTTON_ID;
   else if (next.menu) focusId = PANEL_TITLE_ID;
   else if (next.overlay === null) focusId = overlay?.opener ?? `tab-${tab}`;
-  else focusId = next.overlay === 'setup' ? SETUP_ID : GUIDE_ID;
+  else focusId = overlayTitleId(next.overlay);
   if (before.menu !== next.menu) {
     editingPlayers = false;
     confirmRemove = null;
@@ -478,6 +479,12 @@ function eventAddedBanner(routed: Routed): Banner {
   };
 }
 
+/** The heading that gets focus when a view opens: in the top bar on phones, where the view's own is hidden. */
+function overlayTitleId(view: OverlayView): string {
+  if (!isWide()) return TOPBAR_TITLE_ID;
+  return view === 'setup' ? SETUP_ID : GUIDE_ID;
+}
+
 /** Shows the setup or How it works over the current tab, as a new history entry. */
 function openOverlay(view: OverlayView): void {
   overlay = { view, opener: document.activeElement?.id || `tab-${tab}` };
@@ -487,7 +494,7 @@ function openOverlay(view: OverlayView): void {
 
 function openSetup(): void {
   openOverlay('setup');
-  render(SETUP_ID);
+  render(overlayTitleId('setup'));
   window.scrollTo(0, 0);
 }
 
@@ -497,7 +504,7 @@ function openGuide(section?: GuideSection): void {
   if (section) {
     render(guideSectionId(section));
   } else {
-    render(GUIDE_ID);
+    render(overlayTitleId('guide'));
     window.scrollTo(0, 0);
   }
 }
@@ -681,6 +688,13 @@ function ratingPlayer(): { name: string; pdgaNumber: number } | null {
   return { name: playerName(player), pdgaNumber: player.pdgaNumber };
 }
 
+/** The heading of a view other than the Rating tab, which the phone top bar shows in its place. */
+function barTitle(): string | null {
+  if (overlay?.view === 'guide') return t('guide.title');
+  if (overlay?.view === 'setup') return t('setup.title');
+  return tab === 'settings' ? t('settings.title') : null;
+}
+
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
@@ -688,7 +702,7 @@ function render(focusId = document.activeElement?.id): void {
     el(
       'div',
       { class: menuOpen ? 'shell menu-open' : 'shell' },
-      topBar({ open: menuOpen, onToggle: toggleMenu, player: ratingPlayer() }),
+      topBar({ open: menuOpen, onToggle: toggleMenu, player: ratingPlayer(), title: barTitle() }),
       playersPanel({
         players: data.players,
         me: data.me,

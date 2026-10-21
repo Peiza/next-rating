@@ -155,7 +155,8 @@ export function setupView({ bookmarklet, stored, pdgaNumber, platform, onPlatfor
   return el(
     'section',
     { class: 'view', 'aria-labelledby': SETUP_ID },
-    el('h1', { id: SETUP_ID, tabindex: -1 }, t('setup.title')),
+    // On phones the top bar shows the heading instead, so only one h1 shows.
+    el('h1', { id: SETUP_ID, class: 'wide-only', tabindex: -1 }, t('setup.title')),
     bookmarkletStatus(stored),
     el('p', { class: 'lead' }, t('setup.intro')),
     el('p', {}, t('setup.reads')),

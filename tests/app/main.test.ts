@@ -108,7 +108,10 @@ describe('app start', () => {
     const open = document.getElementById('open-setup') as HTMLButtonElement;
     open.focus();
     open.click();
-    expect(document.activeElement?.id).toBe('setup-title');
+    // jsdom is a phone: the top bar holds the heading, and the view's own shows only on wide screens.
+    expect(document.activeElement?.id).toBe('topbar-title');
+    expect(document.activeElement?.textContent).toBe('Install the bookmarklet');
+    expect(document.getElementById('setup-title')!.classList.contains('wide-only')).toBe(true);
     const code = document.getElementById('bookmarklet-code') as HTMLTextAreaElement;
     expect(code.value.startsWith('javascript:')).toBe(true);
     // jsdom is neither a phone nor a touch Mac.
@@ -203,9 +206,26 @@ describe('app start', () => {
     document.getElementById('tab-settings')!.click();
     document.getElementById('open-guide')!.focus();
     document.getElementById('open-guide')!.click();
-    expect(document.activeElement?.id).toBe('guide-title');
+    expect(document.activeElement?.id).toBe('topbar-title');
+    expect(document.activeElement?.textContent).toBe('How it works');
     await clickBack('guide-back');
     expect(document.activeElement?.id).toBe('open-guide');
+  });
+
+  it('puts focus on the view’s own heading on wide screens, where the top bar is hidden', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    try {
+      await start('/next-rating/');
+      document.getElementById('open-setup')!.click();
+      expect(document.activeElement?.id).toBe('setup-title');
+      await clickBack('setup-back');
+      document.getElementById('tab-settings')!.click();
+      document.getElementById('open-guide')!.click();
+      expect(document.activeElement?.id).toBe('guide-title');
+      await clickBack('guide-back');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('applies the theme from Settings and keeps it after a reload', async () => {
@@ -311,9 +331,10 @@ describe('app start', () => {
     expect(menu().getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(menu());
 
-    // Settings has its own heading, so the bar holds only the button there.
+    // Settings shows its heading in the bar, and only on wide screens in the view.
     document.getElementById('tab-settings')!.click();
-    expect(barTitle()).toBeUndefined();
+    expect(barTitle()).toBe('Settings');
+    expect(document.getElementById('view-title')!.classList.contains('wide-only')).toBe(true);
     document.getElementById('tab-rating')!.click();
 
     menu().click();
