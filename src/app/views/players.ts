@@ -258,14 +258,14 @@ export function playersPanel(props: PlayersProps): HTMLElement {
         'button',
         {
           id: 'players-edit',
-          class: 'button button-small',
+          class: 'button button-small players-edit',
           type: 'button',
           'aria-pressed': props.editing ? 'true' : 'false',
           onclick: props.onToggleEdit,
         },
         t(props.editing ? 'players.editDone' : 'players.edit'),
       ),
-    unsaved.length > 0 && el('h3', {}, t('players.unsaved')),
+    unsaved.length > 0 && el('h3', { class: 'players-unsaved' }, t('players.unsaved')),
     unsaved.length > 0 && el('ul', { class: 'player-list' }, ...unsaved.map((player) => unsavedItem(player, props))),
     pdgaNumberForm(null, props.flash, (pdgaNumber) => pdgaNumber !== null && props.onAdd(pdgaNumber), {
       id: ADD_INPUT_ID,
