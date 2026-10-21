@@ -83,7 +83,13 @@ with the round in a corner label; a corner Full screen button; a hover
 tooltip on computers; an x-axis with even spacing; a table that keeps dates
 and ratings on one line), and the first visit polish (the start view's and
 the players panel's headings in the phone top bar; step 1 finds your PDGA
-number by number or by a name search on pdga.com).
+number by number or by a name search on pdga.com), and the polish from
+phone testing (the setup page titled "Next Rating: get data" so bookmarks
+get that name; steps for the tested Android browsers and for Safari, the
+only iPhone browser that works; a larger full-screen round label; a tap
+away from every point clears the chosen round; a three-column chart table;
+dates in the app's language; a shorter window option, with its dates in
+the chart legend and under the Top 8 select).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -191,8 +197,8 @@ explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
-rating chart, the chart follow-up, the chart polish and the first visit
-polish (docs/finished-steps.md). Nothing else is planned: the
+rating chart, the chart follow-up, the chart polish, the first visit
+polish and the polish from phone testing (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 
