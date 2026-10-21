@@ -1,6 +1,6 @@
 import type { Envelope, HandoffPage } from '../handoff/envelope';
 import { MAX_PAYLOAD, packText } from '../handoff/pack';
-import { detectPage, type PageKind } from '../parsers/page';
+import type { PageKind } from '../parsers/page';
 import { BOOKMARKLET_VERSION } from './version';
 
 /*
@@ -48,6 +48,26 @@ const PARTS: Record<ContentKind, string> = {
  * check accepts: /player/<nr>/<word>, with a year after it as on a season.
  */
 const PLAYER_PAGE = /^\/player\/\d+\/[a-z]{1,20}(\/\d{4})?$/;
+
+/** The kinds of pages, by path: the player page groups, the season and the event. */
+const KIND = /^\/(?:player\/\d+(?:\/(details|history)|\/(stats)\/\d{4})?|tour\/(event)\/\d+)\/?$/;
+
+/**
+ * The kind of pdga.com page at a path, as detectPage (src/parsers/page.ts)
+ * tells it from a URL. The bookmarklet always knows the URL, so it does
+ * without detectPage's canonical link, and stays smaller.
+ */
+export function pageKind(path: string): PageKind {
+  const match = KIND.exec(path);
+  if (!match) return 'unknown';
+  const [, player, season, event] = match;
+  return (player ?? (season ? 'season' : (event ?? 'profile'))) as PageKind;
+}
+
+/** A Cloudflare challenge, recognised by its own markers as in detectPage. */
+export function isChallenge(doc: Document): boolean {
+  return /^just a moment/i.test(doc.title.trim()) || !!doc.querySelector('#challenge-form,script[src*="challenge-platform"]');
+}
 
 /** The player's results rows, on both player pages. */
 const RESULT_ROWS = 'table[id^="player-results-"] tr';
@@ -150,9 +170,9 @@ export function keepPlayerRows(doc: Document, pdgaNumber: string): void {
 }
 
 export async function collect(doc: Document, url: string, deps: CollectDeps): Promise<Envelope> {
-  const page = detectPage(doc, url);
-  const envelope: Envelope = { v: 2, status: 'ok', page, bookmarklet: BOOKMARKLET_VERSION };
   const path = new URL(url).pathname.replace(/\/$/, '');
+  const page = isChallenge(doc) ? 'challenge' : pageKind(path);
+  const envelope: Envelope = { v: 2, status: 'ok', page, bookmarklet: BOOKMARKLET_VERSION };
   const pages: HandoffPage[] = [];
   const failed: string[] = [];
   let done = 1;
@@ -168,10 +188,10 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
       try {
         const response = await deps.fetch(path);
         const fetched = deps.parse(await response.text());
-        const found = detectPage(fetched, response.redirected ? response.url : PDGA_ORIGIN + path);
-        if (response.headers.get('cf-mitigated') === 'challenge' || found === 'challenge') {
+        if (response.headers.get('cf-mitigated') === 'challenge' || isChallenge(fetched)) {
           envelope.status = 'challenge';
-        } else if (response.ok && found === kind) {
+        } else if (response.ok && (!response.redirected || pageKind(new URL(response.url).pathname) === kind)) {
+          // The path was built for this kind, so only a redirect can lead elsewhere.
           return fetched;
         }
       } catch {

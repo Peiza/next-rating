@@ -6,15 +6,18 @@ import {
   dateKey,
   keepPlayerRows,
   MAX_EVENT_PAGES,
+  isChallenge,
   newEventIds,
   packEnvelope,
   pageHtml,
+  pageKind,
   previousSeasonPath,
   REQUEST_GAP,
   type CollectDeps,
 } from '../../src/bookmarklet/collect';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { decodeHandoff, MAX_PAGES, type Envelope } from '../../src/handoff';
+import { detectPage } from '../../src/parsers/page';
 import {
   detailsRow,
   detailsTable,
@@ -182,6 +185,45 @@ describe('bookmarklet on a player page', () => {
     const envelope = await collect(parseHtml(hidden), eventUrl('900003'), setup({}).deps);
     const { parts } = await received(envelope);
     expect(parts.events![0]!.divisions[0]!.rows[1]!.rounds[0]!.rating).toBe('960');
+  });
+});
+
+describe('telling pages apart', () => {
+  it.each([
+    '/player/100001',
+    '/player/100001/',
+    '/player/100001/details',
+    '/player/100001/details/',
+    '/player/100001/history',
+    '/player/100001/stats/2025',
+    '/player/100001/stats/2025/',
+    '/player/100001/stats/2025/MPO',
+    '/player/100001/stats',
+    '/player/100001/wins',
+    '/player/100001/Details',
+    '/player/abc',
+    '/tour/event/900001',
+    '/tour/event/900001/',
+    '/tour/event/900001/results',
+    '/tour/events',
+    '/user/login',
+    '/',
+  ])('tells %s as the app does', (path) => {
+    expect(pageKind(path)).toBe(detectPage(parseHtml(page('')), ORIGIN + path));
+  });
+
+  it('recognises a challenge as the app does', () => {
+    const pages = [
+      page('<form id="challenge-form"></form>'),
+      page('', '', 'Just a moment...'),
+      page('<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script>'),
+      page('<script src="/cdn-cgi/scripts/email-decode.min.js"></script>'),
+      detailsHtml(),
+    ];
+    for (const html of pages) {
+      const doc = parseHtml(html);
+      expect(isChallenge(doc)).toBe(detectPage(doc, DETAILS) === 'challenge');
+    }
   });
 });
 
