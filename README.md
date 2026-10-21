@@ -207,6 +207,14 @@ the app fixes the import without installing the bookmarklet again. If
 pdga.com asks for a browser check, the bookmarklet stops and the app lists
 the pages to open and run it on.
 
+## Support
+
+Like Next Rating? [Buy me a coffee on Ko-fi](https://ko-fi.com/peiza).
+
+The app has the same plain link at the bottom of Settings and at the end of
+How it works, opened in the same tab. There is no Ko-fi button, widget or
+script, so nothing from Ko-fi loads in the app.
+
 ## Development
 
 Requires Node.js 24 (see `.nvmrc`).

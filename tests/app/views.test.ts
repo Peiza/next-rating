@@ -11,6 +11,7 @@ import { chartData } from '../../src/app/chart';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
+import { KOFI_URL } from '../../src/app/views/support';
 import { bookmarkletStatus, guessPlatform, isOlderVersion, setupView, type SetupProps } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView, type StartProps } from '../../src/app/views/start';
@@ -244,6 +245,16 @@ describe('settings view', () => {
   it('ends with the unofficial notice', () => {
     expect(settingsView(props).lastElementChild!.textContent).toMatch(/not affiliated with/);
   });
+
+  it('links to Ko-fi in the same tab, just before the unofficial notice', () => {
+    const view = settingsView(props);
+    const link = view.querySelector<HTMLAnchorElement>(`a[href="${KOFI_URL}"]`)!;
+    expect(link.textContent).toBe('Buy me a coffee on Ko-fi');
+    expect(link.parentElement!.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
+    expect(link.getAttribute('rel')).toBe('noreferrer');
+    expect(link.hasAttribute('target')).toBe(false);
+    expect(link.parentElement!.nextElementSibling).toBe(view.lastElementChild);
+  });
 });
 
 describe('getting-started bookmarklet steps', () => {
@@ -289,6 +300,10 @@ describe('rating view', () => {
       'next-update',
       'refresh-box',
     ]);
+  });
+
+  it('has no Ko-fi link', () => {
+    expect(ratingPage().querySelector('a[href*="ko-fi"]')).toBeNull();
   });
 
   it('shows the data age with a closed "How to refresh" and the Refresh button under it', () => {
@@ -1509,8 +1524,16 @@ describe('how it works', () => {
       'https://www.pdga.com/ratings/guide',
       'https://www.pdga.com/faq/ratings/when-updated',
       'https://www.pdga.com/global-masters-series',
+      KOFI_URL,
     ]);
     expect(view.querySelector('a[target]')).toBeNull();
+  });
+
+  it('ends with the Ko-fi link, just before Back', () => {
+    const view = guideView({ onBack: vi.fn() });
+    const support = view.querySelector(`a[href="${KOFI_URL}"]`)!.parentElement!;
+    expect(support.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
+    expect(support.nextElementSibling!.id).toBe('guide-back');
   });
 
   it('explains the rules, and is honest about what is not yet checked and where the decimals come from', () => {

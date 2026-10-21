@@ -95,7 +95,9 @@ testing (a date format setting; no reopened selects on iOS; a remembered
 chart table; date fields with a calendar icon on iPhone; a hint to turn
 the iPhone in full screen; "manual rounds" everywhere; the period and
 x-axis above the full-screen chart on wide screens; the chosen round on
-one line above the full-screen chart).
+one line above the full-screen chart), and a plain Ko-fi link at the
+bottom of Settings and at the end of How it works (no Ko-fi script or
+widget, nothing on the Rating tab).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -204,10 +206,11 @@ web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
-polish, the polish from phone testing and the fixes from iPhone testing
-(docs/finished-steps.md). Nothing else is planned: the
+polish, the polish from phone testing, the fixes from iPhone testing and
+the Ko-fi link (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
-after each working step.
+after each working step. Commit messages and the pull request descriptions
+you suggest have no AI attribution line.
 
 Verification runs typecheck, tests, the i18n check and the build only: no
 local preview servers or handoff runs. I test on my phone after merging.
