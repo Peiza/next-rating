@@ -9,6 +9,7 @@ import {
   newEventIds,
   packEnvelope,
   pageHtml,
+  previousSeasonPath,
   REQUEST_GAP,
   type CollectDeps,
 } from '../../src/bookmarklet/collect';
@@ -26,6 +27,7 @@ import {
   playerHeader,
   profileRow,
   profileTable,
+  yearLinks,
 } from '../parsers/html';
 
 /* All names, numbers and results here are invented. */
@@ -64,7 +66,7 @@ function eventHtml(id: string, rating = '960'): string {
 
 type Served = string | Response | Error;
 
-function setup(served: Record<string, Served>) {
+function setup(served: Record<string, Served>, now = new Date(2026, 9, 12)) {
   const requests: string[] = [];
   const waits: number[] = [];
   const progress: [number, number][] = [];
@@ -81,6 +83,7 @@ function setup(served: Record<string, Served>) {
       waits.push(ms);
     },
     progress: (done, planned) => progress.push([done, planned]),
+    now,
   };
   return { deps, requests, waits, progress };
 }
@@ -183,11 +186,97 @@ describe('picking events', () => {
     expect(ids).toHaveLength(MAX_EVENT_PAGES);
     expect(ids[0]).toBe('900111');
     expect(new Set(ids).size).toBe(ids.length);
-    expect(MAX_PAGES).toBe(MAX_EVENT_PAGES + 2);
+    expect(MAX_PAGES).toBe(MAX_EVENT_PAGES + 3);
   });
 
   it('takes every season event for a player without rated rounds', () => {
     expect(pick([], [['900002', '01-Jul-2026'], ['900003', '05-Sep-2026']])).toEqual(['900003', '900002']);
+  });
+});
+
+describe('the previous season in January', () => {
+  const SEASON_PATH = '/player/100001/stats/2026';
+  const SEASON = ORIGIN + SEASON_PATH;
+  const JANUARY = new Date(2027, 0, 5);
+  /** The 2027 profile, which lists only 2027 and links to the earlier seasons. */
+  const profile2027 = page(
+    playerHeader() + yearLinks('100001', 2027, [2026, 2025]) + profileTable('MA1', profileRow('900008', 'MA1', '03-Jan-2027')),
+    PROFILE,
+  );
+  // A December event not rated yet; the details' newest event is from August.
+  const season2026 = page(
+    playerHeader() +
+      yearLinks('100001', 2027, [2026, 2025]) +
+      profileTable('MA1', profileRow('900001', 'MA1', '02-Aug-2026') + profileRow('900007', 'MA1', '13-Dec-2026')),
+    SEASON,
+  );
+
+  it('fetches the previous season from 1 January to the January update when the profile links to it', () => {
+    const doc = parseHtml(profile2027);
+    expect(previousSeasonPath(doc, '100001', new Date(2027, 0, 1))).toBe(SEASON_PATH);
+    // 12 January 2027 is the second Tuesday, the update day.
+    expect(previousSeasonPath(doc, '100001', new Date(2027, 0, 12, 23, 59))).toBe(SEASON_PATH);
+    expect(previousSeasonPath(doc, '100001', new Date(2027, 0, 13))).toBeNull();
+    expect(previousSeasonPath(doc, '100001', new Date(2027, 1, 1))).toBeNull();
+    expect(previousSeasonPath(doc, '100001', new Date(2026, 11, 31))).toBeNull();
+    // 13 January 2026 was the second Tuesday of that year.
+    const doc2026 = parseHtml(page(yearLinks('100001', 2026, [2025]), PROFILE));
+    expect(previousSeasonPath(doc2026, '100001', new Date(2026, 0, 13))).toBe('/player/100001/stats/2025');
+    expect(previousSeasonPath(doc2026, '100001', new Date(2026, 0, 14))).toBeNull();
+  });
+
+  it('fetches nothing more without a link to that season', () => {
+    // A new player, or a profile that still shows last season.
+    expect(previousSeasonPath(parseHtml(profileWithNewEvent), '100001', JANUARY)).toBeNull();
+    expect(previousSeasonPath(parseHtml(page(yearLinks('100001', 2026, [2025]), PROFILE)), '100001', JANUARY)).toBeNull();
+    expect(previousSeasonPath(parseHtml(page(yearLinks('100002', 2027, [2026]), PROFILE)), '100001', JANUARY)).toBeNull();
+  });
+
+  it('sends the season and picks its new events with the profile\'s', async () => {
+    const { deps, requests, waits, progress } = setup(
+      {
+        '/player/100001': profile2027,
+        [SEASON_PATH]: season2026,
+        '/tour/event/900008': eventHtml('900008'),
+        '/tour/event/900007': eventHtml('900007'),
+      },
+      JANUARY,
+    );
+    const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
+    expect(requests).toEqual(['/player/100001', SEASON_PATH, '/tour/event/900008', '/tour/event/900007']);
+    expect(waits).toHaveLength(4);
+    expect(progress.at(-1)).toEqual([5, 5]);
+    expect(envelope.status).toBe('ok');
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, SEASON, eventUrl('900008'), eventUrl('900007')]);
+    expect(envelope.pages![2]!.html).not.toContain('year-link');
+
+    const { parts, unreadable } = await received(envelope);
+    expect(unreadable).toEqual([]);
+    expect(parts.player?.pdgaNumber).toBe('100001');
+    expect(parts.profileEvents!.map((event) => event.eventId)).toEqual(['900008', '900001', '900007']);
+    expect(parts.events).toHaveLength(2);
+  });
+
+  it('fetches only the other player page outside January', async () => {
+    const { deps, requests } = setup({ '/player/100001': profile2027 }, new Date(2027, 0, 13));
+    await collect(parseHtml(detailsHtml()), DETAILS, deps);
+    expect(requests).toEqual(['/player/100001', '/tour/event/900008']);
+  });
+
+  it('stops at a challenge on the season page', async () => {
+    const challenge = new Response('<title>Just a moment...</title>', { status: 403, headers: { 'cf-mitigated': 'challenge' } });
+    const { deps, requests } = setup({ '/player/100001': profile2027, [SEASON_PATH]: challenge }, JANUARY);
+    const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
+    expect(requests).toEqual(['/player/100001', SEASON_PATH]);
+    expect(envelope.status).toBe('challenge');
+    expect(envelope.failed).toEqual([SEASON, eventUrl('900008')]);
+  });
+
+  it('works from the profile page too', async () => {
+    const { deps, requests } = setup({ '/player/100001/details': detailsHtml(), [SEASON_PATH]: season2026 }, JANUARY);
+    const envelope = await collect(parseHtml(profile2027), PROFILE, deps);
+    expect(requests.slice(0, 2)).toEqual(['/player/100001/details', SEASON_PATH]);
+    expect(envelope.pages!.map(({ url }) => url).slice(0, 3)).toEqual([PROFILE, DETAILS, SEASON]);
   });
 });
 

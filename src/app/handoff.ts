@@ -51,8 +51,13 @@ export function readPages(pages: readonly HandoffPage[]): HandoffPages {
           if (rows.length > 0) parts.details = cleanDetails(rows);
         } else {
           const events = extractProfileEvents(doc);
-          if (events.length > 0) parts.profileEvents = cleanProfileEvents(events);
+          if (events.length > 0) parts.profileEvents = [...cleanProfileEvents(events), ...(parts.profileEvents ?? [])];
         }
+      } else if (kind === 'season') {
+        // The previous season, sent in January: its events join the profile's, for their tiers. Its header is not used.
+        owner ??= Number(/\/player\/(\d+)/.exec(url)![1]);
+        const events = extractProfileEvents(doc);
+        if (events.length > 0) parts.profileEvents = [...(parts.profileEvents ?? []), ...cleanProfileEvents(events)];
       } else {
         unreadable.push(url);
       }

@@ -20,10 +20,13 @@ export const STATUSES = ['ok', 'partial', 'challenge', 'unsupported-page', 'erro
  */
 export type HandoffStatus = (typeof STATUSES)[number];
 
-const PAGE_KINDS = ['details', 'profile', 'event', 'challenge', 'unknown'] as const satisfies readonly PageKind[];
+const PAGE_KINDS = ['details', 'profile', 'season', 'event', 'challenge', 'unknown'] as const satisfies readonly PageKind[];
 
-/** Pages in one hand-off: the current page, the other player page and up to 10 event pages. */
-export const MAX_PAGES = 12;
+/**
+ * Pages in one hand-off: the current page, the other player page, the
+ * previous season's results in January, and up to 10 event pages.
+ */
+export const MAX_PAGES = 13;
 /** Pages that could not be fetched, at most this many. */
 export const MAX_FAILED = 20;
 
@@ -33,7 +36,7 @@ const VERSION = /^\d+(?:\.\d+){0,2}$/;
 export function isBookmarkletVersion(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 20 && VERSION.test(value);
 }
-export const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/details)?|tour\/event\/\d{1,8})$/;
+export const PDGA_PAGE = /^https:\/\/www\.pdga\.com\/(?:player\/\d{1,8}(?:\/details|\/stats\/\d{4})?|tour\/event\/\d{1,8})$/;
 
 /** A pdga.com page as the bookmarklet sent it: the parts the app reads, as HTML. */
 export interface HandoffPage {

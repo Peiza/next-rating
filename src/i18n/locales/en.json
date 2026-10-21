@@ -224,6 +224,9 @@
   "top8.teaserFew": "Average {average} · {count} of {total} · {period}",
   "top8.teaserEmpty": "No rounds · {period}",
   "top8.range": "{from} – {to}",
+  "top8.own": "Include my own rounds",
+  "top8.ownLabel": "Own",
+  "top8.ownRound": "Own round",
   "why.title": "Why it changed",
   "why.intro": "What moved the prediction away from the official rating, largest effect first.",
   "why.teaser": "{reason}, {effect}",
@@ -325,5 +328,5 @@
   "guide.target.answers": "It also says when the target is already reached and what keeps it there, or when even rounds rated 1150 would not reach it. The date decides the update: the first one whose report deadline is on or after it, so a date on the Monday or Tuesday of update week counts in the following update. The new rounds are the newest, so the date also ends the 12-month window, and the answer lists the rounds that leave it.",
   "guide.top8.title": "Top 8 and the Global Masters Series",
   "guide.top8.idea": "The Top 8 card follows the idea of PDGA's {gms}: the 8 highest rated rounds of a period, with their sum, average and highest rating. Here it works for any player, and for a calendar year, the rating window or dates you choose.",
-  "guide.top8.rounds": "Official and unofficial rounds count, also rounds the prediction drops or leaves out, with no hole weighting. Manual and DNF rounds do not count."
+  "guide.top8.rounds": "Official and unofficial rounds count, also rounds the prediction drops or leaves out, with no hole weighting. DNF rounds do not count. Your own rounds, the ones you add by hand, count only when you tick Include my own rounds, and are marked Own."
 }

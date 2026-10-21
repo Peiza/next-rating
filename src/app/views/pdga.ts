@@ -74,7 +74,7 @@ export function pdgaNumberForm(
   const status = el(
     'p',
     { id: statusId, class: flash === 'full' ? 'status error' : 'status', role: 'status' },
-    flash ? t(FLASH[flash], { max: MAX_FAVORITES }) : '',
+    flash && t(FLASH[flash], { max: MAX_FAVORITES }),
   );
   const submit = (event: Event) => {
     event.preventDefault();

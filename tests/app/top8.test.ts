@@ -102,3 +102,25 @@ describe('periodYears', () => {
     expect(periodYears(model, { kind: 'year', year: 2019 }, TODAY)).toEqual([2026, 2025, 2019]);
   });
 });
+
+describe('own rounds', () => {
+  const rounds = manualToRounds([manual(1060, '2026-09-01'), manual(990, '2023-05-01')]);
+  const model = buildModel(stored, 100001, NOW, rounds);
+
+  it('counts manual rounds and adds their years only when switched on', () => {
+    const off = topEight(model, THIS_YEAR, TODAY);
+    expect(off.own).toBe(false);
+    expect(off.hasOwn).toBe(true);
+    expect(ratingsOf(off)).not.toContain(1060);
+    expect(off.years).toEqual([2026, 2025]);
+    const on = topEight(model, THIS_YEAR, TODAY, true);
+    expect(on.own).toBe(true);
+    expect(ratingsOf(on)[0]).toBe(1060);
+    expect(on.years).toEqual([2026, 2025, 2023]);
+    expect(periodYears(model, THIS_YEAR, TODAY, true)).toEqual([2026, 2025, 2023]);
+  });
+
+  it('knows when the player has no rated manual round', () => {
+    expect(topEight(buildModel(stored, 100001, NOW), THIS_YEAR, TODAY, true).hasOwn).toBe(false);
+  });
+});

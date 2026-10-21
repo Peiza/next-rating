@@ -345,6 +345,12 @@ describe('Rating tab settings', () => {
     expect(DEFAULT_TOP_PERIOD).toEqual({ kind: 'year', year: null });
     expect(validateData({}).cards).toEqual(DEFAULT_CARDS);
     expect(validateData({}).top8Period).toEqual(DEFAULT_TOP_PERIOD);
+    expect(validateData({}).top8Own).toBe(false);
+  });
+
+  it('count own rounds in the Top 8 only for a stored true', () => {
+    expect(validateData({ top8Own: true }).top8Own).toBe(true);
+    for (const bad of [false, 'true', 1, null]) expect(validateData({ top8Own: bad }).top8Own).toBe(false);
   });
 
   it('keep each card on its own, so one bad value costs only that card', () => {
@@ -380,10 +386,11 @@ describe('Rating tab settings', () => {
     const storage = new MemoryStorage();
     storage.setItem(STORAGE_KEY, JSON.stringify({ language: 'sv', theme: null, playerOrder: 'name', me: null, players: [] }));
     expect(createStore(storage).get()).toEqual({ ...EMPTY_DATA, language: 'sv' });
-    createStore(storage).update({ cards: { ...DEFAULT_CARDS, top8: true }, top8Period: { kind: 'window' } });
+    createStore(storage).update({ cards: { ...DEFAULT_CARDS, top8: true }, top8Period: { kind: 'window' }, top8Own: true });
     const data = createStore(storage).get();
     expect(data.cards.top8).toBe(true);
     expect(data.top8Period).toEqual({ kind: 'window' });
+    expect(data.top8Own).toBe(true);
   });
 });
 

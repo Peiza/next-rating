@@ -68,8 +68,11 @@ explanation, 7 polish after favorites, 8 deadline-aware prediction, 9 target
 calculator, 10 Top 8 panel; then the Rating tab design pass (one card
 pattern, remembered open cards and Top 8 period), the setup page with How it
 works, X-tier events (rounds PDGA leaves out; unofficial X-tier events
-marked, any unofficial event can be left out), and a date in the target
-calculator (the update for that date and the rounds that leave the window).
+marked, any unofficial event can be left out), a date in the target
+calculator (the update for that date and the rounds that leave the window),
+and phone polish (the back gesture closes the players panel, setup and How
+it works; view titles in the phone top bar; Top 8 with own rounds; the
+previous season in January).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -78,8 +81,9 @@ Bookmarklet rules every change keeps:
 - Read only page content, including content hidden behind a toggle (read with
   textContent; never click the toggle). Never read cookies, storage or form
   fields.
-- At most 10 event pages, sequential, about 1 second apart, one attempt per
-  page. On a Cloudflare challenge or a failure, stop fetching and hand off
+- At most 10 event pages, plus the previous season's results only from
+  1 January to the January update, sequential, about 1 second apart, one
+  attempt per page. On a Cloudflare challenge or a failure, stop fetching and hand off
   what was collected, with the URLs of the pages that failed.
 - Hand off by navigating the current tab to the app with the data compressed
   and base64url-encoded in the fragment (#d=...), reserved for this hand-off.
@@ -175,7 +179,7 @@ minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
 web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
-with How it works, X-tier events and the target date
+with How it works, X-tier events, the target date and the phone polish
 (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.

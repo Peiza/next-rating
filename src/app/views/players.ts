@@ -258,14 +258,14 @@ export function playersPanel(props: PlayersProps): HTMLElement {
         'button',
         {
           id: 'players-edit',
-          class: 'button button-small',
+          class: 'button button-small players-edit',
           type: 'button',
           'aria-pressed': props.editing ? 'true' : 'false',
           onclick: props.onToggleEdit,
         },
         t(props.editing ? 'players.editDone' : 'players.edit'),
       ),
-    unsaved.length > 0 && el('h3', {}, t('players.unsaved')),
+    unsaved.length > 0 && el('h3', { class: 'players-unsaved' }, t('players.unsaved')),
     unsaved.length > 0 && el('ul', { class: 'player-list' }, ...unsaved.map((player) => unsavedItem(player, props))),
     pdgaNumberForm(null, props.flash, (pdgaNumber) => pdgaNumber !== null && props.onAdd(pdgaNumber), {
       id: ADD_INPUT_ID,
@@ -282,27 +282,31 @@ export const TOPBAR_TITLE_ID = 'topbar-title';
 export interface TopBarProps {
   open: boolean;
   onToggle: () => void;
-  /** The shown player, named in the bar while the Rating tab shows them; other views have their own heading. */
+  /** The shown player, named in the bar while the Rating tab shows them. */
   player?: { name: string | null; pdgaNumber: number } | null;
+  /** The heading of another view, such as Settings, shown in the bar instead of in the view. */
+  title?: string | null;
 }
 
 /**
- * The phone top bar: the shown player's name as the heading, with the PDGA
- * number on a smaller line under it, and the Players button at the top
- * right, which reads Close while the panel is open. Hidden on wide screens,
- * where the Rating view's own heading names the player.
+ * The phone top bar: the view's heading at the left, which on the Rating tab
+ * is the shown player's name with the PDGA number on a smaller line under
+ * it, and the Players button at the top right, which reads Close while the
+ * panel is open. Hidden on wide screens, where each view shows its own
+ * heading. The heading takes focus when a view opens on a phone.
  */
-export function topBar({ open, onToggle, player }: TopBarProps): HTMLElement {
+export function topBar({ open, onToggle, player, title }: TopBarProps): HTMLElement {
   const number = player && t('rating.playerNumber', { number: player.pdgaNumber });
   return el(
     'header',
     { class: 'topbar' },
-    player &&
-      el(
-        'h1',
-        { id: TOPBAR_TITLE_ID, class: 'topbar-title' },
-        ...(player.name ? [player.name, ' ', el('span', { class: 'topbar-number' }, number)] : [number]),
-      ),
+    player
+      ? el(
+          'h1',
+          { id: TOPBAR_TITLE_ID, class: 'topbar-title' },
+          ...(player.name ? [player.name, ' ', el('span', { class: 'topbar-number' }, number)] : [number]),
+        )
+      : title && el('h1', { id: TOPBAR_TITLE_ID, class: 'topbar-title', tabindex: -1 }, title),
     el(
       'button',
       {

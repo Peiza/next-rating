@@ -27,6 +27,7 @@ async function run(): Promise<void> {
       fetch: (path) => fetch(path),
       parse: (html) => new DOMParser().parseFromString(html, 'text/html'),
       wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: new Date(),
       progress: (done, planned) => {
         const percent = String(Math.round((done / planned) * 100));
         bar.style.width = `${percent}%`;

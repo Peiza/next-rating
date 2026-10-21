@@ -16,13 +16,18 @@ export interface TopResult<T extends RoundInput> {
   high: number | null;
 }
 
+export interface TopOptions {
+  /** Manual rounds count too, as the user's own. */
+  own?: boolean;
+}
+
 /**
  * A round the Top 8 can take: a rated official or unofficial round. Every
- * one counts, also one the prediction drops as an outlier. DNF and manual
- * rounds do not.
+ * one counts, also one the prediction drops as an outlier. DNF rounds do
+ * not, and manual rounds only with `own`.
  */
-export function isTopRound(round: RoundInput): boolean {
-  return !round.dnf && round.rating !== null && round.source !== 'manual';
+export function isTopRound(round: RoundInput, { own = false }: TopOptions = {}): boolean {
+  return !round.dnf && round.rating !== null && (own || round.source !== 'manual');
 }
 
 /**
@@ -34,11 +39,13 @@ export function topRounds<T extends RoundInput>(
   rounds: readonly T[],
   from: PlainDate,
   to: PlainDate,
+  options: TopOptions = {},
 ): TopResult<T> {
   const rated = rounds
     .map((round, index) => ({ round, index }))
     .filter(
-      ({ round }) => isTopRound(round) && compareDates(round.date, from) >= 0 && compareDates(round.date, to) <= 0,
+      ({ round }) =>
+        isTopRound(round, options) && compareDates(round.date, from) >= 0 && compareDates(round.date, to) <= 0,
     )
     .sort(
       (a, b) =>

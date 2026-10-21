@@ -245,7 +245,8 @@ manual per-page fallback.
      and rating, highest first.
    - Count every rated round: official rounds from the details page and
      unofficial rounds from imported events. No tier filter and no hole
-     weighting. DNF and manual rounds do not count.
+     weighting. DNF and manual rounds do not count (manual rounds can be
+     switched on since Phone polish, point 4).
    - Period: by default the current calendar year, following today's date (as
      GMS does). A switch offers instead exactly the window the rating
      prediction uses, with the same anchor (the most recent rated round) and
@@ -415,6 +416,61 @@ Built as (docs/plan-target-date.md):
   or "No rounds leave the window by …". The hint follows the date field as
   it changes.
 
+## Phone polish and Top 8 with own rounds
+Spec:
+1. Players page: the same space above and below the "Edit list" button, and
+   less space between the add-by-number form and the name search.
+2. Back button: opening How it works, the setup page or the players panel
+   adds a history entry with the same address (no fragment, no path
+   change), so the phone's back gesture or button closes it and returns to
+   where you were, instead of leaving the app.
+3. Top bar on phones: Settings, How it works and the setup page show their
+   title on the left of the top bar, next to the Players button, instead of
+   a separate heading line below it.
+4. Top 8: a switch "Include my own rounds", off by default and remembered.
+   When it is on, manual rounds count in the Top 8, are marked as my own,
+   and their years appear in the year list.
+5. Year boundary: the profile page lists only the current season, so in
+   early January the bookmarklet misses a December event that is not rated
+   yet. The profile's season tabs link to earlier seasons
+   (/player/<nr>/stats/<year>), so from 1 January until the January update
+   the bookmarklet also fetches the previous season, keeping the requests
+   few.
+
+Built as (docs/plan-phone-polish.md):
+- Edit list has 1rem above and below it; in the players panel an empty
+  status line takes no space, so the add form and the name search are one
+  field gap apart.
+- `history.state` says which layers an entry shows: `{ nextRating: 1,
+  overlay, menu, depth }` (src/app/layers.ts, validated, since any page at
+  the address can set it). Opening one pushes an entry; popstate shows the
+  entry's layers, with focus on the opener when one closes. The app's own
+  Back, Close and Escape go back over the entry too (`depth` > 0), so no
+  entries pile up; picking a player, switching tab or an import banner goes
+  back over all of them. A fresh load on an entry shows its layer, so back
+  from pdga.com without the page kept in memory still lands right.
+- The phone top bar's h1 holds the view's title (focused when the view
+  opens on a phone); the view's own h1 shows from 64rem only, as on the
+  Rating tab.
+- `topRounds` and `isTopRound` take `{ own }`. The checkbox sits under the
+  period select, only when the player has a rated manual round. Stored with
+  the settings as `top8Own`, the same for every player. A manual round reads
+  "Own" in place of the round label, with its event name or "Own round", no
+  link.
+- `previousSeasonPath` in src/bookmarklet/collect.ts: on the device's date
+  from 1 January to the second Tuesday of January (inclusive), and only when
+  the profile's `.year-link` tabs link to /player/<nr>/stats/<year - 1>.
+  One extra request before the event pages, through the same fetch rules;
+  `newEventIds` takes both seasons. The season page is sent cut to its
+  results tables (page kind `season`, so `MAX_PAGES` is 13), and the app
+  adds its events to the profile events, so a December X-tier event keeps
+  its mark. Bookmarklet 1.1.0, 4743 bytes. Checked against a saved profile
+  and a saved previous-season page (`season` in expected.json; the tests
+  are skipped without it): the season page has the same results tables as
+  the profile, so the profile's extractor and selector read it unchanged, and
+  a January run on the saved pages fetches the season, sends only its tables
+  and fetches no event already older than the rated rounds.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -455,3 +511,4 @@ Built in this order:
   top bar and closed-card header feedback (done)
 - Target date: a date in the target calculator (docs/plan-target-date.md)
   (done)
+- Phone polish and Top 8 with own rounds (docs/plan-phone-polish.md) (done)

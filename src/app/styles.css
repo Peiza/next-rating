@@ -738,6 +738,13 @@ a {
 }
 
 /* From and to side by side; both date fields fit at 320 px. */
+/* "Include my own rounds", a .check on its own between the period and the card. */
+.top8-own {
+  align-items: center;
+  margin: -0.5rem 0 0.5rem;
+  border-bottom: none;
+}
+
 .top8-range {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1118,6 +1125,26 @@ a {
   list-style: none;
   margin: 0.5rem 0 1rem;
   padding: 0;
+}
+
+/* The same 1rem above and below Edit list: the list's bottom margin, then its own. */
+.players-edit {
+  display: flex;
+  width: fit-content;
+  margin: 0 0 1rem;
+}
+
+.players-unsaved {
+  margin: 1rem 0 0.5rem;
+}
+
+/*
+ * An empty status line takes no space in the panel, so the add form and the
+ * name search sit one field gap apart; a message pushes the search down.
+ */
+.favorites .status:empty {
+  min-height: 0;
+  margin: 0;
 }
 
 .player-item {

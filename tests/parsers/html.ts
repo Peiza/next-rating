@@ -73,6 +73,14 @@ export function profileTable(division: string, rows: string): string {
     <th class="dates">Dates</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+/** The profile's season tabs: the current season links to the profile, earlier ones to their results pages. */
+export function yearLinks(pdgaNumber: string, current: number, earlier: number[]): string {
+  const tab = (href: string, year: number) => `<li><a href="${href}">${year}</a></li>`;
+  return `<div class="year-link"><div class="item-list"><ul class="tabs secondary">${tab(`/player/${pdgaNumber}`, current)}${earlier
+    .map((year) => tab(`/player/${pdgaNumber}/stats/${year}`, year))
+    .join('')}</ul></div></div>`;
+}
+
 export function profileRow(eventId: string, division: string, date: string): string {
   return `<tr><td class="place">3</td><td class="tournament"><a href="/tour/event/${eventId}#${division}">Example Open</a></td>
     <td class="tier">B</td><td class="dates">${date}</td></tr>`;

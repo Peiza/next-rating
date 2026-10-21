@@ -103,7 +103,8 @@ today, or than the newest stored round when that is later.
 The Top 8 card on the Rating tab is laid out like a Global Masters Series
 player card, for any player: the sum, average and highest of the player's 8
 highest rated rounds, then those rounds. Official and unofficial rounds
-count; manual rounds and DNF rounds do not. The period is picked from one
+count, and your own (manual) rounds when you tick "Include my own rounds";
+they show as "Own". DNF rounds never count. The period is picked from one
 list: any calendar year the player has rated rounds in (the current year by
 default), the same window the prediction uses, or a custom range of dates.
 The app remembers the choice.
@@ -153,6 +154,10 @@ Run it on your ratings details page or player page on pdga.com. It:
   pages of recent events that are not in your ratings details yet: at most
   12 requests, one at a time, about a second apart, in your own browser
   session;
+- from 1 January until the January ratings update, also fetches your
+  previous season's results (one more request), since your player page then
+  lists only the new season and a December event not rated yet would be
+  missed;
 - sends the app only the HTML of the tables it needs (from event pages, only
   your own rows) in the address fragment, which is never sent to any server;
 - never reads cookies, stored data or form fields, and never loads code from

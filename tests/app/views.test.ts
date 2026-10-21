@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el, textWithNodes } from '../../src/app/dom';
 import type { StoredImport } from '../../src/app/import';
-import { buildModel } from '../../src/app/model';
+import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
 import { ratingView } from '../../src/app/views/rating';
@@ -596,7 +596,7 @@ describe('rating tab cards', () => {
       onAskClear: vi.fn(),
       onClear: vi.fn(),
     };
-    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
     return ratingView({ model, manual, target, top8, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
@@ -701,14 +701,48 @@ describe('top 8 panel', () => {
       top: topEight(model, props.top?.period ?? THIS_YEAR, '2026-10-04'),
       today: '2026-10-04',
       onPeriod: vi.fn(),
+      onOwn: vi.fn(),
       ...props,
     };
     return ratingView({ model, top8, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
+  it('offers the own rounds switch only with a manual round, and marks own rounds when they count', () => {
+    expect(page().querySelector('#top8-own')).toBeNull();
+    const manual = manualToRounds([
+      { id: 'a', rating: 1060, date: '2026-09-01', eventName: 'Practice league', holes: null },
+      { id: 'b', rating: 1055, date: '2026-09-02', eventName: '', holes: null },
+    ]);
+    const model = buildModel(stored, 100001, NOW, manual);
+    const onOwn = vi.fn();
+    const view = (own: boolean) =>
+      ratingView({
+        model,
+        top8: { top: topEight(model, THIS_YEAR, '2026-10-04', own), today: '2026-10-04', onPeriod: vi.fn(), onOwn },
+        cards: ALL_OPEN,
+        favorite: true,
+        now: NOW,
+        onAddFavorite: vi.fn(),
+      });
+    const off = view(false);
+    const box = off.querySelector<HTMLInputElement>('#top8-own')!;
+    expect(box.checked).toBe(false);
+    expect(off.querySelector('label[for="top8-own"]')!.textContent).toBe('Include my own rounds');
+    expect(off.querySelector('.top8-row-own')).toBeNull();
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    expect(onOwn).toHaveBeenCalledWith(true);
+
+    const on = view(true);
+    expect(on.querySelector<HTMLInputElement>('#top8-own')!.checked).toBe(true);
+    const own = [...on.querySelectorAll('.top8-row-own')];
+    expect(own.map((row) => row.textContent)).toEqual(['OwnPractice league1060', 'OwnOwn round1055']);
+    expect(own[0]!.querySelector('a')).toBeNull();
+  });
+
   it('is a card right before Statistics, closed by default', () => {
     const model = buildModel(stored, 100001, NOW);
-    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
     const view = ratingView({ model, top8, favorite: true, now: NOW, onAddFavorite: vi.fn() });
     const card = view.querySelector('#top8')!;
     expect(card.querySelector('#top8-toggle')!.getAttribute('aria-expanded')).toBe('false');
@@ -816,7 +850,7 @@ describe('top 8 panel', () => {
   describe('header while closed', () => {
     function teaser(period: TopPeriod, data = stored) {
       const model = buildModel(data, 100001, NOW);
-      const top8 = { top: topEight(model, period, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+      const top8 = { top: topEight(model, period, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
       const view = ratingView({ model, top8, cards: DEFAULT_CARDS, favorite: true, now: NOW, onAddFavorite: vi.fn() });
       return view.querySelector('#top8 .card-teaser')?.textContent;
     }
@@ -1353,7 +1387,7 @@ describe('how it works', () => {
       events: [rawEvent()],
     };
     const model = buildModel(stored, 100001, NOW);
-    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn() };
+    const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
     const onGuide = vi.fn();
     const view = ratingView({ model, top8, cards: ALL_OPEN, onGuide, favorite: true, now: NOW, onAddFavorite: vi.fn() });
     const links = [...view.querySelectorAll<HTMLButtonElement>('.card-intro .link-button')];

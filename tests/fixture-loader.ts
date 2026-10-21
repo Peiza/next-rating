@@ -44,6 +44,11 @@ export interface Expected {
     finals: { eventIds: number[]; round: number };
   };
   profile: { events: number };
+  /**
+   * A saved previous-season results page (/player/<nr>/stats/<year>) of the
+   * same player, optional: its file, year and number of events.
+   */
+  season?: { file: string; year: number; events: number };
   eventRated: ExpectedEvent;
   eventUnofficial: ExpectedEvent & {
     rowsWithoutPdgaNumber: number;
@@ -74,6 +79,13 @@ function load(): Fixtures | null {
 
 /** The fixtures, or null when they are not available (as in CI). */
 export const fixtures = load();
+
+/** The previous-season page from expected.json with its HTML, or null when it is not saved. */
+export function seasonFixture(): { year: number; events: number; html: string } | null {
+  const season = fixtures?.expected.season;
+  if (!season || !existsSync(join(DIR, season.file))) return null;
+  return { year: season.year, events: season.events, html: readFileSync(join(DIR, season.file), 'utf8') };
+}
 
 export interface LoadedPlayer {
   label: string;

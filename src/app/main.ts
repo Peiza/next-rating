@@ -7,6 +7,7 @@ import { el } from './dom';
 import { readPages } from './handoff';
 import { today } from './format';
 import { takeFragment } from './import';
+import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
 import { buildModel, manualToRounds, type Model } from './model';
 import {
   addFavorite,
@@ -66,6 +67,7 @@ import {
   playerButtonId,
   playerLabel,
   playersPanel,
+  TOPBAR_TITLE_ID,
   topBar,
   WIDE_QUERY,
 } from './views/players';
@@ -111,7 +113,7 @@ let banner: Banner | null = null;
  * The bookmarklet setup or How it works shows over the current tab, and the
  * id of what opened it gets focus back.
  */
-let overlay: { view: 'setup' | 'guide'; opener: string } | null = null;
+let overlay: { view: OverlayView; opener: string } | null = null;
 /** The kind of browser the setup shows steps for: guessed from the device, then as picked. */
 let setupPlatform: Platform | null = null;
 /** On phones, the players panel shows in place of the current view. */
@@ -213,10 +215,67 @@ function isWide(): boolean {
   return window.matchMedia?.(WIDE_QUERY).matches ?? false;
 }
 
+/*
+ * Opening the players panel, the setup or How it works adds a history entry
+ * with the same address, so the phone's back gesture closes it (layers.ts).
+ * Closing from the app goes back over that entry too, and the popstate
+ * handler shows the entry under it.
+ */
+
+/** The history depth of the current entry: how many layer entries the app added under it. */
+function historyDepth(): number {
+  return readLayers(history.state).depth;
+}
+
+/** Adds a history entry for the layers now shown, with the same address. */
+function pushLayers(): void {
+  const layers: Layers = { overlay: overlay?.view ?? null, menu: menuOpen, depth: historyDepth() + 1 };
+  history.pushState(layersState(layers), '', location.pathname + location.search);
+}
+
+/**
+ * Closes the top layer from the app: back over its entry when the app added
+ * it, and the popstate handler shows what is under it. Returns false when
+ * there is no such entry, and the caller closes it in place.
+ */
+function popLayer(): boolean {
+  if (historyDepth() === 0) return false;
+  history.back();
+  return true;
+}
+
+/** After closing every layer at once: leaves the entries the app added. Their popstate finds nothing to change. */
+function unwindLayers(): void {
+  const depth = historyDepth();
+  if (depth > 0) history.go(-depth);
+}
+
+/** Shows the layers of a history entry, as after the back gesture, with focus where it makes sense. */
+function showLayers(next: Layers): void {
+  const before: Layers = { overlay: overlay?.view ?? null, menu: menuOpen, depth: 0 };
+  if (sameLayers(before, next)) return;
+  let focusId: string | undefined;
+  if (before.menu && !next.menu) focusId = MENU_BUTTON_ID;
+  else if (next.menu) focusId = PANEL_TITLE_ID;
+  else if (next.overlay === null) focusId = overlay?.opener ?? `tab-${tab}`;
+  else focusId = overlayTitleId(next.overlay);
+  if (before.menu !== next.menu) {
+    editingPlayers = false;
+    confirmRemove = null;
+  }
+  menuOpen = next.menu;
+  if (next.overlay === null) overlay = null;
+  else if (overlay?.view !== next.overlay) overlay = { view: next.overlay, opener: `tab-${tab}` };
+  render(focusId);
+  if (focusId !== overlay?.opener) window.scrollTo(0, 0);
+}
+
 function toggleMenu(): void {
+  if (menuOpen && popLayer()) return;
   menuOpen = !menuOpen;
   editingPlayers = false;
   confirmRemove = null;
+  if (menuOpen) pushLayers();
   render(menuOpen ? PANEL_TITLE_ID : MENU_BUTTON_ID);
   window.scrollTo(0, 0);
 }
@@ -234,6 +293,7 @@ function selectPlayer(pdgaNumber: number): void {
   banner = null;
   menuOpen = false;
   confirmRemove = null;
+  unwindLayers();
   render(isWide() ? playerButtonId(pdgaNumber) : MENU_BUTTON_ID);
   window.scrollTo(0, 0);
 }
@@ -360,6 +420,12 @@ function setTop8Period(top8Period: TopPeriod): void {
   render();
 }
 
+/** Stores whether the Top 8 counts manual rounds; focus stays on the checkbox. */
+function setTop8Own(top8Own: boolean): void {
+  store.update({ top8Own });
+  render();
+}
+
 /** Focus goes to the answer, so a phone keyboard closes and a screen reader reads it. */
 function calculate(query: TargetQuery): void {
   targetQuery = query;
@@ -389,6 +455,7 @@ function selectTab(next: Tab): void {
   tab = next;
   overlay = null;
   menuOpen = false;
+  unwindLayers();
   render(`tab-${next}`);
   window.scrollTo(0, 0);
 }
@@ -418,26 +485,38 @@ function eventAddedBanner(routed: Routed): Banner {
   };
 }
 
-function openSetup(): void {
-  overlay = { view: 'setup', opener: document.activeElement?.id || `tab-${tab}` };
+/** The heading that gets focus when a view opens: in the top bar on phones, where the view's own is hidden. */
+function overlayTitleId(view: OverlayView): string {
+  if (!isWide()) return TOPBAR_TITLE_ID;
+  return view === 'setup' ? SETUP_ID : GUIDE_ID;
+}
+
+/** Shows the setup or How it works over the current tab, as a new history entry. */
+function openOverlay(view: OverlayView): void {
+  overlay = { view, opener: document.activeElement?.id || `tab-${tab}` };
   menuOpen = false;
-  render(SETUP_ID);
+  pushLayers();
+}
+
+function openSetup(): void {
+  openOverlay('setup');
+  render(overlayTitleId('setup'));
   window.scrollTo(0, 0);
 }
 
 /** Opens How it works, at a section when a card asks for one: focus on its heading scrolls it into view. */
 function openGuide(section?: GuideSection): void {
-  overlay = { view: 'guide', opener: document.activeElement?.id || `tab-${tab}` };
-  menuOpen = false;
+  openOverlay('guide');
   if (section) {
     render(guideSectionId(section));
   } else {
-    render(GUIDE_ID);
+    render(overlayTitleId('guide'));
     window.scrollTo(0, 0);
   }
 }
 
 function closeOverlay(): void {
+  if (popLayer()) return;
   const opener = overlay?.opener;
   overlay = null;
   render(opener ?? `tab-${tab}`);
@@ -449,6 +528,7 @@ function showBanner(next: Banner): void {
   tab = 'rating';
   overlay = null;
   menuOpen = false;
+  unwindLayers();
   render(BANNER_ID);
   window.scrollTo(0, 0);
 }
@@ -572,9 +652,10 @@ function currentView(): HTMLElement {
         onCalculate: calculate,
       },
       top8: {
-        top: topEight(model, data.top8Period, today(now)),
+        top: topEight(model, data.top8Period, today(now), data.top8Own),
         today: today(now),
         onPeriod: setTop8Period,
+        onOwn: setTop8Own,
       },
       manual: {
         rounds: player.manualRounds,
@@ -614,6 +695,13 @@ function ratingPlayer(): { name: string; pdgaNumber: number } | null {
   return { name: playerName(player), pdgaNumber: player.pdgaNumber };
 }
 
+/** The heading of a view other than the Rating tab, which the phone top bar shows in its place. */
+function barTitle(): string | null {
+  if (overlay?.view === 'guide') return t('guide.title');
+  if (overlay?.view === 'setup') return t('setup.title');
+  return tab === 'settings' ? t('settings.title') : null;
+}
+
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
@@ -621,7 +709,7 @@ function render(focusId = document.activeElement?.id): void {
     el(
       'div',
       { class: menuOpen ? 'shell menu-open' : 'shell' },
-      topBar({ open: menuOpen, onToggle: toggleMenu, player: ratingPlayer() }),
+      topBar({ open: menuOpen, onToggle: toggleMenu, player: ratingPlayer(), title: barTitle() }),
       playersPanel({
         players: data.players,
         me: data.me,
@@ -685,6 +773,14 @@ window.addEventListener('hashchange', () => {
   const payload = takeFragment();
   if (payload !== null) void receiveHandoff(payload);
 });
+
+// The back gesture, or the app going back over a layer it closed.
+window.addEventListener('popstate', () => showLayers(readLayers(history.state)));
+
+// A fresh load on an entry with a layer, as back from pdga.com without the page kept in memory, shows that layer.
+const restored = readLayers(history.state);
+menuOpen = restored.menu;
+overlay = restored.overlay && { view: restored.overlay, opener: `tab-${tab}` };
 
 const payload = takeFragment();
 applyTheme();

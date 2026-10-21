@@ -1,4 +1,5 @@
-export type PageKind = 'details' | 'profile' | 'event' | 'challenge' | 'unknown';
+/** A season is a player's results of an earlier year, which the profile links to (/player/<nr>/stats/<year>). */
+export type PageKind = 'details' | 'profile' | 'season' | 'event' | 'challenge' | 'unknown';
 
 /**
  * Tells which kind of pdga.com page a document is, from its URL. Without a
@@ -18,6 +19,7 @@ export function detectPage(doc: Document, url?: string): PageKind {
   const path = match?.[1] ?? '';
   if (/^\/player\/\d+\/details\/?$/.test(path)) return 'details';
   if (/^\/player\/\d+\/?$/.test(path)) return 'profile';
+  if (/^\/player\/\d+\/stats\/\d{4}\/?$/.test(path)) return 'season';
   if (/^\/tour\/event\/\d+\/?$/.test(path)) return 'event';
   return 'unknown';
 }

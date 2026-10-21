@@ -96,7 +96,8 @@ export function guideView({ onBack }: GuideProps): HTMLElement {
   return el(
     'section',
     { class: 'view guide', 'aria-labelledby': GUIDE_ID },
-    el('h1', { id: GUIDE_ID, tabindex: -1 }, t('guide.title')),
+    // On phones the top bar shows the heading instead, so only one h1 shows.
+    el('h1', { id: GUIDE_ID, class: 'wide-only', tabindex: -1 }, t('guide.title')),
     ...GUIDE_SECTIONS.map((section) =>
       el(
         'section',

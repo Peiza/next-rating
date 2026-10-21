@@ -13,6 +13,10 @@ export type { TopPeriod };
 
 export interface TopEight {
   period: TopPeriod;
+  /** Whether the user's own (manual) rounds count. */
+  own: boolean;
+  /** Whether the player has a rated manual round, so the switch for them matters. */
+  hasOwn: boolean;
   /** The year of today, which a year period without a year follows. */
   currentYear: number;
   /** The calendar year shown, or null for the window or a custom range. */
@@ -31,10 +35,10 @@ function yearOf(date: PlainDate): number {
   return Number(date.slice(0, 4));
 }
 
-/** The years the period select offers, newest first. */
-export function periodYears(model: Model, period: TopPeriod, today: PlainDate): number[] {
+/** The years the period select offers, newest first. With `own`, manual rounds add their years. */
+export function periodYears(model: Model, period: TopPeriod, today: PlainDate, own = false): number[] {
   const years = new Set([yearOf(today)]);
-  for (const round of model.rounds) if (isTopRound(round)) years.add(yearOf(round.date));
+  for (const round of model.rounds) if (isTopRound(round, { own })) years.add(yearOf(round.date));
   if (period.kind === 'year' && period.year !== null) years.add(period.year);
   return [...years].sort((a, b) => b - a);
 }
@@ -44,9 +48,10 @@ export function periodYears(model: Model, period: TopPeriod, today: PlainDate): 
  * December, so the current one also counts unofficial rounds after the
  * report deadline. The window is exactly the prediction's, so those rounds
  * fall outside it, and a manual round can be its anchor while not being
- * listed. A custom range takes both dates as they are.
+ * listed. A custom range takes both dates as they are. With `own`, manual
+ * rounds count too.
  */
-export function topEight(model: Model, period: TopPeriod, today: PlainDate): TopEight {
+export function topEight(model: Model, period: TopPeriod, today: PlainDate, own = false): TopEight {
   const currentYear = yearOf(today);
   const { windowMonths: months, windowStart: start, windowEnd: end } = model.prediction.stats;
   const window = months !== null && start !== null && end !== null ? { months, start, end } : null;
@@ -58,6 +63,7 @@ export function topEight(model: Model, period: TopPeriod, today: PlainDate): Top
         ? { start: period.from, end: period.to }
         : window;
   // Without a window there is no rated round to list.
-  const result = topRounds(range ? model.rounds : [], range?.start ?? today, range?.end ?? today);
-  return { period, currentYear, year, years: periodYears(model, period, today), window, result };
+  const result = topRounds(range ? model.rounds : [], range?.start ?? today, range?.end ?? today, { own });
+  const hasOwn = model.rounds.some((round) => round.source === 'manual' && isTopRound(round, { own: true }));
+  return { period, own, hasOwn, currentYear, year, years: periodYears(model, period, today, own), window, result };
 }
