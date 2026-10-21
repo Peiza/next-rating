@@ -100,6 +100,18 @@ const TITLES: Record<Platform, MessageKey> = {
   computer: 'setup.computer.title',
 };
 
+/** A line under the heading, for the platforms that need one. */
+const NOTES: Partial<Record<Platform, MessageKey>> = {
+  iphone: 'setup.iphone.note',
+};
+
+/** "If it doesn't work": the chosen platform's items come before the ones for every browser. */
+const TROUBLE_FOR: Record<Platform, MessageKey[]> = {
+  iphone: ['setup.trouble.iphoneScript'],
+  android: ['setup.trouble.androidTested'],
+  computer: [],
+};
+
 const TROUBLE: MessageKey[] = ['setup.trouble.address', 'setup.trouble.browsers', 'setup.trouble.homeScreen', 'setup.trouble.check'];
 
 function step(title: MessageKey, ...body: Child[]): HTMLElement {
@@ -152,6 +164,9 @@ function copyStep(bookmarklet: string): HTMLElement {
 /** The bookmarklet code with a copy button, and numbered steps to install and try it in the chosen browser. */
 export function setupView({ bookmarklet, stored, pdgaNumber, platform, onPlatform, onBack }: SetupProps): HTMLElement {
   const steps = STEPS[platform];
+  const note = NOTES[platform];
+  // The page title while the setup shows (main.ts), so a bookmark made here already has this name.
+  const name = t('setup.bookmarkName');
   return el(
     'section',
     { class: 'view', 'aria-labelledby': SETUP_ID },
@@ -162,21 +177,22 @@ export function setupView({ bookmarklet, stored, pdgaNumber, platform, onPlatfor
     el('p', {}, t('setup.reads')),
     segmented('setup.platform', 'platform', PLATFORM_OPTIONS, platform, onPlatform),
     el('h2', { id: 'setup-steps-title' }, t(TITLES[platform])),
+    note && el('p', { id: 'setup-note', class: 'hint' }, t(note)),
     el(
       'ol',
       { id: 'setup-steps', class: 'steps', 'aria-labelledby': 'setup-steps-title' },
       copyStep(bookmarklet),
       ...steps.map(([title, how], i) =>
         i === steps.length - 1
-          ? step(title, el('p', {}, t(how)), detailsLink(pdgaNumber), el('p', { class: 'hint' }, t('setup.tryResult')))
-          : step(title, el('p', {}, t(how))),
+          ? step(title, el('p', {}, t(how, { name })), detailsLink(pdgaNumber), el('p', { class: 'hint' }, t('setup.tryResult')))
+          : step(title, el('p', {}, t(how, { name }))),
       ),
     ),
     el(
       'details',
       { id: 'setup-trouble', class: 'trouble' },
       el('summary', {}, t('setup.trouble.title')),
-      el('ul', { class: 'links' }, ...TROUBLE.map((key) => el('li', {}, t(key)))),
+      el('ul', { class: 'links' }, ...[...TROUBLE_FOR[platform], ...TROUBLE].map((key) => el('li', {}, t(key)))),
     ),
     el('button', { id: 'setup-back', class: 'button button-block', type: 'button', onclick: onBack }, t('setup.back')),
   );

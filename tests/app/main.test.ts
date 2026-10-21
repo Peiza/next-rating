@@ -147,10 +147,29 @@ describe('app start', () => {
     expect(document.querySelector<HTMLInputElement>('#platform-computer')!.checked).toBe(true);
     document.getElementById('platform-android')!.click();
     expect(document.activeElement?.id).toBe('platform-android');
-    expect(document.querySelector('#setup-steps-title')!.textContent).toBe('Chrome on Android');
+    expect(document.querySelector('#setup-steps-title')!.textContent).toBe('Android browsers');
     await clickBack('setup-back');
     expect(document.getElementById('bookmarklet-code')).toBeNull();
     expect(document.activeElement?.id).toBe('open-setup');
+  });
+
+  it('names the page after the bookmarklet while the setup shows, so a bookmark made there gets that name', async () => {
+    await start('/next-rating/');
+    expect(document.title).toBe('Next Rating');
+    document.getElementById('open-setup')!.click();
+    expect(document.title).toBe('Next Rating: get data');
+    await clickBack('setup-back');
+    expect(document.title).toBe('Next Rating');
+    // The back gesture restores it too, and Swedish has its own name.
+    document.getElementById('tab-settings')!.click();
+    const language = document.getElementById('language') as HTMLSelectElement;
+    language.value = 'sv';
+    language.dispatchEvent(new Event('change'));
+    document.getElementById('open-setup')!.click();
+    expect(document.title).toBe('Next Rating: hämta data');
+    await goBack();
+    expect(document.getElementById('bookmarklet-code')).toBeNull();
+    expect(document.title).toBe('Next Rating');
   });
 
   it('adds a history entry with the same address for each page opened over the tab, which the back gesture closes', async () => {
