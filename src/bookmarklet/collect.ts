@@ -25,22 +25,21 @@ export const REQUEST_GAP = 1000;
 
 export type ContentKind = 'details' | 'profile' | 'season' | 'history' | 'event';
 
-/** The main content of each kind of page. Without it, or for a kind not listed, the whole body is sent. */
-const MAIN: Record<ContentKind, string> = {
-  details: '#player-results-details',
-  profile: 'table[id^="player-results-"]',
-  season: 'table[id^="player-results-"]',
-  history: '#player-results-history',
-  event: '.leaderboard',
-};
+/** The player's results tables, on both player pages and a season. */
+const RESULTS = 'table[id^="player-results-"]';
 
-/** The other parts the extractors read. Hole counts sit in .tooltip-templates, inside .leaderboard on event pages. */
-const PARTS: Record<ContentKind, string> = {
-  details: '.current-rating,.tooltip-templates',
-  profile: '.current-rating',
-  season: '#page-title',
-  history: '.current-rating',
-  event: '.tournament-date',
+/**
+ * For each kind of page: its main content, and the other parts the
+ * extractors read. Without the main content, or for a kind not listed, the
+ * whole body is sent. Hole counts sit in .tooltip-templates, inside
+ * .leaderboard on event pages.
+ */
+const PARTS: Record<ContentKind, [main: string, parts: string]> = {
+  details: ['#player-results-details', '.current-rating,.tooltip-templates'],
+  profile: [RESULTS, '.current-rating'],
+  season: [RESULTS, '#page-title'],
+  history: ['#player-results-history', '.current-rating'],
+  event: ['.leaderboard', '.tournament-date'],
 };
 
 /**
@@ -69,8 +68,6 @@ export function isChallenge(doc: Document): boolean {
   return /^just a moment/i.test(doc.title.trim()) || !!doc.querySelector('#challenge-form,script[src*="challenge-platform"]');
 }
 
-/** The player's results rows, on both player pages. */
-const RESULT_ROWS = 'table[id^="player-results-"] tr';
 
 const MONTHS = 'janfebmaraprmayjunjulaugsepoctnovdec';
 
@@ -94,10 +91,10 @@ export interface CollectDeps {
  * is never changed.
  */
 export function pageHtml(doc: Document, kind: PageKind): string {
-  const main = MAIN[kind as ContentKind];
+  const [main, others] = PARTS[kind as ContentKind] ?? [];
   let parts: (Element | null)[];
   if (main && doc.querySelector(main)) {
-    parts = [...doc.querySelectorAll(`link[rel=canonical],#page-title,${PARTS[kind as ContentKind]},${main}`)];
+    parts = [...doc.querySelectorAll(`link[rel=canonical],#page-title,${others},${main}`)];
   } else {
     const body = doc.implementation.createHTMLDocument('').importNode(doc.body, true);
     for (const element of body.querySelectorAll('script,style')) element.remove();
@@ -118,7 +115,7 @@ export function dateKey(text: string): number {
 
 /** Event ids and dates from the rows of a player page's results tables. */
 function eventRows(doc: Document): [string, number][] {
-  return [...doc.querySelectorAll(RESULT_ROWS)].flatMap((row): [string, number][] => {
+  return [...doc.querySelectorAll(`${RESULTS} tr`)].flatMap((row): [string, number][] => {
     const id = /\/tour\/event\/(\d+)/.exec(row.querySelector('a[href*="/tour/event/"]')?.getAttribute('href') ?? '')?.[1];
     return id ? [[id, dateKey(row.textContent ?? '')]] : [];
   });
@@ -236,7 +233,7 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
           }
         }
         // Without a readable details table, every event would look new.
-        const ids = details.querySelector(MAIN.details) ? newEventIds(details, ...seasons) : [];
+        const ids = details.querySelector(PARTS.details[0]) ? newEventIds(details, ...seasons) : [];
         planned += ids.length;
         for (const id of ids) {
           const eventPath = `/tour/event/${id}`;
