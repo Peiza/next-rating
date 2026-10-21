@@ -848,6 +848,32 @@ function barTitle(): string {
   return tab === 'settings' ? t('settings.title') : t('app.name');
 }
 
+/** Touch screens, where focusing a select or a date field opens its picker (iOS opens it again after a choice). */
+const TOUCH_QUERY = '(pointer: coarse)';
+
+function opensPicker(element: HTMLElement): boolean {
+  return element instanceof HTMLSelectElement || (element instanceof HTMLInputElement && element.type === 'date');
+}
+
+/**
+ * Puts focus on the element with this id. On a touch screen a select or date
+ * field gets a stand-in near it that opens no picker, so a screen reader stays
+ * there: its card's header, the full-screen chart's heading, or the view's.
+ */
+function restoreFocus(focusId: string): void {
+  const target = document.getElementById(focusId);
+  if (!target) return;
+  if (!opensPicker(target) || !(window.matchMedia?.(TOUCH_QUERY).matches ?? false)) {
+    target.focus();
+    return;
+  }
+  const standIn =
+    target.closest('.card')?.querySelector<HTMLElement>('.card-toggle') ??
+    target.closest('.chart-full')?.querySelector<HTMLElement>(`#${CHART_FULL_TITLE_ID}`) ??
+    document.getElementById(isWide() ? 'view-title' : TOPBAR_TITLE_ID);
+  standIn?.focus();
+}
+
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
@@ -895,7 +921,7 @@ function render(focusId = document.activeElement?.id): void {
   flash = null;
   addFlash = null;
   manualFlash = null;
-  if (focusId) document.getElementById(focusId)?.focus();
+  if (focusId) restoreFocus(focusId);
 }
 
 window.addEventListener('languagechange', () => {

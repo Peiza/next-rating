@@ -662,6 +662,50 @@ describe('app start', () => {
     expect(select().value).toBe('window');
   });
 
+  it('on a touch screen, puts focus near a select after a choice instead of on it, so iOS does not open it again', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        cards: { chart: true, top8: true },
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    const choose = (id: string, value: string) => {
+      const select = document.querySelector<HTMLSelectElement>(`#${id}`)!;
+      select.focus();
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+    };
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(pointer: coarse)' }));
+    try {
+      await start('/next-rating/');
+      choose('chart-period', 'window');
+      expect(document.activeElement?.id).toBe('chart-toggle');
+      choose('top8-period', 'custom');
+      expect(document.activeElement?.id).toBe('top8-toggle');
+      // A custom range's dates open a picker too.
+      const from = document.querySelector<HTMLInputElement>('#top8-from')!;
+      from.focus();
+      from.value = '2026-01-01';
+      from.dispatchEvent(new Event('change'));
+      expect(stored().top8Period).toMatchObject({ kind: 'custom', from: '2026-01-01' });
+      expect(document.activeElement?.id).toBe('top8-toggle');
+      document.getElementById('tab-settings')!.click();
+      choose('language', 'sv');
+      expect(document.activeElement?.id).toBe('topbar-title');
+      choose('date-format', 'year');
+      expect(document.activeElement?.id).toBe('topbar-title');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    // With a mouse or keyboard, focus stays on the select.
+    await start('/next-rating/');
+    choose('chart-period', 'recent');
+    expect(document.activeElement?.id).toBe('chart-period');
+  });
+
   it('opens the chart full screen as a history entry, which Close or back closes', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(
