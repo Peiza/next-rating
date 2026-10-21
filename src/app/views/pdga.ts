@@ -107,6 +107,53 @@ export function pdgaNumberForm(
   );
 }
 
+export interface NameSearchOptions {
+  /** The input's id; the hint, button and status take ids derived from it. */
+  id: string;
+  label: MessageKey;
+  hint: MessageKey;
+}
+
+/** Opens pdga.com's player search for a typed name, through onSearch with its URL. */
+export function nameSearchForm(onSearch: (url: string) => void, { id, label, hint }: NameSearchOptions): HTMLFormElement {
+  const statusId = `${id}-status`;
+  const input = el('input', {
+    id,
+    class: 'input',
+    type: 'search',
+    autocomplete: 'off',
+    enterkeyhint: 'search',
+    maxlength: 100,
+    'aria-describedby': `${id}-hint ${statusId}`,
+  });
+  const status = el('p', { id: statusId, class: 'status', role: 'status' });
+  const submit = (event: Event) => {
+    event.preventDefault();
+    const url = playerSearchUrl(input.value);
+    if (url === null) {
+      input.setAttribute('aria-invalid', 'true');
+      status.classList.add('error');
+      status.textContent = t('players.searchEmpty');
+      input.focus();
+      return;
+    }
+    onSearch(url);
+  };
+  return el(
+    'form',
+    { class: 'field', novalidate: true, onsubmit: submit },
+    el('label', { for: id, class: 'label' }, t(label)),
+    el('p', { id: `${id}-hint`, class: 'hint' }, t(hint)),
+    el(
+      'div',
+      { class: 'row' },
+      input,
+      el('button', { id: `${id}-submit`, class: 'button', type: 'submit' }, t('players.search')),
+    ),
+    status,
+  );
+}
+
 /** Opens the player's ratings details on pdga.com; disabled until there is a number. */
 export function detailsLink(pdgaNumber: number | null): HTMLElement {
   if (pdgaNumber === null) {

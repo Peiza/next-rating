@@ -624,6 +624,33 @@ Built as (docs/plan-chart-polish.md):
   about 52 px apart, with the year on the first label and where it changes.
 - In the table, dates and ratings do not wrap and event names wrap anywhere.
 
+## First visit polish
+Spec, after testing in a fresh browser:
+1. Phone top bar on the start view and in the players panel: the view's
+   title on the left of the first row, as Settings and How it works do.
+   "Next Rating" goes next to the Players button on the start view, and
+   "Switch player" next to Close in the panel, instead of a separate heading
+   line below.
+2. Start view, step 1: a way to find your PDGA number by name. Two tabs in
+   the same box, "PDGA number" and "Search by name". The name tab opens
+   pdga.com's player search with the name filled in, in the same tab, like
+   the search in the players panel, with a hint that the number is in the
+   PDGA # column there.
+
+Built as (docs/plan-first-visit-polish.md):
+- The bar shows "Next Rating" on the start view, and a stored player without
+  data by name and number like the Rating view ("#12345" before the first
+  import). The start view's `h1` and the panel's "Players" `h2` are
+  wide-only. Opening the panel on a phone focuses the bar's heading
+  (`topbar-title`); wide screens keep the panel's heading.
+- The tabs are the segmented control of native radios, with a visually
+  hidden legend under the step title. The chosen tab lives in memory only,
+  so a page load, such as coming back from pdga.com, starts on PDGA number.
+- The panel and the start view share `nameSearchForm` (views/pdga.ts) with
+  their own ids, label and hint. The start view's hint says the search opens
+  in this tab, the number is in the PDGA # column, and to come back and
+  enter it under PDGA number.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event

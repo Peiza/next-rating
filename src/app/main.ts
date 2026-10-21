@@ -82,7 +82,7 @@ import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
 import { openWithId, settingsView, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
-import { startView } from './views/start';
+import { startTabId, startView, type StartTab } from './views/start';
 
 /*
  * The fragment is reserved for the bookmarklet hand-off and there is no
@@ -113,6 +113,8 @@ let tab: Tab = 'rating';
 /** The player the Rating tab shows. A page load starts on "me", or on the player shown last when Settings says so. */
 let selected: number | null = initialSelection(store.get());
 let flash: PdgaFlash = null;
+/** The start view's first step: your PDGA number, or a search by name. A page load starts on the number. */
+let startTab: StartTab = 'number';
 let banner: Banner | null = null;
 /**
  * The bookmarklet setup, How it works or the full-screen chart shows over the
@@ -217,6 +219,11 @@ function savePdgaNumber(pdgaNumber: number | null): void {
   render(PDGA_SAVE_ID);
 }
 
+/** Opens pdga.com's player search in the same tab, so the back gesture or the bookmarklet comes back here. */
+function searchPdga(url: string): void {
+  window.location.assign(url);
+}
+
 /** Saves the unsaved player as a favorite, then puts focus on `focusId`. */
 function addToFavorites(pdgaNumber: number, focusId = `tab-${tab}`): void {
   const data = store.get();
@@ -279,7 +286,7 @@ function showLayers(next: Layers): void {
   if (sameLayers(before, next)) return;
   let focusId: string | undefined;
   if (before.menu && !next.menu) focusId = MENU_BUTTON_ID;
-  else if (next.menu) focusId = PANEL_TITLE_ID;
+  else if (next.menu) focusId = panelTitleId();
   else if (next.overlay === null) focusId = overlay?.opener ?? `tab-${tab}`;
   else focusId = overlayTitleId(next.overlay);
   if (before.menu !== next.menu) {
@@ -293,13 +300,18 @@ function showLayers(next: Layers): void {
   if (focusId !== overlay?.opener) window.scrollTo(0, 0);
 }
 
+/** The panel's heading, which gets focus when the panel opens: in the top bar on phones, where the panel's own is hidden. */
+function panelTitleId(): string {
+  return isWide() ? PANEL_TITLE_ID : TOPBAR_TITLE_ID;
+}
+
 function toggleMenu(): void {
   if (menuOpen && popLayer()) return;
   menuOpen = !menuOpen;
   editingPlayers = false;
   confirmRemove = null;
   if (menuOpen) pushLayers();
-  render(menuOpen ? PANEL_TITLE_ID : MENU_BUTTON_ID);
+  render(menuOpen ? panelTitleId() : MENU_BUTTON_ID);
   window.scrollTo(0, 0);
 }
 
@@ -345,7 +357,7 @@ function removeFromPanel(pdgaNumber: number): void {
   if (selected === pdgaNumber) setSelected(initialSelection(data));
   const anyFavorite = data.players.some((player) => player.favorite);
   if (!anyFavorite) editingPlayers = false;
-  render(anyFavorite ? 'players-edit' : PANEL_TITLE_ID);
+  render(anyFavorite ? 'players-edit' : panelTitleId());
 }
 
 /** Adds a player from the panel's form and shows it, so its pdga.com page is one tap away. */
@@ -754,7 +766,14 @@ function currentView(): HTMLElement {
     pdgaNumber: data.me,
     player: player ? { pdgaNumber: player.pdgaNumber, label: playerLabel(player) } : null,
     flash,
+    tab: startTab,
+    onTab: (next) => {
+      startTab = next;
+      flash = null;
+      render(startTabId(next));
+    },
     onSavePdgaNumber: savePdgaNumber,
+    onSearch: searchPdga,
     onOpenSetup: openSetup,
   });
 }
@@ -784,18 +803,26 @@ function chartFull(): HTMLElement | null {
   return chartFullView({ ...chartProps(player, modelOf(player, now), now), onClose: closeOverlay });
 }
 
-/** The player the Rating view shows, which the phone top bar names; null while another view shows. */
+/**
+ * The player the Rating tab shows, also before the player's first import,
+ * which the phone top bar names; null while the players panel or another
+ * view shows.
+ */
 function ratingPlayer(): { name: string; pdgaNumber: number } | null {
   const player = findPlayer(store.get(), selected);
-  if (overlay !== null || tab !== 'rating' || !player?.import) return null;
+  if (menuOpen || overlay !== null || tab !== 'rating' || !player) return null;
   return { name: playerName(player), pdgaNumber: player.pdgaNumber };
 }
 
-/** The heading of a view other than the Rating tab, which the phone top bar shows in its place. */
-function barTitle(): string | null {
+/**
+ * The heading the phone top bar shows when it names no player: the players
+ * panel's, another view's, or the app's name on the start view.
+ */
+function barTitle(): string {
+  if (menuOpen) return t('players.switch');
   if (overlay?.view === 'guide') return t('guide.title');
   if (overlay?.view === 'setup') return t('setup.title');
-  return tab === 'settings' ? t('settings.title') : null;
+  return tab === 'settings' ? t('settings.title') : t('app.name');
 }
 
 /** Rebuilds the page, then puts focus back on the element with the same id. */
@@ -821,8 +848,7 @@ function render(focusId = document.activeElement?.id): void {
         order: data.playerOrder,
         now: new Date(),
         onOrder: setPlayerOrder,
-        // The same tab, so the bookmarklet run on the player's page comes back here.
-        onSearch: (url) => window.location.assign(url),
+        onSearch: searchPdga,
         onSelect: selectPlayer,
         onClose: closeMenu,
         onToggleEdit: toggleEditPlayers,

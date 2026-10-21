@@ -12,7 +12,7 @@ import type { Top8Props } from '../../src/app/views/top8';
 import { settingsView, type SettingsProps } from '../../src/app/views/settings';
 import { bookmarkletStatus, guessPlatform, isOlderVersion, setupView, type SetupProps } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
-import { startView } from '../../src/app/views/start';
+import { startView, type StartProps } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
 import { CARDS, DEFAULT_CARDS, type CardState, type StoredPlayer } from '../../src/app/storage';
 import { setLanguage } from '../../src/i18n';
@@ -28,8 +28,18 @@ const THIS_YEAR: TopPeriod = { kind: 'year', year: null };
 
 const ALL_OPEN = Object.fromEntries(CARDS.map((name) => [name, true])) as CardState;
 
-function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn()) {
-  return startView({ pdgaNumber, player: null, flash: null, onSavePdgaNumber, onOpenSetup: vi.fn() });
+function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn(), props: Partial<StartProps> = {}) {
+  return startView({
+    pdgaNumber,
+    player: null,
+    flash: null,
+    tab: 'number',
+    onTab: vi.fn(),
+    onSavePdgaNumber,
+    onSearch: vi.fn(),
+    onOpenSetup: vi.fn(),
+    ...props,
+  });
 }
 
 function submit(form: HTMLFormElement) {
@@ -82,6 +92,38 @@ describe('getting-started view', () => {
     view.querySelector<HTMLInputElement>('#pdga-number')!.value = '';
     submit(view.querySelector('form')!);
     expect(onSave).toHaveBeenCalledWith(null);
+  });
+
+  it('finds your number by PDGA number or by name, in two tabs in the first step', () => {
+    const onTab = vi.fn();
+    const view = startPage(null, vi.fn(), { onTab });
+    const step = view.querySelector('.step')!;
+    const tabs = [...step.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+    expect(tabs.map((tab) => tab.id)).toEqual(['start-by-number', 'start-by-name']);
+    expect(tabs.map((tab) => tab.labels![0]!.textContent)).toEqual(['PDGA number', 'Search by name']);
+    expect(tabs[0]!.checked).toBe(true);
+    // The step title says what the tabs are for, so their legend is for screen readers.
+    expect(step.querySelector('legend')!.classList.contains('visually-hidden')).toBe(true);
+    expect(step.querySelector('#pdga-number')).not.toBeNull();
+    expect(step.querySelector('#start-search')).toBeNull();
+    tabs[1]!.dispatchEvent(new Event('change'));
+    expect(onTab).toHaveBeenCalledWith('name');
+  });
+
+  it('searches pdga.com by name, and says where the number is there', () => {
+    const onSearch = vi.fn();
+    const view = startPage(null, vi.fn(), { tab: 'name', onSearch });
+    expect(view.querySelector<HTMLInputElement>('#start-by-name')!.checked).toBe(true);
+    expect(view.querySelector('#pdga-number')).toBeNull();
+    const input = view.querySelector<HTMLInputElement>('#start-search')!;
+    expect(view.querySelector('label[for="start-search"]')!.textContent).toBe('Your name');
+    expect(view.querySelector('#start-search-hint')!.textContent).toContain('in the PDGA # column there');
+    submit(input.form!);
+    expect(onSearch).not.toHaveBeenCalled();
+    expect(view.querySelector('#start-search-status')!.textContent).toBe('Enter a first or last name.');
+    input.value = 'Anna Svensson';
+    submit(input.form!);
+    expect(onSearch).toHaveBeenCalledWith('https://www.pdga.com/players?FirstName=Anna&LastName=Svensson');
   });
 
   it('shows in the active language', () => {
@@ -177,7 +219,7 @@ describe('settings view', () => {
 describe('getting-started bookmarklet steps', () => {
   it('installs the bookmarklet before opening pdga.com, and offers nothing to paste', () => {
     const onOpenSetup = vi.fn();
-    const view = startView({ pdgaNumber: null, player: null, flash: null, onSavePdgaNumber: vi.fn(), onOpenSetup });
+    const view = startPage(null, vi.fn(), { onOpenSetup });
     const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
     expect(steps).toHaveLength(3);
     expect(steps[1]).toMatch(/Install the bookmarklet/);
@@ -1194,12 +1236,13 @@ describe('players panel', () => {
     expect(other!.querySelector('.player-meta')!.textContent).toBe('Not imported yet');
   });
 
-  it('is headed "Switch player" on phones, with the shown player marked as now', () => {
+  it('is headed "Players" on wide screens only, with the shown player marked as now on phones', () => {
     const view = panel();
     const heading = view.querySelector('#favorites-title')!;
-    expect(heading.querySelector('.menu-only')!.textContent).toBe('Switch player');
-    // The sidebar on wide screens keeps its heading and the check mark.
-    expect(heading.querySelector('.wide-only')!.textContent).toBe('Players');
+    // On phones the top bar shows the panel's heading.
+    expect(heading.textContent).toBe('Players');
+    expect(heading.classList.contains('wide-only')).toBe(true);
+    // The sidebar on wide screens keeps the check mark.
     const other = view.querySelector('#player-100002')!;
     expect(other.querySelector('.badge.menu-only')!.textContent).toBe('Now');
     expect(other.querySelector('.player-check')!.classList.contains('wide-only')).toBe(true);
@@ -1365,15 +1408,10 @@ describe('top bar', () => {
 
 describe('getting-started view for a player without data', () => {
   it("leaves out your own number and opens that player's ratings details", () => {
-    const view = startView({
-      pdgaNumber: 100001,
-      player: { pdgaNumber: 100002, label: '#100002' },
-      flash: null,
-      onSavePdgaNumber: vi.fn(),
-      onOpenSetup: vi.fn(),
-    });
+    const view = startPage(100001, vi.fn(), { player: { pdgaNumber: 100002, label: '#100002' } });
     expect(view.querySelector('h1')!.textContent).toBe('#100002');
     expect(view.querySelector('#pdga-number')).toBeNull();
+    expect(view.querySelector('#start-by-name')).toBeNull();
     expect(view.querySelectorAll('.step')).toHaveLength(2);
     expect(view.textContent).toContain('Open the ratings details of #100002 on pdga.com');
     expect(view.querySelector<HTMLAnchorElement>('#details-link')!.getAttribute('href')).toBe(
