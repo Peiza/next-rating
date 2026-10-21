@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { chartData, chartYears, dayNumber, monthTicks, ratingAxis, xScale, type ChartPeriod } from '../../src/app/chart';
+import { chartData, chartYears, dayNumber, monthTicks, ratingAxis, ratingSteps, xScale, type ChartPeriod } from '../../src/app/chart';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
-import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawHistoryRow, rawPlayer } from '../handoff/raw';
 
 /** Monday of update week: after the 11 Oct report deadline, before the 13 Oct update. */
 const NOW = new Date('2026-10-12T10:00:00.000Z');
@@ -117,6 +117,62 @@ describe('chartData', () => {
   it('offers the years with a rated round, the current year and the chosen one', () => {
     expect(chartYears(model, RECENT, TODAY)).toEqual([2026, 2025, 2024]);
     expect(chartYears(model, { kind: 'year', year: 2019 }, '2027-01-02')).toEqual([2027, 2026, 2025, 2024, 2019]);
+  });
+});
+
+describe('official rating steps', () => {
+  // Newest first, as on pdga.com; the next update is 13 Oct.
+  const history = [rawHistoryRow('8-Sep-2026', '948', '20'), rawHistoryRow('11-Aug-2026', '945', '18'), rawHistoryRow('9-Jun-2026', '950', '16')];
+  const withHistory = buildModel({ ...stored, history }, 100001, NOW);
+
+  it('steps at each update and rises to the prediction at the next, replacing the lines across the window', () => {
+    const chart = chartData(withHistory, RECENT, TODAY);
+    expect([chart.from, chart.to]).toEqual(['2024-10-12', '2026-10-13']);
+    expect(chart.steps).toEqual([
+      { from: '2026-06-09', to: '2026-08-11', rating: 950 },
+      { from: '2026-08-11', to: '2026-09-08', rating: 945 },
+      { from: '2026-09-08', to: '2026-10-13', rating: 948 },
+    ]);
+    expect(chart.next).toEqual({ date: '2026-10-13', rating: withHistory.prediction.rating });
+    expect([chart.official, chart.predicted, chart.same]).toEqual([null, null, false]);
+    expect(chart.band).toEqual({ from: '2024-10-12', to: '2026-08-02' });
+    expect(chart.values).toEqual(expect.arrayContaining([945, 948, 950, withHistory.prediction.rating]));
+  });
+
+  it('runs the rating window on to the next update', () => {
+    const chart = chartData(withHistory, { kind: 'window' }, TODAY);
+    expect([chart.from, chart.to]).toEqual(['2024-08-02', '2026-10-13']);
+    expect(chart.next?.date).toBe('2026-10-13');
+  });
+
+  it('starts at the rating in effect at the period start, and leaves the prediction out of a period that ends earlier', () => {
+    const chart = chartData(withHistory, { kind: 'custom', from: '2026-07-01', to: '2026-09-30' }, TODAY);
+    expect(chart.steps).toEqual([
+      { from: '2026-07-01', to: '2026-08-11', rating: 950 },
+      { from: '2026-08-11', to: '2026-09-08', rating: 945 },
+      { from: '2026-09-08', to: '2026-09-30', rating: 948 },
+    ]);
+    expect(chart.next).toBeNull();
+  });
+
+  it('draws neither steps nor lines in a period before the first update', () => {
+    const chart = chartData(withHistory, { kind: 'year', year: 2025 }, TODAY);
+    expect(chart.band).not.toBeNull();
+    expect([chart.steps, chart.next, chart.official, chart.predicted]).toEqual([null, null, null, null]);
+  });
+
+  it('keeps the last update until the next one, and leaves out steps outside the range', () => {
+    const entries = [
+      { date: '2026-08-11', rating: 945, rounds: 18 },
+      { date: '2026-09-08', rating: 948, rounds: 20 },
+    ];
+    expect(ratingSteps(entries, '2026-10-13', '2026-01-01', '2026-12-31')).toEqual([
+      { from: '2026-08-11', to: '2026-09-08', rating: 945 },
+      { from: '2026-09-08', to: '2026-10-13', rating: 948 },
+    ]);
+    expect(ratingSteps(entries, '2026-10-13', '2026-09-08', '2026-09-20')).toEqual([{ from: '2026-09-08', to: '2026-09-20', rating: 948 }]);
+    expect(ratingSteps(entries, '2026-10-13', '2026-10-13', '2026-12-31')).toBeNull();
+    expect(ratingSteps([], '2026-10-13', '2026-01-01', '2026-12-31')).toBeNull();
   });
 });
 

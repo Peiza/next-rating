@@ -5,7 +5,7 @@ import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { chartFullView, chartPanel, chartTeaser, type ChartProps } from '../../src/app/views/chart';
 import { setLanguage } from '../../src/i18n';
-import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
+import { rawDetailsRow, rawEvent, rawHistoryRow, rawPlayer } from '../handoff/raw';
 
 afterEach(() => {
   setLanguage('en');
@@ -160,6 +160,52 @@ describe('chart panel', () => {
     expect(svg.querySelectorAll('.chart-line-official')).toHaveLength(0);
     expect(svg.querySelectorAll('.chart-line-predicted')).toHaveLength(1);
     expect([...svg.querySelectorAll('.chart-line-label')].map((label) => label.textContent)).toEqual(['955']);
+  });
+
+  describe('with the ratings history', () => {
+    const history = [rawHistoryRow('8-Sep-2026', '950', '20'), rawHistoryRow('11-Aug-2026', '947', '18')];
+    // The planned round on 1 Dec ends the last 24 months after the 13 Oct update.
+    const withHistory = buildModel({ ...stored, history }, 100001, NOW, own);
+    const predicted = String(withHistory.prediction.rating);
+    const NUMBER = '[\\d.]+';
+
+    it('draws one dashed line that steps at each update, and the prediction as a solid rise held to the end', () => {
+      const svg = plot(panel({ kind: 'recent' }, {}, withHistory));
+      const steps = [...svg.querySelectorAll('.chart-line-official')];
+      expect(steps).toHaveLength(1);
+      const d = steps[0]!.getAttribute('d')!;
+      expect(d).toMatch(new RegExp(`^M${NUMBER} ${NUMBER}H${NUMBER}V${NUMBER}H${NUMBER}$`));
+      const rise = d.split('H').at(-1)!;
+      const prediction = svg.querySelector('.chart-line-predicted')!.getAttribute('d')!;
+      expect(prediction).toMatch(new RegExp(`^M${rise} ${NUMBER}V${NUMBER}H${NUMBER}$`));
+      const end = Number(prediction.split('H').at(-1));
+      expect(end).toBeGreaterThan(Number(rise));
+      const labels = [...svg.querySelectorAll('.chart-line-label')];
+      expect(labels.map((label) => label.textContent)).toEqual([predicted]);
+      expect(Number(labels[0]!.getAttribute('x'))).toBeCloseTo(end + 4);
+    });
+
+    it('names the steps and the prediction in the legend and the summary', () => {
+      const root = panel({ kind: 'recent' }, {}, withHistory);
+      const items = [...root.querySelectorAll('.chart-legend li')].map((item) => item.textContent);
+      expect(items).toContain('Official rating after each update');
+      expect(items.at(-1)).toMatch(new RegExp(`^Prediction ${predicted} at the .+ update$`));
+      expect(items.some((item) => item!.startsWith('Official rating and prediction'))).toBe(false);
+      expect(plot(root).getAttribute('aria-label')).toMatch(
+        new RegExp(`\\. Official rating after each update, 947 to 950\\. Prediction ${predicted} at the .+ update\\.$`),
+      );
+    });
+
+    it('leaves the prediction out of a period that ends before the next update', () => {
+      const svg = plot(panel({ kind: 'custom', from: '2026-08-01', to: '2026-09-30' }, {}, withHistory));
+      expect(svg.querySelectorAll('.chart-line-official')).toHaveLength(1);
+      expect(svg.querySelectorAll('.chart-line-predicted, .chart-line-label')).toHaveLength(0);
+    });
+
+    it('steps with even spacing too', () => {
+      const svg = plot(panel({ kind: 'recent' }, { axis: 'even' }, withHistory));
+      expect(svg.querySelector('.chart-line-official')!.getAttribute('d')).toMatch(new RegExp(`^M${NUMBER} ${NUMBER}H${NUMBER}V`));
+    });
   });
 
   it("links to the player's ratings history on pdga.com, in the same tab", () => {

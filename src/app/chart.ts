@@ -1,12 +1,14 @@
 import { compareDates, subtractMonths, type PlainDate, type RoundStatus } from '../engine';
+import type { HistoryEntry } from '../parsers';
 import type { ListedResult, Model } from './model';
 import type { ChartAxis, ChartPeriod } from './storage';
 
 /*
  * What the rating chart shows, without drawing it: the rated rounds in the
- * chosen period as points, the prediction's window, the official and the
- * predicted rating across that window, and the axes' ticks and scales. Pure,
- * so the view only sizes and draws.
+ * chosen period as points, the prediction's window, the official rating
+ * after each update as steps with the prediction as the last (or, without a
+ * ratings history, the official and predicted rating across the window), and
+ * the axes' ticks and scales. Pure, so the view only sizes and draws.
  */
 
 export type { ChartAxis, ChartPeriod };
@@ -44,6 +46,13 @@ export interface ChartPoint {
   mark: PointMark;
 }
 
+/** The official rating from one update to the next, within the period; `to` is where the next step starts. */
+export interface RatingStep {
+  from: PlainDate;
+  to: PlainDate;
+  rating: number;
+}
+
 /** An x-axis tick on the first of a month; `year` when its label also names the year. */
 export interface MonthTick {
   date: PlainDate;
@@ -68,12 +77,21 @@ export interface ChartData {
   /** The prediction's window within the period, shaded; null when they do not meet. */
   band: { from: PlainDate; to: PlainDate } | null;
   /**
-   * The official rating, drawn as a line across the band; null when unknown
-   * or without a band. Both lines are today's values, so they cover only the
-   * window they come from.
+   * The official rating after each update, from the ratings history, as
+   * steps across the period: the first from the period's start, with the
+   * rating then, the last to the next update or the period's end. Null
+   * without a history, or when the period ends before its first update.
+   */
+  steps: RatingStep[] | null;
+  /** The prediction, as the steps' last rise at the next update; null when that date is outside the period. */
+  next: { date: PlainDate; rating: number } | null;
+  /**
+   * Without a ratings history, the official rating, drawn as a line across
+   * the band; null when unknown, without a band, or with a history. Both
+   * lines are today's values, so they cover only the window they come from.
    */
   official: number | null;
-  /** The predicted rating, drawn like the official one; null without one or without a band. */
+  /** The predicted rating, drawn like the official one; null without one, without a band, or with a history. */
   predicted: number | null;
   /** Both lines are drawn and equal, so the value shows once. */
   same: boolean;
@@ -251,15 +269,35 @@ export function xScale(chart: ChartData, axis: ChartAxis): XScale {
   return axis === 'even' ? evenScale(chart) : timeScale(chart);
 }
 
-/** The dates a period covers, both inclusive. */
+/**
+ * The dates a period covers, both inclusive. With a ratings history, the
+ * last 24 months and the window run on to the next update, so the
+ * prediction's step shows.
+ */
 function rangeOf(model: Model, period: ChartPeriod, today: PlainDate, year: number | null): { from: PlainDate; to: PlainDate } {
   if (year !== null) return { from: `${year}-01-01`, to: `${year}-12-31` };
   if (period.kind === 'custom') return { from: period.from, to: period.to };
+  const update = model.history.length > 0 ? model.nextUpdate.update : null;
+  const upToUpdate = (date: PlainDate) => (update ? later(date, update) : date);
   const { windowStart, windowEnd } = model.prediction.stats;
-  if (period.kind === 'window' && windowStart !== null && windowEnd !== null) return { from: windowStart, to: windowEnd };
+  if (period.kind === 'window' && windowStart !== null && windowEnd !== null) return { from: windowStart, to: upToUpdate(windowEnd) };
   // The last 24 months run to today, or to a planned round when one is later.
   const newest = model.rounds.reduce((date, round) => (round.rating !== null ? later(date, round.date) : date), today);
-  return { from: subtractMonths(today, RECENT_MONTHS), to: newest };
+  return { from: subtractMonths(today, RECENT_MONTHS), to: upToUpdate(newest) };
+}
+
+/**
+ * The official rating from each update to the next, clipped to the period.
+ * The last update's rating holds until `end`, the next update. Null when no
+ * step falls in the period.
+ */
+export function ratingSteps(history: readonly HistoryEntry[], end: PlainDate, from: PlainDate, to: PlainDate): RatingStep[] | null {
+  const steps = history.flatMap((entry, i): RatingStep[] => {
+    const stepFrom = later(entry.date, from);
+    const stepTo = earlier(history[i + 1]?.date ?? later(end, entry.date), to);
+    return compareDates(stepFrom, stepTo) < 0 ? [{ from: stepFrom, to: stepTo, rating: entry.rating }] : [];
+  });
+  return steps.length > 0 ? steps : null;
 }
 
 /**
@@ -286,11 +324,19 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
   const bandTo = window ? earlier(window.end, to) : null;
   const band = bandFrom && bandTo && compareDates(bandFrom, bandTo) <= 0 ? { from: bandFrom, to: bandTo } : null;
 
-  const official = band ? (model.player?.currentRating ?? null) : null;
-  const predicted = band ? model.prediction.rating : null;
+  const update = model.nextUpdate.update;
+  const steps = ratingSteps(model.history, update, from, to);
+  const next = steps && model.prediction.rating !== null && inRange(update) ? { date: update, rating: model.prediction.rating } : null;
+  // With a history, the steps replace the lines across the band, also in a period before its first update.
+  const lines = band !== null && model.history.length === 0;
+  const official = lines ? (model.player?.currentRating ?? null) : null;
+  const predicted = lines ? model.prediction.rating : null;
   const values = points.map((point) => point.rating);
   // The lines only matter next to rounds; on an empty period there is nothing to compare them with.
-  if (values.length > 0) for (const line of [official, predicted]) if (line !== null) values.push(line);
+  if (values.length > 0) {
+    for (const line of [official, predicted, next?.rating ?? null]) if (line !== null) values.push(line);
+    for (const step of steps ?? []) values.push(step.rating);
+  }
 
   return {
     period,
@@ -302,6 +348,8 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
     to,
     points,
     band,
+    steps,
+    next,
     official,
     predicted,
     same: official !== null && official === predicted,
