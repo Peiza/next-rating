@@ -42,6 +42,9 @@ App: https://peiza.github.io/next-rating/
   yet checked against a real player.
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
+  Dates follow the language and the device's region, or a date format
+  picked in Settings (year, day or month first); the browser's own date
+  pickers keep the device's format.
 - It opens on you, or, with "When the app opens: Show the last viewed player"
   in Settings, on the player you looked at last. A bookmarklet import always
   opens the imported player.

@@ -90,7 +90,12 @@ get that name; steps for the tested Android browsers and for Safari, the
 only iPhone browser that works; a larger full-screen round label; a tap
 away from every point clears the chosen round; a three-column chart table;
 dates in the app's language; a shorter window option, with its dates in
-the chart legend and under the Top 8 select).
+the chart legend and under the Top 8 select), and the fixes from iPhone
+testing (a date format setting; no reopened selects on iOS; a remembered
+chart table; date fields with a calendar icon on iPhone; a hint to turn
+the iPhone in full screen; "manual rounds" everywhere; the period and
+x-axis above the full-screen chart on wide screens; the chosen round on
+one line above the full-screen chart).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -199,7 +204,8 @@ web app commit 3 (manual entry, data age, offline PWA), the target
 calculator, the Top 8 panel, the Rating tab design pass, the setup page
 with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
-polish and the polish from phone testing (docs/finished-steps.md). Nothing else is planned: the
+polish, the polish from phone testing and the fixes from iPhone testing
+(docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step.
 
