@@ -246,6 +246,9 @@ describe('chart panel', () => {
     expect(rows).toHaveLength(13);
     expect(rows[0]).toEqual(['990', 'Counts in the following update', 'Planned Open · Your own']);
     expect(rows.at(-1)).toEqual(['700', 'Dropped', 'Event 0 · Round 1 · Official']);
+    // The date and the rating keep to one line; the event name wraps.
+    const cells = [...table.querySelector('tbody tr')!.children].map((cell) => cell.className);
+    expect(cells).toEqual(['chart-date', 'chart-number', '', 'chart-event']);
   });
 
   it('offers Full screen when it can open, and shows the chart there on its own', () => {

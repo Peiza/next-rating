@@ -385,7 +385,7 @@ function legend(chart: ChartData): HTMLElement {
   );
 }
 
-/** The same rounds as a table, newest first like the round list. */
+/** The same rounds as a table, newest first like the round list. Event names wrap; dates and ratings keep to one line. */
 function table(chart: ChartData): HTMLElement {
   const head = (key: MessageKey) => el('th', { scope: 'col' }, t(key));
   return el(
@@ -405,10 +405,10 @@ function table(chart: ChartData): HTMLElement {
           return el(
             'tr',
             {},
-            el('td', {}, formatDate(point.date)),
+            el('td', { class: 'chart-date' }, formatDate(point.date)),
             el('td', { class: 'chart-number' }, formatRating(point.rating)),
             el('td', {}, t(`round.status.${result.status}`)),
-            el('td', {}, name.filter(Boolean).join(' · ')),
+            el('td', { class: 'chart-event' }, name.filter(Boolean).join(' · ')),
           );
         }),
       ),

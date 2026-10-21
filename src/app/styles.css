@@ -972,6 +972,16 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.chart-table .chart-date,
+.chart-table .chart-number {
+  white-space: nowrap;
+}
+
+/* A long event name wraps anywhere rather than widening its column. */
+.chart-table .chart-event {
+  overflow-wrap: anywhere;
+}
+
 .top8-figures {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
