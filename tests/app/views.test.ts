@@ -134,10 +134,10 @@ describe('settings view', () => {
     const onOpenWith = vi.fn();
     const view = document.body.appendChild(settingsView({ ...props, onOpenWith }));
     const radios = [...view.querySelectorAll<HTMLInputElement>('input[name="open-with"]')];
-    expect(view.querySelectorAll('.segmented legend')[1]!.textContent).toBe('Open with');
+    expect(view.querySelectorAll('.segmented legend')[1]!.textContent).toBe('When the app opens');
     expect(radios.map((radio) => [view.querySelector(`label[for="${radio.id}"]`)!.textContent, radio.checked])).toEqual([
-      ['You', true],
-      ['Last viewed player', false],
+      ['Show you', true],
+      ['Show the last viewed player', false],
     ]);
     view.querySelector<HTMLInputElement>('#open-with-last')!.click();
     expect(onOpenWith).toHaveBeenLastCalledWith('last');

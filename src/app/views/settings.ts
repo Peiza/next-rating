@@ -39,7 +39,7 @@ const OPEN_WITH_OPTIONS: Segment<OpenWith>[] = [
   { value: 'last', id: 'open-with-last', label: 'settings.openWithLast' },
 ];
 
-/** The id of the radio for an Open with choice, so focus can return to it. */
+/** The id of the radio for a "When the app opens" choice, so focus can return to it. */
 export function openWithId(openWith: OpenWith): string {
   return OPEN_WITH_OPTIONS.find((option) => option.value === openWith)!.id;
 }
