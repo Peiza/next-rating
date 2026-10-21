@@ -132,6 +132,49 @@ describe('app start', () => {
     expect([...document.querySelectorAll('.tab')].map((tab) => tab.id)).toEqual(['tab-rating', 'tab-settings']);
   });
 
+  it('shows each tab where it was last scrolled, and the tab already shown at the top', async () => {
+    const scrollAt = (y: number) => Object.defineProperty(window, 'scrollY', { value: y, configurable: true, writable: true });
+    const scrolledTo = () => vi.mocked(window.scrollTo).mock.lastCall;
+    const tap = (id: string) => document.getElementById(id)!.click();
+    try {
+      await start('/next-rating/');
+      scrollAt(400);
+      tap('tab-settings');
+      expect(scrolledTo()).toEqual([0, 0]);
+      scrollAt(150);
+      tap('tab-rating');
+      expect(scrolledTo()).toEqual([0, 400]);
+      tap('tab-rating');
+      expect(scrolledTo()).toEqual([0, 0]);
+      tap('tab-settings');
+      expect(scrolledTo()).toEqual([0, 150]);
+
+      // A view over the tab, or the players panel, keeps the position from before it opened.
+      scrollAt(300);
+      tap('open-setup');
+      scrollAt(900);
+      let done = popped();
+      tap('tab-settings');
+      await done;
+      expect(scrolledTo()).toEqual([0, 300]);
+      tap('tab-rating');
+      scrollAt(500);
+      tap('players-menu');
+      scrollAt(0);
+      done = popped();
+      tap('tab-rating');
+      await done;
+      expect(scrolledTo()).toEqual([0, 500]);
+
+      // A launch starts every tab at the top.
+      await start('/next-rating/');
+      tap('tab-settings');
+      expect(scrolledTo()).toEqual([0, 0]);
+    } finally {
+      scrollAt(0);
+    }
+  });
+
   it('opens the bookmarklet setup over the current tab and goes back to where it was opened', async () => {
     await start('/next-rating/');
     const open = document.getElementById('open-setup') as HTMLButtonElement;

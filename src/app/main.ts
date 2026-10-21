@@ -128,6 +128,8 @@ let chartFullscreen = false;
 let setupPlatform: Platform | null = null;
 /** On phones, the players panel shows in place of the current view. */
 let menuOpen = false;
+/** Where each tab was scrolled when its view was last left or covered. In memory only, so a launch starts at the top. */
+const scrollTops: Partial<Record<Tab, number>> = {};
 let editingPlayers = false;
 let confirmRemove: number | null = null;
 let addFlash: PdgaFlash = null;
@@ -325,8 +327,14 @@ function panelTitleId(): string {
   return isWide() ? PANEL_TITLE_ID : TOPBAR_TITLE_ID;
 }
 
+/** Records the current tab's scroll position, while its own view shows: not under a view or the players panel. */
+function saveScroll(): void {
+  if (overlay === null && !menuOpen) scrollTops[tab] = window.scrollY;
+}
+
 function toggleMenu(): void {
   if (menuOpen && popLayer()) return;
+  saveScroll();
   menuOpen = !menuOpen;
   editingPlayers = false;
   confirmRemove = null;
@@ -342,6 +350,7 @@ function closeMenu(): void {
 
 /** Shows a player on the Rating tab. On phones the menu closes, and focus returns to its button. */
 function selectPlayer(pdgaNumber: number): void {
+  saveScroll();
   setSelected(pdgaNumber);
   tab = 'rating';
   overlay = null;
@@ -523,13 +532,19 @@ function setLanguageOverride(language: string | null): void {
   render('language');
 }
 
+/**
+ * Shows a tab where it was last scrolled. The tab already shown, with
+ * nothing over it, goes back to the top instead.
+ */
 function selectTab(next: Tab): void {
+  const again = next === tab && overlay === null && !menuOpen;
+  if (next !== tab) saveScroll();
   tab = next;
   overlay = null;
   menuOpen = false;
   unwindLayers();
   render(`tab-${next}`);
-  window.scrollTo(0, 0);
+  window.scrollTo(0, again ? 0 : (scrollTops[next] ?? 0));
 }
 
 /** Stores an import with its players. An import for one player selects that player. */
@@ -567,6 +582,7 @@ function overlayTitleId(view: OverlayView): string {
 
 /** Shows the setup or How it works over the current tab, as a new history entry. */
 function openOverlay(view: OverlayView): void {
+  saveScroll();
   overlay = { view, opener: document.activeElement?.id || `tab-${tab}` };
   menuOpen = false;
   pushLayers();
@@ -629,6 +645,7 @@ function closeOverlay(): void {
 
 /** Shows the result of an import on the Rating tab, with focus on the message. */
 function showBanner(next: Banner): void {
+  saveScroll();
   banner = next;
   tab = 'rating';
   overlay = null;

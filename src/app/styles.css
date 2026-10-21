@@ -871,6 +871,17 @@ a {
   border-radius: 0.25rem;
 }
 
+/*
+ * In the card, a drawing not yet measured is as high as the measured one
+ * will be (CARD_HEIGHT in views/chart.ts: two thirds of the width, within
+ * these limits), so the page keeps its height when the chart is drawn again
+ * and a remembered scroll position stays exact.
+ */
+.chart-frame:not(.chart-frame-fill) .chart-plot {
+  min-height: 200px;
+  max-height: 320px;
+}
+
 .chart-plot text,
 .chart-icon text {
   font-size: 13px;

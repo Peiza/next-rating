@@ -59,7 +59,7 @@ export const CHART_FULL_CLOSE_ID = 'chart-full-close';
  * scales to fit.
  */
 export const DEFAULT_SIZE = { width: 300, height: 200 } as const;
-/** In the card, the height is two thirds of the width, within these limits. */
+/** In the card, the height is two thirds of the width, within these limits (repeated in styles.css). */
 const CARD_HEIGHT = { min: 200, max: 320 } as const;
 /** Narrower or lower than this, the drawing is scaled down instead. */
 const MIN_SIZE = { width: 240, height: 160 } as const;
