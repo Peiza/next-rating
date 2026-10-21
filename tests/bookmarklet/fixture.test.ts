@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { readPages } from '../../src/app/handoff';
 import { applyImport } from '../../src/app/import';
 import { buildModel } from '../../src/app/model';
-import { collect, keepPlayerRows, packEnvelope, pageHtml, type CollectDeps } from '../../src/bookmarklet/collect';
+import { collect, keepPlayerRows, packEnvelope, pageHtml, previousSeasonPath, type CollectDeps } from '../../src/bookmarklet/collect';
 import { decodeHandoff, MAX_PAYLOAD } from '../../src/handoff';
-import { parsePlayer } from '../../src/parsers';
-import { fixtures } from '../fixture-loader';
+import { detectPage, parsePlayer } from '../../src/parsers';
+import { fixtures, seasonFixture } from '../fixture-loader';
 import { parseHtml } from '../parsers/html';
 
 /*
@@ -35,6 +35,7 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
       parse: parseHtml,
       wait: async () => {},
       progress: () => {},
+      now: new Date(AT),
     };
     const envelope = await collect(parseHtml(html.details), `${base}/details`, deps);
     expect(envelope.status).toBe('ok');
@@ -69,7 +70,7 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
 
   it('hands off a whole event page when run on it', async () => {
     const url = `https://www.pdga.com/tour/event/${expected.eventUnofficial.eventId}`;
-    const deps: CollectDeps = { fetch: async () => new Response(''), parse: parseHtml, wait: async () => {}, progress: () => {} };
+    const deps: CollectDeps = { fetch: async () => new Response(''), parse: parseHtml, wait: async () => {}, progress: () => {}, now: new Date(AT) };
     const payload = await packEnvelope(await collect(parseHtml(html.eventUnofficial), url, deps));
     console.info(`Hand-off from an event page: ${payload.length} characters`);
     const { parts } = await fromPayload(payload);
@@ -78,5 +79,31 @@ describe.skipIf(!fixtures)('bookmarklet on pdga.com pages', () => {
     expect(event.status).toBe('unofficial');
     expect(event.divisions).toHaveLength(expected.eventUnofficial.divisions);
     expect(event.divisions.flatMap((division) => division.rows)).toHaveLength(expected.eventUnofficial.rows);
+  });
+});
+
+describe.skipIf(!fixtures)('the previous season on pdga.com pages', () => {
+  if (!fixtures) return;
+  const { expected, html } = fixtures;
+
+  it("finds the link to the previous season on the profile's season tabs", () => {
+    const profile = parseHtml(html.profile);
+    const current = Number(profile.querySelector('.year-link a.active')?.textContent);
+    expect(current).toBeGreaterThan(2000);
+    const path = previousSeasonPath(profile, String(expected.pdgaNumber), new Date(current, 0, 5));
+    expect(path).toBe(`/player/${expected.pdgaNumber}/stats/${current - 1}`);
+    expect(previousSeasonPath(profile, String(expected.pdgaNumber), new Date(current, 1, 1))).toBeNull();
+  });
+
+  const season = seasonFixture();
+  it.skipIf(!season)('reads the events of a saved previous-season page', () => {
+    const { year, events, html: seasonHtml } = season!;
+    const url = `https://www.pdga.com/player/${expected.pdgaNumber}/stats/${year}`;
+    const doc = parseHtml(seasonHtml);
+    expect(detectPage(doc, url)).toBe('season');
+    const { parts, unreadable } = readPages([{ url, html: pageHtml(doc, 'season') }]);
+    expect(unreadable).toEqual([]);
+    expect(parts.profileEvents).toHaveLength(events);
+    expect(parts.profileEvents!.every((event) => event.date.includes(String(year)))).toBe(true);
   });
 });

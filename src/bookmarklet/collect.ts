@@ -21,12 +21,13 @@ export const MAX_EVENT_PAGES = 10;
 /** Milliseconds between requests. */
 export const REQUEST_GAP = 1000;
 
-export type ContentKind = 'details' | 'profile' | 'event';
+export type ContentKind = 'details' | 'profile' | 'season' | 'event';
 
 /** The main content of each kind of page. Without it, the whole body is sent. */
 const MAIN: Record<ContentKind, string> = {
   details: '#player-results-details',
   profile: 'table[id^="player-results-"]',
+  season: 'table[id^="player-results-"]',
   event: '.leaderboard',
 };
 
@@ -34,6 +35,7 @@ const MAIN: Record<ContentKind, string> = {
 const PARTS: Record<ContentKind, string> = {
   details: '.current-rating,.tooltip-templates',
   profile: '.current-rating',
+  season: '#page-title',
   event: '.tournament-date',
 };
 
@@ -50,6 +52,8 @@ export interface CollectDeps {
   wait: (ms: number) => Promise<void>;
   /** Pages done out of pages planned so far. */
   progress: (done: number, planned: number) => void;
+  /** Now, on the device, which tells whether the previous season is needed. */
+  now: Date;
 }
 
 /**
@@ -89,19 +93,37 @@ function eventRows(doc: Document): [string, number][] {
   });
 }
 
-/** Ids of profile events that are newer than the ratings details and not in them, newest first. */
-export function newEventIds(details: Document, profile: Document): string[] {
+/**
+ * Ids of season events that are newer than the ratings details and not in
+ * them, newest first: from the profile, and in January also the previous
+ * season.
+ */
+export function newEventIds(details: Document, ...seasons: Document[]): string[] {
   const rated = eventRows(details);
   const ids = new Set(rated.map(([id]) => id));
   const newest = Math.max(0, ...rated.map(([, date]) => date));
   const found = new Map<string, number>();
-  for (const [id, date] of eventRows(profile)) {
+  for (const [id, date] of seasons.flatMap(eventRows)) {
     if (!ids.has(id) && date >= newest) found.set(id, date);
   }
   return [...found]
     .sort((a, b) => b[1] - a[1])
     .slice(0, MAX_EVENT_PAGES)
     .map(([id]) => id);
+}
+
+/**
+ * The previous season's results page, from 1 January to the January ratings
+ * update (the second Tuesday) on the device's date, when the profile links
+ * to it; otherwise null. The profile lists only the current season, so
+ * without it a December event not rated yet would be missed.
+ */
+export function previousSeasonPath(profile: Document, pdgaNumber: string, now: Date): string | null {
+  const year = now.getFullYear();
+  const update = 8 + ((9 - new Date(year, 0, 1).getDay()) % 7);
+  if (now.getMonth() > 0 || now.getDate() > update) return null;
+  const path = `/player/${pdgaNumber}/stats/${year - 1}`;
+  return profile.querySelector(`.year-link a[href="${path}"]`) ? path : null;
 }
 
 /**
@@ -171,8 +193,18 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
       if (fetched) {
         pages.push({ url: PDGA_ORIGIN + other, html: pageHtml(fetched, otherKind) });
         const [details, profile] = page === 'details' ? [doc, fetched] : [fetched, doc];
+        const seasons = [profile];
+        const seasonPath = previousSeasonPath(profile, pdgaNumber, deps.now);
+        if (seasonPath) {
+          planned += 1;
+          const season = await fetchPage(seasonPath, 'season');
+          if (season) {
+            seasons.push(season);
+            pages.push({ url: PDGA_ORIGIN + seasonPath, html: pageHtml(season, 'season') });
+          }
+        }
         // Without a readable details table, every event would look new.
-        const ids = details.querySelector(MAIN.details) ? newEventIds(details, profile) : [];
+        const ids = details.querySelector(MAIN.details) ? newEventIds(details, ...seasons) : [];
         planned += ids.length;
         for (const id of ids) {
           const eventPath = `/tour/event/${id}`;

@@ -4,4 +4,4 @@
  * with an older copy to reinstall it. Parser changes need no bump: the app
  * parses the HTML.
  */
-export const BOOKMARKLET_VERSION = '1.0.0';
+export const BOOKMARKLET_VERSION = '1.1.0';
