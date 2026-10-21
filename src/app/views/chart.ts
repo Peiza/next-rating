@@ -315,8 +315,8 @@ const LABEL_CLEARANCE = 12;
  * on the chart does not cover it; full screen, the round shows as a label in
  * the top left corner, or the top right while the point is under it. The
  * chart is drawn again at the frame's size whenever that changes, keeping
- * the chosen round. A tap picks the nearest point within TAP_RADIUS pixels;
- * the arrow keys step through the points, Home and End jump to the first and
+ * the chosen round. A tap picks the nearest point within TAP_RADIUS pixels,
+ * and a tap farther from every point clears the chosen round; the arrow keys step through the points, Home and End jump to the first and
  * last.
  */
 export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', corner }: PlotOptions = CARD_PLOT): HTMLElement[] {
@@ -358,6 +358,14 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
     placeLabel();
   };
 
+  /** No round chosen, as before the first tap: the card shows the hint again, and full screen the label hides. */
+  const clear = () => {
+    chosen = -1;
+    highlight.setAttribute('visibility', 'hidden');
+    detail.classList.remove('chart-label-right');
+    detail.textContent = full ? '' : t('chart.hint');
+  };
+
   /** The point nearest to a place on the screen, within TAP_RADIUS pixels, or -1. */
   const nearestTo = (clientX: number, clientY: number): number => {
     const box = drawing.getBoundingClientRect();
@@ -379,7 +387,9 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
   const onTap = (event: Event) => {
     const { clientX, clientY } = event as PointerEvent;
     const nearest = nearestTo(clientX, clientY);
+    // A tap away from every point clears the chosen round.
     if (nearest >= 0) choose(nearest);
+    else clear();
   };
 
   /*
@@ -517,6 +527,11 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
   return full ? [frame] : [detail, frame];
 }
 
+/** The band's legend names the whole window's dates, which the period select leaves out. */
+function bandText({ window }: ChartData): string {
+  return window ? t('chart.bandRange', { start: formatDate(window.start), end: formatDate(window.end) }) : t('chart.band');
+}
+
 /** Only the kinds and marks the period has, then the band and the lines. */
 function legend(chart: ChartData): HTMLElement {
   const kinds = (Object.keys(KINDS) as PointKind[]).filter((kind) => chart.points.some((point) => point.kind === kind));
@@ -528,14 +543,18 @@ function legend(chart: ChartData): HTMLElement {
     { class: 'chart-legend' },
     ...kinds.map((kind) => item(icon(marker(kind, 'counts', 10, 10)), t(KINDS[kind]))),
     ...marks.map((mark) => item(icon(marker('official', mark, 10, 10)), t(MARKS[mark]))),
-    chart.band && item(icon(svg('rect', { class: 'chart-band', x: 1, y: 3, width: 18, height: 14 })), t('chart.band')),
+    chart.band && item(icon(svg('rect', { class: 'chart-band', x: 1, y: 3, width: 18, height: 14 })), bandText(chart)),
     chart.same && item(icon(line('predicted')), t('chart.both', { rating: formatRating(chart.predicted!) })),
     !chart.same && chart.predicted !== null && item(icon(line('predicted')), t('chart.predicted', { rating: formatRating(chart.predicted) })),
     !chart.same && chart.official !== null && item(icon(line('official')), t('chart.official', { rating: formatRating(chart.official) })),
   );
 }
 
-/** The same rounds as a table, newest first like the round list. Event names wrap; dates and ratings keep to one line. */
+/**
+ * The same rounds as a table, newest first like the round list. The round
+ * cell names the event, and under it, smaller, the status and the source, so
+ * three columns fit a phone. Words wrap whole; dates and ratings keep to one line.
+ */
 function table(chart: ChartData): HTMLElement {
   const head = (key: MessageKey) => el('th', { scope: 'col' }, t(key));
   return el(
@@ -545,20 +564,25 @@ function table(chart: ChartData): HTMLElement {
     el(
       'table',
       {},
-      el('thead', {}, el('tr', {}, head('chart.column.date'), head('chart.column.rating'), head('chart.column.status'), head('chart.column.round'))),
+      el('thead', {}, el('tr', {}, head('chart.column.date'), head('chart.column.rating'), head('chart.column.round'))),
       el(
         'tbody',
         {},
         ...[...chart.points].reverse().map((point) => {
           const { round, result } = point.row;
-          const name = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), t(KINDS[point.kind]), tierNote(round)];
+          const name = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)];
+          const status = [t(`round.status.${result.status}`), t(KINDS[point.kind])];
           return el(
             'tr',
             {},
             el('td', { class: 'chart-date' }, formatDate(point.date)),
             el('td', { class: 'chart-number' }, formatRating(point.rating)),
-            el('td', {}, t(`round.status.${result.status}`)),
-            el('td', { class: 'chart-event' }, name.filter(Boolean).join(' · ')),
+            el(
+              'td',
+              { class: 'chart-event' },
+              el('span', { class: 'chart-round-name' }, name.filter(Boolean).join(' · ')),
+              el('span', { class: 'chart-round-status' }, status.join(' · ')),
+            ),
           );
         }),
       ),

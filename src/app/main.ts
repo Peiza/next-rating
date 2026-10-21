@@ -164,7 +164,15 @@ function preferredLanguages(): readonly string[] {
 
 function applyLanguage(): void {
   setLanguage(resolveLanguage(preferredLanguages(), store.get().language));
-  document.title = t('app.name');
+  document.title = pageTitle();
+}
+
+/**
+ * The page title: the bookmarklet's name while the setup shows, so a bookmark
+ * made there gets that name and is not mistaken for one to the app.
+ */
+function pageTitle(): string {
+  return overlay?.view === 'setup' ? t('setup.bookmarkName') : t('app.name');
 }
 
 /** --bg of each theme in styles.css, for the browser's toolbar colour. */
@@ -828,6 +836,7 @@ function barTitle(): string {
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
+  document.title = pageTitle();
   // The full-screen chart is all the page shows; without a player to chart, the tab shows instead.
   const full = overlay?.view === 'chart' ? chartFull() : null;
   if (overlay?.view === 'chart' && !full) overlay = null;

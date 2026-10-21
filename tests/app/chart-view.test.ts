@@ -238,7 +238,7 @@ describe('chart panel', () => {
     }
   });
 
-  it('picks the nearest round to a tap, within reach', () => {
+  it('picks the nearest round to a tap, within reach, and a tap away from every round clears it', () => {
     const root = panel();
     const svg = plot(root);
     // Drawn at its own size: 300 by 200 pixels.
@@ -246,7 +246,12 @@ describe('chart panel', () => {
     const own = svg.querySelector('.chart-own polygon')!.getAttribute('points')!.split(' ')[0]!.split(',').map(Number);
     svg.dispatchEvent(new MouseEvent('pointerup', { clientX: own[0]! - 3, clientY: own[1]! + 8 }));
     expect(detail(root)).toMatch(/^990 · /);
+    expect(svg.querySelector('.chart-selected')!.getAttribute('visibility')).toBe('visible');
     svg.dispatchEvent(new MouseEvent('pointerup', { clientX: 150, clientY: 2 }));
+    expect(detail(root)).toBe('Tap a point, or use the arrow keys, to see its round.');
+    expect(svg.querySelector('.chart-selected')!.getAttribute('visibility')).toBe('hidden');
+    // The arrow keys start again from the newest round.
+    svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
     expect(detail(root)).toMatch(/^990 · /);
   });
 
@@ -309,11 +314,11 @@ describe('chart panel', () => {
     });
   });
 
-  it('explains only the shapes and marks the period has, then the window and the lines', () => {
+  it('explains only the shapes and marks the period has, then the window with its dates and the lines', () => {
     const legend = (from: typeof model) =>
       [...panel({ kind: 'custom', from: '2026-09-02', to: '2026-09-30' }, {}, from).querySelectorAll('.chart-legend li')];
     const items = legend(differs);
-    expect(items.map((item) => item.textContent)).toEqual(['Official', 'Counts', 'Counts twice', 'Rating window', `Prediction ${moved}`, 'Official rating 950']);
+    expect(items.map((item) => item.textContent)).toEqual(['Official', 'Counts', 'Counts twice', expect.stringMatching(/^Rating window, \d{2}\/\d{2}\/\d{4} to \d{2}\/\d{2}\/\d{4}$/), `Prediction ${moved}`, 'Official rating 950']);
     expect(items.every((item) => item.querySelector('svg[aria-hidden="true"]'))).toBe(true);
     expect(legend(model).at(-1)!.textContent).toBe('Official rating and prediction 955');
   });
@@ -322,14 +327,20 @@ describe('chart panel', () => {
     const table = panel().querySelector('details.chart-table')!;
     expect(table.hasAttribute('open')).toBe(false);
     expect(table.querySelector('summary')!.textContent).toBe('Show as table');
-    expect([...table.querySelectorAll('th')].map((th) => th.textContent)).toEqual(['Date', 'Rating', 'Status', 'Round']);
-    const rows = [...table.querySelectorAll('tbody tr')].map((row) => [...row.children].slice(1).map((cell) => cell.textContent));
+    expect([...table.querySelectorAll('th')].map((th) => th.textContent)).toEqual(['Date', 'Rating', 'Round']);
+    // The round cell: the event, then the status and the source on a line of their own.
+    const rows = [...table.querySelectorAll('tbody tr')].map((row) => [
+      row.querySelector('.chart-number')!.textContent,
+      ...[...row.querySelectorAll('.chart-event > span')].map((span) => span.textContent),
+    ]);
     expect(rows).toHaveLength(13);
-    expect(rows[0]).toEqual(['990', 'Counts in the following update', 'Planned Open · Your own']);
-    expect(rows.at(-1)).toEqual(['700', 'Dropped', 'Event 0 · Round 1 · Official']);
+    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Your own']);
+    expect(rows.at(-1)).toEqual(['700', 'Event 0 · Round 1', 'Dropped · Official']);
+    expect(rows.some(([, , status]) => status === 'Counts twice · Official')).toBe(true);
     // The date and the rating keep to one line; the event name wraps.
     const cells = [...table.querySelector('tbody tr')!.children].map((cell) => cell.className);
-    expect(cells).toEqual(['chart-date', 'chart-number', '', 'chart-event']);
+    expect(cells).toEqual(['chart-date', 'chart-number', 'chart-event']);
+    expect([...table.querySelectorAll('tbody tr:first-child .chart-event > span')].map((span) => span.className)).toEqual(['chart-round-name', 'chart-round-status']);
   });
 
   it('offers Full screen as a small button in the chart corner when it can open', () => {
@@ -379,8 +390,14 @@ describe('chart panel', () => {
       expect(label(view).parentElement!.classList.contains('chart-frame-fill')).toBe(true);
       expect(label(view).getAttribute('aria-live')).toBe('polite');
       expect(label(view).textContent).toBe('');
-      view.querySelector('svg')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      const svg = view.querySelector<SVGSVGElement>('svg')!;
+      svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
       expect(label(view).textContent).toMatch(/^990 · /);
+      // A tap away from every point empties it again.
+      svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
+      svg.dispatchEvent(new MouseEvent('pointerup', { clientX: 150, clientY: 2 }));
+      expect(label(view).textContent).toBe('');
+      expect(label(view).classList.contains('chart-label-right')).toBe(false);
     });
 
     it('moves the label to the right while the chosen point is under it', () => {

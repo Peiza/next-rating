@@ -837,13 +837,22 @@ describe('top 8 panel', () => {
     expect([...select.options].map((option) => [option.value, option.textContent])).toEqual([
       ['year:2026', '2026'],
       ['year:2025', '2025'],
-      ['window', expect.stringMatching(/^Rating window \(12 months, \S+ to \S+\)$/)],
+      // Without its dates, which would not fit the select on a phone.
+      ['window', 'Rating window (12 months)'],
       ['custom', 'Custom range'],
     ]);
     // The current year by default, and the period is not repeated under the select.
     expect(select.value).toBe('year:2026');
     expect(view.querySelector('.top8-band')).toBeNull();
     expect(view.querySelector('#top8-from')).toBeNull();
+    expect(view.querySelector('#top8-window-dates')).toBeNull();
+  });
+
+  it('names the window dates under the select while the rating window is picked', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const view = page({ top: topEight(model, { kind: 'window' }, '2026-10-04') });
+    expect(view.querySelector('#top8-window-dates')!.textContent).toMatch(/^\d{2}\/\d{2}\/\d{4} to \d{2}\/\d{2}\/\d{4}$/);
+    expect(view.querySelector('#top8-period')!.getAttribute('aria-describedby')).toBe('top8-window-dates');
   });
 
   it('reports the picked period, with no year for the current one', () => {
@@ -1076,7 +1085,7 @@ describe('bookmarklet setup', () => {
 
   it.each([
     ['iphone', 'Safari on iPhone', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its address.', 'Try it on pdga.com.']],
-    ['android', 'Chrome on Android', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
+    ['android', 'Android browsers', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
     ['computer', 'Desktop browsers', ['Copy the bookmarklet.', 'Add a bookmark with the code as its URL.', 'Try it on pdga.com.']],
   ] as const)('shows numbered steps for %s only', (platform, title, steps) => {
     const view = setupView({ ...setupProps(CODE), platform });
@@ -1087,7 +1096,35 @@ describe('bookmarklet setup', () => {
 
   it('runs the bookmarklet on Android from the address bar', () => {
     const view = setupView({ ...setupProps(CODE), platform: 'android' });
-    expect(view.querySelector('#setup-steps')!.lastElementChild!.textContent).toContain('type Next Rating');
+    const run = view.querySelector('#setup-steps')!.lastElementChild!.textContent;
+    expect(run).toContain('type get data');
+    expect(run).toContain('In Chrome, opening the bookmark from the bookmarks list does not run it.');
+  });
+
+  it.each(['iphone', 'android', 'computer'] as const)('names the bookmark after the page title in the steps for %s', (platform) => {
+    const view = setupView({ ...setupProps(CODE), platform });
+    const steps = [...view.querySelectorAll('#setup-steps > .step')].slice(1).map((step) => step.textContent);
+    expect(steps.filter((text) => text!.includes('Next Rating: get data')).length).toBeGreaterThanOrEqual(2);
+    expect(view.textContent).not.toContain('{name}');
+  });
+
+  it('says on iPhone that only Safari works, and runs it from the book icon', () => {
+    const view = setupView({ ...setupProps(CODE), platform: 'iphone' });
+    expect(view.querySelector('#setup-note')!.textContent).toMatch(/^It only works in Safari/);
+    const steps = view.querySelectorAll('#setup-steps > .step');
+    expect(steps[1]!.textContent).toContain('New bookmarks are saved in Favorites.');
+    expect(steps[3]!.textContent).toContain('Tap the address bar, tap the book icon, then tap Next Rating: get data.');
+    expect(setupView({ ...setupProps(CODE), platform: 'android' }).querySelector('#setup-note')).toBeNull();
+  });
+
+  it.each([
+    ['iphone', 'Cannot Run Script', 'Tested on Android'],
+    ['android', 'Tested on Android in Chrome, Brave, Ghost Browser and Samsung Internet.', 'Cannot Run Script'],
+  ] as const)("lists the trouble for %s first, and not the other phone's",(platform, own, other) => {
+    const items = [...setupView({ ...setupProps(CODE), platform }).querySelectorAll('#setup-trouble li')].map((li) => li.textContent!);
+    expect(items[0]).toContain(own);
+    expect(items.join(' ')).not.toContain(other);
+    expect(items.at(-1)).toMatch(/browser check/);
   });
 
   it('switches to another browser', () => {

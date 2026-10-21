@@ -24,6 +24,8 @@ export interface PeriodProps {
   today: PlainDate;
   /** Offers the last 24 months first. */
   recent?: boolean;
+  /** Names the window's dates under the select while it is picked, for a card without a chart legend that does. */
+  windowDates?: boolean;
   onPeriod: (period: ChartPeriod) => void;
 }
 
@@ -37,19 +39,17 @@ function periodValue(period: ChartPeriod, year: number | null): string {
   return period.kind === 'year' ? `year:${year}` : period.kind;
 }
 
-/** The window option names its length and dates, so the line below does not need to. */
+/** The window option names its length; its dates would not fit the select on a phone. */
 function windowLabel(window: PeriodProps['window']): string {
   if (!window) return t('period.window');
-  return t('period.windowOption', {
-    months: t('stats.windowMonths', { count: window.months }),
-    start: formatDate(window.start),
-    end: formatDate(window.end),
-  });
+  return t('period.windowOption', { months: t('stats.windowMonths', { count: window.months }) });
 }
 
 /** Picking the current year stores no year, so it follows New Year. */
-function periodSelect({ id, period, year, currentYear, years, window, today, recent, onPeriod }: PeriodProps): HTMLElement {
+function periodSelect({ id, period, year, currentYear, years, window, today, recent, windowDates, onPeriod }: PeriodProps): HTMLElement {
   const value = periodValue(period, year);
+  const datesId = `${id}-window-dates`;
+  const dates = windowDates && period.kind === 'window' && window;
   const option = (optionValue: string, label: string) => el('option', { value: optionValue, selected: optionValue === value }, label);
   const change = (event: Event) => {
     const picked = (event.target as HTMLSelectElement).value;
@@ -67,12 +67,13 @@ function periodSelect({ id, period, year, currentYear, years, window, today, rec
     el('label', { for: periodId(id), class: 'label' }, t('period.label')),
     el(
       'select',
-      { id: periodId(id), class: 'input', onchange: change },
+      { id: periodId(id), class: 'input', 'aria-describedby': dates ? datesId : undefined, onchange: change },
       recent && option('recent', t('period.recent')),
       ...years.map((each) => option(`year:${each}`, String(each))),
       option('window', windowLabel(window)),
       option('custom', t('period.custom')),
     ),
+    dates && el('p', { id: datesId, class: 'hint' }, t('stats.windowRange', { start: formatDate(dates.start), end: formatDate(dates.end) })),
   );
 }
 

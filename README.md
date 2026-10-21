@@ -174,10 +174,14 @@ follow friends as well as yourself:
 The bookmarklet is a bookmark that brings your rounds from pdga.com into the
 app in one tap. Install it from the app: on the getting-started page, or in
 Settings, choose "Install bookmarklet". The setup page picks your kind of
-browser (Safari on iPhone, Chrome on Android, or a desktop browser; you can
-switch) and shows numbered steps, from copying the code to trying it on your
-ratings details. Settings and the setup page also say whether the
-bookmarklet you last ran in this browser is up to date.
+browser (Safari on iPhone, the only iPhone browser that can save it; a
+browser on Android, tested in Chrome, Brave, Ghost Browser and Samsung
+Internet; or a desktop browser; you can switch) and shows numbered steps,
+from copying the code to trying it on your ratings details. While the setup
+page is open, its title is "Next Rating: get data", so a bookmark made there
+gets that name and is not mistaken for a bookmark to the app. Settings and
+the setup page also say whether the bookmarklet you last ran in this
+browser is up to date.
 
 Run it on your ratings details page or player page on pdga.com. It:
 

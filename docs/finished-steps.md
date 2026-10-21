@@ -651,6 +651,56 @@ Built as (docs/plan-first-visit-polish.md):
   in this tab, the number is in the PDGA # column, and to come back and
   enter it under PDGA number.
 
+## Polish from phone testing
+Spec, after testing on phones:
+1. Bookmark name: while the setup page is open, the page title is "Next
+   Rating: get data" ("Next Rating: hämta data"), so a bookmark made there
+   gets that name and is not confused with a bookmark to the app. The title
+   comes back when the page closes. The steps use that name.
+2. Android: the bookmarklet works in Chrome, Brave, Ghost Browser and Samsung
+   Internet. The steps fit any of them, the tested browsers are listed under
+   "If it doesn't work", and it runs by typing "get data" in the address bar
+   and tapping the bookmark suggestion.
+3. iPhone: only Safari works; Brave, Chrome and Firefox grey out Save when
+   the bookmark address is a script. It runs from the address bar's book
+   icon (iOS 27 shows it after a tap on the address bar). Starting it from
+   the address bar suggestions fails with "Cannot Run Script", listed under
+   "If it doesn't work" with the fix. New bookmarks go in Favorites.
+4. Chart: full screen, the tapped round's label in body text size; in the
+   card and full screen, a tap away from every point clears the chosen round.
+5. Chart table on a phone: no word breaks. Date, Rating and Round, with the
+   status and the source as a smaller second line in the Round cell
+   ("Counts twice · Official").
+6. Dates in the app's language: an English app on a Swedish phone showed
+   Swedish month names on the chart.
+7. The period select's window option was cut off on a phone: "Rating window
+   (12 months)", with the dates elsewhere.
+
+Built as (docs/plan-phone-testing-polish.md):
+- `render()` sets `document.title` (`pageTitle()` in main.ts). The steps
+  name the bookmark through a `{name}` parameter from `setup.bookmarkName`.
+- The setup has an optional note per platform under its heading (only
+  iPhone, Safari only) and trouble items per platform before the shared ones
+  (iPhone: Cannot Run Script; Android: the tested browsers). The Android
+  heading is "Android browsers", with one generic wording and Chrome's menu
+  as the example; only Chrome is said not to run it from the bookmarks list.
+  Safari's message stays in English in the Swedish catalog.
+- `.chart-label` is 1rem. `clear()` in `plot()` hides the highlight and puts
+  back the card's hint, or empties the full-screen label. The corner button
+  is outside the svg, so tapping it does not clear.
+- The table's Round cell holds two block spans, `chart-round-name` and
+  `chart-round-status`. Headers, dates and ratings do not wrap; the Round
+  cell uses `overflow-wrap: break-word` instead of body's `anywhere`.
+- `dateLocale()` (format.ts): the app's language with the device's region
+  (`Intl.Locale(...).maximize().region`), e.g. en-SE, which keeps
+  2026-08-06 with English month names. All date formatters default to it;
+  numbers keep `deviceLocale()`. The browsers' own date pickers keep the
+  phone's language.
+- The window's dates: the chart legend's band item ("Rating window,
+  2025-08-27 to 2026-08-26", the whole window); the Top 8, which has no
+  legend, shows them in a hint under the select while the window is picked
+  (`windowDates` in period.ts).
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -699,3 +749,8 @@ Built in this order:
   (docs/plan-chart-follow-up.md) (done)
 - Chart polish: only the chart full screen, the corner button, the hover
   tooltip, even spacing and the table (docs/plan-chart-polish.md) (done)
+- First visit polish: top bar headings and finding your PDGA number by name
+  (docs/plan-first-visit-polish.md) (done)
+- Polish from phone testing: the bookmark name, the Android and iPhone
+  steps, the chart label and table, dates in the app's language and the
+  window option (docs/plan-phone-testing-polish.md) (done)

@@ -2,8 +2,11 @@ import type { PlainDate } from '../engine/dates';
 import { activeLanguage } from '../i18n';
 
 /*
- * Dates and numbers follow the device locale, also when the user picks
- * another UI language. Ratings never get a thousands separator.
+ * Dates follow the app's language with the device's region, so month names
+ * are in the app's language while the order of a numeric date follows the
+ * device: an English app on a Swedish phone shows "Aug" and 2026-08-06.
+ * Numbers follow the device locale (976,45 on a Swedish phone), and ratings
+ * never get a thousands separator.
  */
 
 export function deviceLocale(): string {
@@ -15,8 +18,18 @@ export function deviceLocale(): string {
   }
 }
 
+/** The app's language with the device's region, such as "en-SE"; the language alone without a region. */
+export function dateLocale(language = activeLanguage(), device = deviceLocale()): string {
+  try {
+    const { region } = new Intl.Locale(device).maximize();
+    return region ? new Intl.Locale(language, { region }).toString() : language;
+  } catch {
+    return language;
+  }
+}
+
 /** Formats a calendar date, "2026-08-06" in Swedish. UTC keeps it from shifting a day. */
-export function formatDate(date: PlainDate, locale = deviceLocale()): string {
+export function formatDate(date: PlainDate, locale = dateLocale()): string {
   const [year, month, day] = date.split('-').map(Number) as [number, number, number];
   return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -27,7 +40,7 @@ export function formatDate(date: PlainDate, locale = deviceLocale()): string {
 }
 
 /** A day and month without the year, "10 Nov" in British English and "10 nov." in Swedish. */
-export function formatDayMonth(date: PlainDate, locale = deviceLocale()): string {
+export function formatDayMonth(date: PlainDate, locale = dateLocale()): string {
   const [year, month, day] = date.split('-').map(Number) as [number, number, number];
   return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
     new Date(Date.UTC(year, month - 1, day)),
@@ -35,13 +48,13 @@ export function formatDayMonth(date: PlainDate, locale = deviceLocale()): string
 }
 
 /** A month's short name, "Oct" in English and "okt." in Swedish, for the chart's axis. */
-export function formatMonth(date: PlainDate, locale = deviceLocale()): string {
+export function formatMonth(date: PlainDate, locale = dateLocale()): string {
   const [year, month] = date.split('-').map(Number) as [number, number];
   return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
 /** A point in time, such as an import timestamp, in the device's time zone. */
-export function formatDateTime(timestamp: string, locale = deviceLocale()): string {
+export function formatDateTime(timestamp: string, locale = dateLocale()): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(timestamp));
 }
 

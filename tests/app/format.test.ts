@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { formatAge, formatAverage, formatChange, formatDate, formatDayMonth, formatEffect, formatRating } from '../../src/app/format';
+import { dateLocale, formatAge, formatAverage, formatChange, formatDate, formatDayMonth, formatEffect, formatMonth, formatRating } from '../../src/app/format';
 
 describe('formatting', () => {
   it('formats dates in the locale', () => {
     expect(formatDate('2026-08-06', 'sv-SE')).toBe('2026-08-06');
     expect(formatDate('2026-08-06', 'en-US')).toBe('08/06/2026');
     expect(formatDate('2026-08-06', 'en-GB')).toBe('06/08/2026');
+  });
+
+  it("formats dates in the app's language with the device's region", () => {
+    expect(dateLocale('en', 'sv-SE')).toBe('en-SE');
+    expect(dateLocale('sv', 'en-US')).toBe('sv-US');
+    // A device language without a region gets its likely one.
+    expect(dateLocale('en', 'sv')).toBe('en-SE');
+    // An English app on a Swedish phone: English month names, the Swedish date order.
+    expect(formatMonth('2026-07-01', dateLocale('en', 'sv-SE'))).toBe('Jul');
+    expect(formatDayMonth('2026-08-06', dateLocale('en', 'sv-SE'))).toBe('6 Aug');
+    expect(formatDate('2026-08-06', dateLocale('en', 'sv-SE'))).toBe('2026-08-06');
+    expect(formatMonth('2026-08-01', dateLocale('sv', 'en-US'))).toBe('aug.');
+    expect(dateLocale('en', 'not a tag')).toBe('en');
   });
 
   it('formats a day and month without the year', () => {

@@ -115,6 +115,7 @@ export function top8Panel(props: Top8Props): HTMLElement[] {
       id: 'top8',
       ...top,
       today,
+      windowDates: true,
       // The Top 8 offers no "last 24 months", so its select never picks it.
       onPeriod: (period) => period.kind !== 'recent' && onPeriod(period),
     }),
