@@ -315,8 +315,8 @@ const LABEL_CLEARANCE = 12;
  * on the chart does not cover it; full screen, the round shows as a label in
  * the top left corner, or the top right while the point is under it. The
  * chart is drawn again at the frame's size whenever that changes, keeping
- * the chosen round. A tap picks the nearest point within TAP_RADIUS pixels;
- * the arrow keys step through the points, Home and End jump to the first and
+ * the chosen round. A tap picks the nearest point within TAP_RADIUS pixels,
+ * and a tap farther from every point clears the chosen round; the arrow keys step through the points, Home and End jump to the first and
  * last.
  */
 export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', corner }: PlotOptions = CARD_PLOT): HTMLElement[] {
@@ -358,6 +358,14 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
     placeLabel();
   };
 
+  /** No round chosen, as before the first tap: the card shows the hint again, and full screen the label hides. */
+  const clear = () => {
+    chosen = -1;
+    highlight.setAttribute('visibility', 'hidden');
+    detail.classList.remove('chart-label-right');
+    detail.textContent = full ? '' : t('chart.hint');
+  };
+
   /** The point nearest to a place on the screen, within TAP_RADIUS pixels, or -1. */
   const nearestTo = (clientX: number, clientY: number): number => {
     const box = drawing.getBoundingClientRect();
@@ -379,7 +387,9 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
   const onTap = (event: Event) => {
     const { clientX, clientY } = event as PointerEvent;
     const nearest = nearestTo(clientX, clientY);
+    // A tap away from every point clears the chosen round.
     if (nearest >= 0) choose(nearest);
+    else clear();
   };
 
   /*

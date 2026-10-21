@@ -238,7 +238,7 @@ describe('chart panel', () => {
     }
   });
 
-  it('picks the nearest round to a tap, within reach', () => {
+  it('picks the nearest round to a tap, within reach, and a tap away from every round clears it', () => {
     const root = panel();
     const svg = plot(root);
     // Drawn at its own size: 300 by 200 pixels.
@@ -246,7 +246,12 @@ describe('chart panel', () => {
     const own = svg.querySelector('.chart-own polygon')!.getAttribute('points')!.split(' ')[0]!.split(',').map(Number);
     svg.dispatchEvent(new MouseEvent('pointerup', { clientX: own[0]! - 3, clientY: own[1]! + 8 }));
     expect(detail(root)).toMatch(/^990 · /);
+    expect(svg.querySelector('.chart-selected')!.getAttribute('visibility')).toBe('visible');
     svg.dispatchEvent(new MouseEvent('pointerup', { clientX: 150, clientY: 2 }));
+    expect(detail(root)).toBe('Tap a point, or use the arrow keys, to see its round.');
+    expect(svg.querySelector('.chart-selected')!.getAttribute('visibility')).toBe('hidden');
+    // The arrow keys start again from the newest round.
+    svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
     expect(detail(root)).toMatch(/^990 · /);
   });
 
@@ -379,8 +384,14 @@ describe('chart panel', () => {
       expect(label(view).parentElement!.classList.contains('chart-frame-fill')).toBe(true);
       expect(label(view).getAttribute('aria-live')).toBe('polite');
       expect(label(view).textContent).toBe('');
-      view.querySelector('svg')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      const svg = view.querySelector<SVGSVGElement>('svg')!;
+      svg.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
       expect(label(view).textContent).toMatch(/^990 · /);
+      // A tap away from every point empties it again.
+      svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0, toJSON: () => ({}) });
+      svg.dispatchEvent(new MouseEvent('pointerup', { clientX: 150, clientY: 2 }));
+      expect(label(view).textContent).toBe('');
+      expect(label(view).classList.contains('chart-label-right')).toBe(false);
     });
 
     it('moves the label to the right while the chosen point is under it', () => {
