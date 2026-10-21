@@ -96,8 +96,8 @@ manual per-page fallback.
      (Polish 2). When the data is more than 7 days old, a clear notice with a
      button opens the player's pdga.com ratings details page to refresh.
    - Store locally only: the language override, the theme choice, the
-     players list order, which Rating tab cards are open, the Top 8 period,
-     the Open with choice and the last viewed player (kept only while Open
+     players list order, which Rating tab cards are open, the Top 8 and chart
+     periods, the Open with choice and the last viewed player (kept only while Open
      with is set to it), the bookmarklet version from the last hand-off and
      the players' data. Each player (each favorite)
      keeps its own PDGA number, last import (show its timestamp), manual
@@ -473,6 +473,63 @@ Built as (docs/plan-phone-polish.md):
   a January run on the saved pages fetches the season, sends only its tables
   and fetches no event already older than the rated rounds.
 
+## Rating chart
+Spec (idea 2 of docs/ideas.md), with a small step first:
+1. Rounds card, "Unofficial events that count": a general hint, "Uncheck an
+   event the next update won't count, for example one whose report arrives
+   after the deadline." The reasons show only on the events they apply to:
+   "X-tier: may not count" and, for tier L, "League: counts only when the
+   whole league is finished and reported". How it works describes all three
+   cases: a late report, an unfinished league and an X-tier event PDGA leaves
+   out. In Swedish, "X-tier" stays ("X-tier: räknas kanske inte"), How it
+   works explains it once as "X-tier (nivåerna XA, XB, XC och XM på
+   pdga.com)", leagues are "liga", and the report deadline is "sista
+   rapportdag" everywhere.
+2. Settings, "Open with": You (the default) or Last viewed player. With the
+   second, a reload or launch opens the player shown last, or you when that
+   player has been removed. A bookmarklet import still opens the imported
+   player.
+3. A Chart card on the Rating tab after Why it changed, closed by default:
+   inline SVG drawn by the app's own code, phone first, colours from the
+   theme tokens, readable at 320 px. Round ratings over time, newest to the
+   right; official, unofficial and own rounds told apart by shape; rounds
+   that count twice, are dropped, excluded or left out marked. The current
+   window shaded, with lines for the official rating and the prediction.
+   Period: the last 24 months by default, or a year, the rating window or a
+   custom range. Tapping a point shows its event, date and rating; a text
+   summary and a table cover screen readers.
+
+Built as (docs/plan-chart.md):
+- `isLeague` (tier L) next to `isXTier`; `eventNote` and `tierNote` in
+  src/app/views/round-text.ts give the note on the event's checkbox, its
+  rounds in the list, Why it changed and the target calculator. The How it
+  works section keeps the id `xtier` and is titled "Events the next update
+  may not count".
+- `openWith` ('me' | 'last') and `lastViewed` in the settings. The player
+  is written only while Last viewed player is chosen (choosing it stores the
+  one shown, going back to You forgets it), so the default writes nothing on
+  a player switch. `initialSelection` opens it only while it is stored.
+- `chartData` in src/app/chart.ts (pure): the rated rounds in the period,
+  oldest first, each with its kind and mark (`counts`, `twice`, `not` for
+  outside the window or after the deadline, `ruled-out` for dropped,
+  excluded by PDGA or left out); the window clipped to the period; the y
+  range from the rounds and both lines, on steps of 5 to 500 with at most
+  five gaps; month ticks every 1, 2, 3, 6 or 12 months, at most five. The
+  last 24 months end today, or at a planned round when it is later.
+- src/app/views/chart.ts draws a 300 by 200 viewBox, capped at 24rem wide:
+  circles, squares and triangles; filled, ringed, hollow, or hollow with a
+  cross; the window in `--surface`, the prediction solid in `--accent` and
+  the official rating dashed in `--text-muted`, each with its value at the
+  right. A tap picks the nearest point within 24 screen pixels; the arrow
+  keys, Home and End step through the points. The chosen round shows in a
+  polite live line under the chart, the SVG's label sums up the chart, the
+  legend lists only what the period has, and a closed "Show as table"
+  holds the same rounds, newest first. Forced colours keep the shapes.
+- The period select is shared with the Top 8 (src/app/views/period.ts,
+  `period.*` keys) and stored as `chartPeriod`, the same for every player.
+- The contrast test requires the chart's colours to be theme tokens that
+  reach 7:1 on the page and the shaded window.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -514,3 +571,5 @@ Built in this order:
 - Target date: a date in the target calculator (docs/plan-target-date.md)
   (done)
 - Phone polish and Top 8 with own rounds (docs/plan-phone-polish.md) (done)
+- Rating chart, with notes for leagues and late reports and Open with the
+  last viewed player (docs/plan-chart.md) (done)

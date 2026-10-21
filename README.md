@@ -18,12 +18,14 @@ App: https://peiza.github.io/next-rating/
   compared with your other rounds in the window), the most recent 25% of
   rounds counted twice, and rounds shorter than 18 holes weighted by hole
   count.
-- X-tier events with non-standard rules, such as mulligans, can produce round
-  ratings that PDGA leaves out of player ratings (Competition Manual 5.10);
-  other X-tier events count normally. An official round PDGA did not
-  evaluate although it is inside the window PDGA used never counts. Rounds
-  from an unofficial X-tier event count but are marked "X-tier: may not
-  count", and you can leave out any unofficial event with one tap.
+- Some unofficial events may miss the next update, and you can leave out any
+  of them with one tap: an event whose report reaches PDGA after the
+  deadline, a league (tier L) that counts only when the whole league is
+  finished and reported, and an X-tier event with non-standard rules, such
+  as mulligans, whose ratings PDGA leaves out of player ratings
+  (Competition Manual 5.10; other X-tier events count normally). Rounds of
+  leagues and X-tier events are marked. An official round PDGA did not
+  evaluate although it is inside the window PDGA used never counts.
 - "Why it changed" lists what moved the prediction away from the official
   rating: new rounds, rounds that left the window, started or stopped
   counting twice, or were dropped or brought back. Each one shows how many
@@ -40,6 +42,9 @@ App: https://peiza.github.io/next-rating/
   yet checked against a real player.
 - The app works in English and Swedish, follows the device language (with a
   manual override in Settings), and follows the device's light or dark mode.
+- It opens on you, or, with "Open with: Last viewed player" in Settings, on
+  the player you looked at last. A bookmarklet import always opens the
+  imported player.
 
 ## The Rating tab
 
@@ -52,19 +57,21 @@ refresh" next to the data age explains the round trip to pdga.com, with the
 Refresh button under it. When the data is more than 7 days old, it opens by
 itself as a warning.
 
-Below that, each part is a card that opens and closes: Why it changed, Add a
-round, Reach a target rating, Top 8, Details and Rounds. Each starts with a
+Below that, each part is a card that opens and closes: Why it changed,
+Chart, Add a round, Reach a target rating, Top 8, Details and Rounds. Each starts with a
 one-line explanation that links to its part of "How it works". Rounds is
 open at first; the app remembers which cards you open, also when you start
 it from the home screen. While closed, Why it changed shows its largest
 effect in its header, such as "907 no longer counts twice, +0.7", or the net
-total when the change rounds to nothing, and Top 8 shows its average and
-period, such as "Average 1014 · 2026".
+total when the change rounds to nothing, Chart shows how many rounds its
+period has, and Top 8 shows its average and period, such as "Average 1014 ·
+2026".
 
 Rounds starts with the unofficial events, each with a Count checkbox. Clear
-it to leave the event out of the prediction, for example an X-tier event
-that PDGA may not count; Why it changed then says what counting it would
-give. The choice is kept per player.
+it for an event the next update won't count, for example one whose report
+arrives after the deadline; Why it changed then says what counting it would
+give. Leagues and X-tier events say why they may not count. The choice is
+kept per player.
 
 ## Adding rounds yourself
 
@@ -108,6 +115,21 @@ they show as "Own". DNF rounds never count. The period is picked from one
 list: any calendar year the player has rated rounds in (the current year by
 default), the same window the prediction uses, or a custom range of dates.
 The app remembers the choice.
+
+## Rating chart
+
+The Chart card draws the player's round ratings over time, newest to the
+right, as an SVG drawn by the app itself (no chart library). The shape shows
+where a round comes from: a circle for official, a square for unofficial and
+a triangle for your own rounds. The fill shows what the next update does with
+it: filled counts, a ring counts twice, hollow does not count, and a cross
+marks a round that is dropped, left out or not counted by PDGA. The
+prediction's window is shaded, with lines for the official rating (dashed)
+and the prediction (solid). Tap a point, or use the arrow keys, to see its
+event, date and rating; the same rounds are also available as a table. The
+period is the last 24 months by default (ending at a planned round of your
+own when that is later than today), or a year, the rating window or a custom
+range, picked like the Top 8's and remembered.
 
 ## Offline and the home screen
 
