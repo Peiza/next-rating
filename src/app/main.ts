@@ -75,6 +75,7 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { cardToggleId } from './views/card';
+import { CHART_FULL_TITLE_ID, chartFullView, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
@@ -113,10 +114,12 @@ let selected: number | null = initialSelection(store.get());
 let flash: PdgaFlash = null;
 let banner: Banner | null = null;
 /**
- * The bookmarklet setup or How it works shows over the current tab, and the
- * id of what opened it gets focus back.
+ * The bookmarklet setup, How it works or the full-screen chart shows over the
+ * current tab, and the id of what opened it gets focus back.
  */
 let overlay: { view: OverlayView; opener: string } | null = null;
+/** The full-screen chart asked the browser for full screen, which closing it leaves again. */
+let chartFullscreen = false;
 /** The kind of browser the setup shows steps for: guessed from the device, then as picked. */
 let setupPlatform: Platform | null = null;
 /** On phones, the players panel shows in place of the current view. */
@@ -512,6 +515,8 @@ function eventAddedBanner(routed: Routed): Banner {
 
 /** The heading that gets focus when a view opens: in the top bar on phones, where the view's own is hidden. */
 function overlayTitleId(view: OverlayView): string {
+  // The full-screen chart covers the top bar and has its own heading.
+  if (view === 'chart') return CHART_FULL_TITLE_ID;
   if (!isWide()) return TOPBAR_TITLE_ID;
   return view === 'setup' ? SETUP_ID : GUIDE_ID;
 }
@@ -538,6 +543,37 @@ function openGuide(section?: GuideSection): void {
     render(overlayTitleId('guide'));
     window.scrollTo(0, 0);
   }
+}
+
+/*
+ * The full-screen chart. Where the browser allows it (Android), it also asks
+ * for full screen and landscape, both only on a tap; on iPhone the view
+ * follows the phone's rotation. A failure leaves the view as it is.
+ */
+type LockableOrientation = ScreenOrientation & { lock?: (orientation: 'landscape') => Promise<void> };
+
+function openChart(): void {
+  openOverlay('chart');
+  if (document.fullscreenEnabled && !document.fullscreenElement) {
+    chartFullscreen = true;
+    document.documentElement
+      .requestFullscreen()
+      .then(() => (screen.orientation as LockableOrientation | undefined)?.lock?.('landscape'))
+      .catch(() => {});
+  }
+  render(CHART_FULL_TITLE_ID);
+}
+
+/** Leaves the browser's full screen once the chart no longer shows. */
+function leaveFullscreen(): void {
+  if (!chartFullscreen) return;
+  chartFullscreen = false;
+  try {
+    screen.orientation?.unlock();
+  } catch {
+    // Not supported: leaving full screen unlocks it anyway.
+  }
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 
 function closeOverlay(): void {
@@ -654,7 +690,7 @@ function currentView(): HTMLElement {
   }
   if (player?.import) {
     const now = new Date();
-    const model = buildModel(player.import, player.pdgaNumber, now, manualToRounds(player.manualRounds), player.leftOut);
+    const model = modelOf(player, now);
     const dates = targetDates(model, today(now));
     targetDraft ??= emptyTargetDraft(model.prediction.rating, dates.min);
     return ratingView({
@@ -678,12 +714,7 @@ function currentView(): HTMLElement {
         },
         onCalculate: calculate,
       },
-      chart: {
-        chart: chartData(model, data.chartPeriod, today(now)),
-        pdgaNumber: player.pdgaNumber,
-        today: today(now),
-        onPeriod: setChartPeriod,
-      },
+      chart: chartProps(player, model, now),
       top8: {
         top: topEight(model, data.top8Period, today(now), data.top8Own),
         today: today(now),
@@ -721,6 +752,29 @@ function currentView(): HTMLElement {
   });
 }
 
+/** The model of a player with an import, for the Rating view and the full-screen chart. */
+function modelOf(player: StoredPlayer, now: Date): Model {
+  return buildModel(player.import!, player.pdgaNumber, now, manualToRounds(player.manualRounds), player.leftOut);
+}
+
+function chartProps(player: StoredPlayer, model: Model, now: Date): ChartProps {
+  return {
+    chart: chartData(model, store.get().chartPeriod, today(now)),
+    pdgaNumber: player.pdgaNumber,
+    today: today(now),
+    onPeriod: setChartPeriod,
+    onFullScreen: openChart,
+  };
+}
+
+/** The full-screen chart for the shown player, or null when the player has no import to chart. */
+function chartFull(): HTMLElement | null {
+  const player = findPlayer(store.get(), selected);
+  if (!player?.import) return null;
+  const now = new Date();
+  return chartFullView({ ...chartProps(player, modelOf(player, now), now), onClose: closeOverlay });
+}
+
 /** The player the Rating view shows, which the phone top bar names; null while another view shows. */
 function ratingPlayer(): { name: string; pdgaNumber: number } | null {
   const player = findPlayer(store.get(), selected);
@@ -738,7 +792,12 @@ function barTitle(): string | null {
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
-  root.replaceChildren(
+  // The full-screen chart is all the page shows; without a player to chart, the tab shows instead.
+  const full = overlay?.view === 'chart' ? chartFull() : null;
+  if (overlay?.view === 'chart' && !full) overlay = null;
+  if (!full) leaveFullscreen();
+  if (full) root.replaceChildren(full);
+  else root.replaceChildren(
     el(
       'div',
       { class: menuOpen ? 'shell menu-open' : 'shell' },
@@ -809,6 +868,21 @@ window.addEventListener('hashchange', () => {
 
 // The back gesture, or the app going back over a layer it closed.
 window.addEventListener('popstate', () => showLayers(readLayers(history.state)));
+
+/*
+ * Android's back (or Escape on a tablet) first leaves the browser's full
+ * screen. The chart closes with it, so one back is enough, unless that back
+ * also went back over the chart's entry: the check waits a moment for its
+ * popstate, so the app never goes back twice.
+ */
+const FULLSCREEN_BACK_MS = 150;
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement || !chartFullscreen) return;
+  chartFullscreen = false;
+  setTimeout(() => {
+    if (overlay?.view === 'chart' && readLayers(history.state).overlay === 'chart') closeOverlay();
+  }, FULLSCREEN_BACK_MS);
+});
 
 // A fresh load on an entry with a layer, as back from pdga.com without the page kept in memory, shows that layer.
 const restored = readLayers(history.state);

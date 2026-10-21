@@ -29,6 +29,12 @@ describe('readLayers', () => {
     }
   });
 
+  it('reads each overlay: the setup, How it works and the full-screen chart', () => {
+    for (const overlay of ['setup', 'guide', 'chart'] as const) {
+      expect(readLayers(layersState({ overlay, menu: false, depth: 1 })).overlay).toBe(overlay);
+    }
+  });
+
   it('ignores unknown layer values', () => {
     expect(readLayers({ nextRating: 1, overlay: 'settings', menu: 'yes', depth: 1 })).toEqual({
       overlay: null,

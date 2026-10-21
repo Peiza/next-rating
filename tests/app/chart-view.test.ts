@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chartData, type ChartPeriod } from '../../src/app/chart';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
-import { chartPanel, chartTeaser, type ChartProps } from '../../src/app/views/chart';
+import { chartFullView, chartPanel, chartTeaser, type ChartProps } from '../../src/app/views/chart';
 import { setLanguage } from '../../src/i18n';
 import { rawDetailsRow, rawEvent, rawPlayer } from '../handoff/raw';
 
@@ -246,6 +246,30 @@ describe('chart panel', () => {
     expect(rows).toHaveLength(13);
     expect(rows[0]).toEqual(['990', 'Counts in the following update', 'Planned Open · Your own']);
     expect(rows.at(-1)).toEqual(['700', 'Dropped', 'Event 0 · Round 1 · Official']);
+  });
+
+  it('offers Full screen when it can open, and shows the chart there on its own', () => {
+    expect(panel().querySelector('#chart-full-screen')).toBeNull();
+    const onFullScreen = vi.fn();
+    const button = panel({ kind: 'recent' }, { onFullScreen }).querySelector<HTMLButtonElement>('#chart-full-screen')!;
+    expect(button.textContent).toBe('Full screen');
+    button.click();
+    expect(onFullScreen).toHaveBeenCalledTimes(1);
+
+    const onClose = vi.fn();
+    const props = { pdgaNumber: 100001, today: TODAY, onPeriod: vi.fn(), onClose };
+    const full = document.body.appendChild(chartFullView({ chart: chartData(model, { kind: 'recent' }, TODAY), ...props }));
+    expect(full.querySelector('h1')!.textContent).toBe('Chart');
+    expect([...full.querySelectorAll('[id]')].map((node) => node.id)).toEqual(
+      expect.arrayContaining(['chart-full-title', 'chart-full-close', 'chart-full-period', 'chart-full-detail', 'chart-full-plot']),
+    );
+    expect(full.querySelector('.chart-frame-fill')).not.toBeNull();
+    expect(full.querySelector('.chart-legend, .chart-history, .chart-table')).toBeNull();
+    full.querySelector<HTMLButtonElement>('#chart-full-close')!.click();
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    const empty = chartFullView({ chart: chartData(model, { kind: 'year', year: 2020 }, TODAY), ...props });
+    expect(empty.querySelector('.chart-empty')!.textContent).toBe('No rated rounds in this period.');
   });
 
   it('says so when the period has no rated rounds', () => {

@@ -886,6 +886,66 @@ a {
   margin: 0;
 }
 
+.chart-full-button {
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.chart-corners {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2px;
+}
+
+/*
+ * The full-screen chart: all the page shows, over the safe areas of a phone
+ * turned sideways. The chart takes the room the rest leaves, so its frame
+ * gets a height of its own and the drawing fills it.
+ */
+.chart-full {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: max(0.5rem, env(safe-area-inset-top)) max(var(--gutter), env(safe-area-inset-right))
+    max(0.5rem, env(safe-area-inset-bottom)) max(var(--gutter), env(safe-area-inset-left));
+  background: var(--bg);
+}
+
+.chart-full-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-full-title {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.chart-full-period .field {
+  margin-bottom: 0;
+}
+
+.chart-full .chart-detail {
+  margin: 0.25rem 0;
+}
+
+.chart-frame-fill {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart-frame-fill .chart-plot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .chart-table summary {
   min-height: 3rem;
   padding: 0.75rem 0;

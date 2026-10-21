@@ -38,7 +38,13 @@ export interface ChartProps {
   /** Today, which ends a custom range when one is first picked. */
   today: PlainDate;
   onPeriod: (period: ChartPeriod) => void;
+  /** Opens the full-screen view; without it the card has no Full screen button. */
+  onFullScreen?: () => void;
 }
+
+export const CHART_FULL_BUTTON_ID = 'chart-full-screen';
+export const CHART_FULL_TITLE_ID = 'chart-full-title';
+export const CHART_FULL_CLOSE_ID = 'chart-full-close';
 
 /**
  * The chart is drawn in CSS pixels at the size it is shown, so the text
@@ -424,8 +430,50 @@ function historyLink(pdgaNumber: number): HTMLElement {
 }
 
 /** The card's content: the period, the chosen round and the chart, the legend, the history link and the table. */
-export function chartPanel({ chart, pdgaNumber, today, onPeriod }: ChartProps): HTMLElement[] {
+export function chartPanel({ chart, pdgaNumber, today, onPeriod, onFullScreen }: ChartProps): HTMLElement[] {
   const controls = periodControls({ id: 'chart', ...chart, today, recent: true, onPeriod });
   if (chart.points.length === 0) return [...controls, el('p', { class: 'chart-empty' }, t('chart.empty')), historyLink(pdgaNumber)];
-  return [...controls, ...plot(chart), legend(chart), historyLink(pdgaNumber), table(chart)];
+  const full =
+    onFullScreen &&
+    el(
+      'button',
+      { id: CHART_FULL_BUTTON_ID, class: 'button chart-full-button', type: 'button', onclick: onFullScreen },
+      svg(
+        'svg',
+        { class: 'chart-icon', viewBox: '0 0 20 20', 'aria-hidden': 'true', focusable: 'false' },
+        svg('path', { class: 'chart-corners', d: 'M2 7V2h5M13 2h5v5M18 13v5h-5M7 18H2v-5' }),
+      ),
+      t('chart.fullScreen'),
+    );
+  return [...controls, ...(full ? [full] : []), ...plot(chart), legend(chart), historyLink(pdgaNumber), table(chart)];
+}
+
+export interface ChartFullProps extends ChartProps {
+  onClose: () => void;
+}
+
+/**
+ * The chart on its own over the whole page, for a phone turned sideways: a
+ * header with the title and Close, the period, the chosen round, and the
+ * chart filling the rest. The legend, link and table stay in the card. Its
+ * ids differ from the card's, though the card is not shown under it.
+ */
+export function chartFullView({ chart, today, onPeriod, onClose }: ChartFullProps): HTMLElement {
+  const controls = periodControls({ id: 'chart-full', ...chart, today, recent: true, onPeriod });
+  const body =
+    chart.points.length === 0
+      ? [el('p', { class: 'chart-empty' }, t('chart.empty'))]
+      : plot(chart, { plotId: 'chart-full-plot', detailId: 'chart-full-detail', fill: true });
+  return el(
+    'div',
+    { class: 'chart-full', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': CHART_FULL_TITLE_ID },
+    el(
+      'div',
+      { class: 'chart-full-bar' },
+      el('h1', { id: CHART_FULL_TITLE_ID, class: 'chart-full-title', tabindex: -1 }, t('chart.title')),
+      el('button', { id: CHART_FULL_CLOSE_ID, class: 'button', type: 'button', onclick: onClose }, t('chart.close')),
+    ),
+    el('div', { class: 'chart-full-period' }, ...controls),
+    ...body,
+  );
 }
