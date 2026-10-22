@@ -119,9 +119,12 @@ large numbers change by half as much; segmented controls, date ranges, Top
 8 figures and titles stay whole at large text; the chart grows with the
 text; the Ko-fi link at the bottom of the Rating tab too, with the same
 spacing in every view), and the How it works text size (A− / A+ and Reset
-under its heading, 14–28 px on that page only, a stored step on top of
+under its heading, 14–32 px on that page only, a stored step on top of
 Body text size, changed in place; the bookmarklet's code box closer to its
-Copy button).
+Copy button), and the large text polish (Reset beside the Settings slider
+on one row; the target answer as one large figure, the only bold, with a
+sentence and muted notes; rating and change figures never wrap, the text
+beside them does).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -248,8 +251,8 @@ rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
 Ko-fi link, the polish from computer and Android testing, the rating
 history line, the bookmarklet size, the prediction in the players list,
-the following update, the text size and the How it works text size
-(docs/finished-steps.md). Nothing is planned: the open items under
+the following update, the text size, the How it works text size and the
+large text polish (docs/finished-steps.md). Nothing is planned: the open items under
 Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.

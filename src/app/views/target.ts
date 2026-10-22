@@ -50,32 +50,46 @@ function hintText(date: string): string {
   return isPlainDate(date) ? t('target.assumes', { date: formatDate(date) }) : t('target.assumesNoDate');
 }
 
-/** The answer as sentences, each its own paragraph: the update for the date first. */
-function answerLines({ query, update, missed, result }: TargetAnswer): string[] {
+const line = (className: string, text: string) => el('p', { class: className }, text);
+
+/**
+ * The answer, key result first: one large figure (the average needed, or
+ * the rating already reached) with a sentence saying what it is, then muted
+ * notes. The figure is the only bold; out of reach has no figure, and its
+ * first line is the bold one instead.
+ */
+function answerLines({ query, update, missed, result }: TargetAnswer): HTMLElement[] {
   const params = {
     count: query.count,
     target: formatRating(query.target),
     update: formatDayMonth(update.update),
   };
   const date = formatDate(query.date);
-  const lines: string[] = [
-    missed === null
-      ? t('target.update', { ...params, date, deadline: formatDayMonth(update.deadline) })
-      : t('target.missed', { ...params, date, deadline: formatDayMonth(missed) }),
-  ];
+  const best = () =>
+    t('target.outOfReachBest', {
+      ...params,
+      max: formatRating(MAX_TARGET_ROUND),
+      rating: result.rating === null ? DASH : formatRating(result.rating),
+    });
+  const lines: HTMLElement[] = [];
   if (result.reached && result.without !== null) {
-    lines.push(t('target.reached', { rating: formatRating(result.without), update: params.update }));
-  }
-  if (result.average === null) {
-    const rating = result.rating === null ? DASH : formatRating(result.rating);
-    lines.push(t('target.outOfReach', { ...params, max: formatRating(MAX_TARGET_ROUND), rating }));
-  } else if (!result.reached) {
-    lines.push(t('target.needed', { ...params, average: formatRating(result.average) }));
-  } else if (result.average === 0) {
-    lines.push(t('target.keepAny', params));
+    lines.push(line('target-figure', formatRating(result.without)), line('target-lead', t('target.reached', params)));
+    if (result.average === null) lines.push(line('target-note', t('target.outOfReach', params)), line('target-note', best()));
+    else if (result.average === 0) lines.push(line('target-note', t('target.keepAny', params)));
+    else lines.push(line('target-note', t('target.keep', { ...params, average: formatRating(result.average) })));
+  } else if (result.average === null) {
+    lines.push(line('target-strong', t('target.outOfReach', params)), line('target-lead', best()));
   } else {
-    lines.push(t('target.keep', { ...params, average: formatRating(result.average) }));
+    lines.push(line('target-figure', formatRating(result.average)), line('target-lead', t('target.needed', params)));
   }
+  lines.push(
+    line(
+      'target-note',
+      missed === null
+        ? t('target.update', { ...params, date, deadline: formatDayMonth(update.deadline) })
+        : t('target.missed', { ...params, date, deadline: formatDayMonth(missed) }),
+    ),
+  );
   return lines;
 }
 
@@ -91,9 +105,9 @@ function leavingItem(round: ListedRound): HTMLElement {
 /** The rounds that leave the window because of the date, so an early or a late date's answer is explained. */
 function leavingList({ query, leaving }: TargetAnswer): HTMLElement[] {
   const date = formatDate(query.date);
-  if (leaving.length === 0) return [el('p', {}, t('target.leavingNone', { date }))];
+  if (leaving.length === 0) return [line('target-note', t('target.leavingNone', { date }))];
   return [
-    el('p', { id: 'target-leaving-title' }, t('target.leavingTitle', { date })),
+    el('p', { id: 'target-leaving-title', class: 'target-note' }, t('target.leavingTitle', { date })),
     el('ul', { class: 'leaving-rounds', 'aria-labelledby': 'target-leaving-title' }, ...leaving.map(leavingItem)),
   ];
 }
@@ -131,7 +145,7 @@ export function targetCalculator(props: TargetProps): HTMLFormElement {
   const status = el(
     'div',
     { id: TARGET_STATUS_ID, class: 'status target-answer', role: 'status', tabindex: -1 },
-    ...(answer ? [...answerLines(answer).map((line) => el('p', {}, line)), ...leavingList(answer)] : []),
+    ...(answer ? [...answerLines(answer), ...leavingList(answer)] : []),
   );
   const submit = (event: Event) => {
     event.preventDefault();

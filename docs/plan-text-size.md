@@ -24,8 +24,9 @@ break words; built with wrapping rows instead of a container query, see 3).
 - Named "Body text size" ("Brödtextstorlek"): headings and large numbers
   change by half as much (2b).
 - After Theme: the label with the value ("17", or "Automatic (17)" while
-  following the device), a range input 14–22 in steps of 1, a hint, a sample
-  line and "Use the device's size", disabled while following the device.
+  following the device), a range input 14–22 in steps of 1 with Reset beside
+  it (disabled while following the device), a hint and a sample line. See
+  "Polish after part 2" for why Reset sits there.
 - `input` changes only the value, `aria-valuetext` and the sample's size, in
   place, so the slider is not rebuilt under the finger. `change` (let go, or
   each arrow key step) stores the size and renders with focus on the slider.
@@ -35,7 +36,8 @@ break words; built with wrapping rows instead of a container query, see 3).
 
 ## 2b. Headings and large numbers change by half as much
 - Every size of 1.25rem or more (h1, h2, the predicted rating, the Top 8
-  figures, round ratings, ratings in the players list) is multiplied by
+  figures, round ratings, ratings in the players list, the target answer's
+  figure) is multiplied by
   `--display-scale`, which main.ts sets on <html> with the size:
   (S + D) / (2 × S) for size S and device size D (`displayScale` in
   text-size.ts). Such a size then changes by half as much as body text: at
@@ -80,20 +82,21 @@ corner button and 18 px icon. Media queries (48rem, 64rem, 40rem high)
 measure in the browser's default size, so breakpoints stay where they are.
 
 ## Part 2 (built): A− / A+ on How it works
-- `AppData.guideTextStep`, -8..+14 (`GUIDE_TEXT_STEPS` in storage.ts),
-  default 0. The page's size is clamp(global size + step, 14, 28)
+- `AppData.guideTextStep`, -8..+18 (`GUIDE_TEXT_STEPS` in storage.ts),
+  default 0. The page's size is clamp(global size + step, 14, 32)
   (`guideTextSize` in text-size.ts): this page may go above the 22 px the
   Settings slider stops at, for reading. The global size is the size picked
-  in Settings or the device's. The step range reaches 28 from 14 and 14 from
-  22. The step stays when the global size changes.
+  in Settings or the device's. The step range reaches 32 from 14 and 14 from
+  22. The step stays when the global size changes. (Built with 28 px and
+  +14 at most, raised to 32 px after phone testing; stored steps stay valid.)
 - At step 0 the page has no size of its own and follows the app exactly.
-  Otherwise whole pixels. When the app's own size is outside 14–28 (the larger
+  Otherwise whole pixels. When the app's own size is outside 14–32 (the larger
   iPhone accessibility Dynamic Type sizes, a tiny browser default), the range
   widens to include it, so a tap never takes the page past the app's size
   the wrong way.
 - A− and A+ step one pixel from the size shown (`nextGuideStep`), not from
-  the step stored, which the range may have cut: 22 + 14 shows 28, and A−
-  then shows 27 (step +5). A button is disabled where it would change
+  the step stored, which the range may have cut: 22 + 18 shows 32, and A−
+  then shows 31 (step +9). A button is disabled where it would change
   nothing (`canStepGuide`), Reset at step 0.
 - The `.guide` section gets the size in px and its own `--display-scale`
   (`displayScale(size, device size)`), so headings still change by half as
@@ -112,3 +115,31 @@ The bookmarklet's code box sat about 3rem below its Copy button (an empty
 status line and the field's margin), more at large text. The status line
 now takes no space until it says Copied (`.copy-status:empty`), and 0.5rem
 is left above the code's label.
+
+## Polish after part 2 (from phone testing)
+- How it works goes up to 32 px (part 2 above).
+- Settings: "Use the device's size" broke onto a row of its own at 22 px.
+  The button is now "Reset" ("Återställ") on the slider's row
+  (`.range-row`): the slider gives way (`flex: 1 1 0; min-width: 0`), the
+  button keeps one line (`white-space: nowrap`), so the row never wraps. The
+  hint says what Reset does: "Reset goes back to the device's size."
+- Target calculator: every line of the answer was bold (`.status`), so the
+  key result was lost. Now the answer leads with one large figure
+  (`.target-figure`, the only bold): the average needed, or when the target
+  is already reached, the rating it reaches. A sentence in normal weight
+  says what the figure is ("Average round rating needed in your next 3
+  rounds to reach 1000 at the 10 Nov update."), then muted notes: what keeps
+  a reached target, the date and report deadline ("Last round on …, report
+  deadline 8 Nov.", or the missed-deadline sentence) and the rounds that
+  leave the window, their ratings in normal weight. Out of reach has no
+  figure: "Out of reach in 3 rounds." is the bold line, then "Even 3 rounds
+  rated 1150 give 991 at the 10 Nov update." Errors stay bold.
+- Rating figures never wrap: body's `overflow-wrap: anywhere` let the
+  Rounds card's flex row squeeze a rating into "10/24" beside a long status
+  ("Counts in a later update") at 22 px. `.round-rating` now keeps its width
+  (`flex: none`) and one line, and the status wraps beside it. Every rating
+  and change figure has `white-space: nowrap`: the prediction, the following
+  update's rating and change, round ratings (also manual rounds), Top 8 rows
+  and figures, the players list, the target figure and the rounds that
+  leave the window; the text around them wraps. A stylesheet test checks
+  the list.

@@ -735,8 +735,9 @@ describe('app start', () => {
     const status = () => document.getElementById('target-status')!;
     const lines = [...status().querySelectorAll('p')].map((p) => p.textContent);
     expect(lines).toEqual([
-      expect.stringMatching(/^With the last round on .+, this is for the .+ update \(report deadline .+\)\.$/),
-      expect.stringMatching(/^Average at least \d+ in the next 3 rounds to reach 960 at the .+ update\.$/),
+      expect.stringMatching(/^\d+$/),
+      expect.stringMatching(/^Average round rating needed in your next 3 rounds to reach 960 at the .+ update\.$/),
+      expect.stringMatching(/^Last round on .+, report deadline .+\.$/),
       expect.stringMatching(/^No rounds leave the window by .+\.$/),
     ]);
     expect(document.activeElement).toBe(status());

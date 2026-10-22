@@ -466,6 +466,24 @@ a {
   touch-action: manipulation;
 }
 
+/* The slider and its Reset on one row at every size: the slider gives way, the button keeps its one line. */
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.range-row > .range {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+.range-row > .button {
+  flex: none;
+  white-space: nowrap;
+}
+
 /* Sized in pixels by the view, so it shows the size while the slider moves. */
 .text-sample {
   margin: 0 0 0.75rem;
@@ -634,6 +652,7 @@ a {
   font-weight: 800;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .change {
@@ -1324,6 +1343,7 @@ a {
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .top8-found,
@@ -1377,6 +1397,7 @@ a {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap;
 }
 
 .rounds {
@@ -1412,13 +1433,21 @@ a {
   gap: 1rem;
 }
 
+/*
+ * The rating keeps its width and one line (body's overflow-wrap: anywhere
+ * would let the flex row squeeze "1024" into "10/24"); a long status wraps
+ * beside it instead.
+ */
 .round-rating {
+  flex: none;
   font-size: calc(1.4rem * var(--display-scale, 1));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .round-status {
+  min-width: 0;
   font-weight: 700;
   text-align: right;
 }
@@ -1546,9 +1575,18 @@ a {
   margin: 0;
 }
 
-/* Target calculator: the answer is a few sentences in the status line. */
+/* Target calculator: the answer in the status line, one large figure and a sentence, then muted notes. */
 .target-form > .hint {
   margin-bottom: 1rem;
+}
+
+/* The key figure is the only bold; an error stays bold, as every status line. */
+.target-answer {
+  font-weight: 400;
+}
+
+.target-answer.error {
+  font-weight: 700;
 }
 
 .target-answer > p {
@@ -1557,6 +1595,24 @@ a {
 
 .target-answer > p:last-child {
   margin-bottom: 0;
+}
+
+.target-answer > .target-figure {
+  margin: 0;
+  font-size: calc(2.25rem * var(--display-scale, 1));
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Out of reach has no figure; its first line takes the bold. */
+.target-strong {
+  font-weight: 700;
+}
+
+.target-note {
+  color: var(--text-muted);
 }
 
 /* The rounds that leave the window: rating left, event and date right. */
@@ -1579,8 +1635,8 @@ a {
 }
 
 .leaving-rating {
-  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .leaving-meta {

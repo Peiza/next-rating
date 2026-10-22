@@ -153,20 +153,25 @@ function textSizePicker(textSize: number | null, deviceTextSize: number, onTextS
     'div',
     { class: 'field' },
     el('div', { class: 'range-head' }, el('label', { for: TEXT_SIZE_ID, class: 'label' }, t('settings.textSize')), value),
-    slider,
+    // Reset beside the slider, which gives way to it, so the row never wraps.
+    el(
+      'div',
+      { class: 'range-row' },
+      slider,
+      el(
+        'button',
+        {
+          id: `${TEXT_SIZE_ID}-reset`,
+          class: 'button button-small',
+          type: 'button',
+          disabled: textSize === null,
+          onclick: () => onTextSize(null),
+        },
+        t('settings.textSizeReset'),
+      ),
+    ),
     el('p', { id: hintId, class: 'hint hint-tight' }, t('settings.textSizeHint')),
     sample,
-    el(
-      'button',
-      {
-        id: `${TEXT_SIZE_ID}-reset`,
-        class: 'button button-small',
-        type: 'button',
-        disabled: textSize === null,
-        onclick: () => onTextSize(null),
-      },
-      t('settings.textSizeReset'),
-    ),
   );
 }
 

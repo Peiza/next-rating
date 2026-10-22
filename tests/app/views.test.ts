@@ -195,7 +195,9 @@ describe('settings view', () => {
     expect([slider.type, slider.min, slider.max, slider.step, slider.value]).toEqual(['range', '14', '22', '1', '15']);
     expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatic (15)');
     expect(slider.getAttribute('aria-valuetext')).toBe('Automatic (15)');
-    expect(view.querySelector('#text-size-hint')!.textContent).toBe('The whole app changes when you let go.');
+    expect(view.querySelector('#text-size-hint')!.textContent).toBe(
+      "The whole app changes when you let go. Reset goes back to the device's size.",
+    );
     expect(view.querySelector<HTMLElement>('#text-size-sample')!.style.fontSize).toBe('15px');
     expect(view.querySelector<HTMLButtonElement>('#text-size-reset')!.disabled).toBe(true);
 
@@ -219,9 +221,13 @@ describe('settings view', () => {
     expect(onTextSize).toHaveBeenLastCalledWith(21);
   });
 
-  it('goes back to the device size', () => {
+  it('goes back to the device size with Reset, on the slider’s row', () => {
     const onTextSize = vi.fn();
-    settingsView({ ...props, textSize: 19, onTextSize }).querySelector<HTMLButtonElement>('#text-size-reset')!.click();
+    const reset = settingsView({ ...props, textSize: 19, onTextSize }).querySelector<HTMLButtonElement>('#text-size-reset')!;
+    expect(reset.textContent).toBe('Reset');
+    expect(reset.parentElement!.className).toBe('range-row');
+    expect(reset.previousElementSibling!.id).toBe('text-size');
+    reset.click();
     expect(onTextSize).toHaveBeenLastCalledWith(null);
   });
 
@@ -230,7 +236,10 @@ describe('settings view', () => {
     const view = settingsView(props);
     expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Brödtextstorlek');
     expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatiskt (17)');
-    expect(view.querySelector('#text-size-reset')!.textContent).toBe('Använd enhetens storlek');
+    expect(view.querySelector('#text-size-reset')!.textContent).toBe('Återställ');
+    expect(view.querySelector('#text-size-hint')!.textContent).toBe(
+      'Hela appen ändras när du släpper. Återställ går tillbaka till enhetens storlek.',
+    );
   });
 
   it('opens with you by default, or with the last viewed player', () => {
@@ -551,6 +560,9 @@ describe('rating view', () => {
       expect(page.querySelector('#following-update')).toBeNull();
       const status = page.querySelector('.round-after-deadline .round-status')!;
       expect(status.textContent).toBe('» Counts in a later update');
+      // The rating is an element of its own beside the status, which styles.css keeps on one line while the status wraps.
+      const rating = status.previousElementSibling!;
+      expect([rating.className, rating.textContent]).toEqual(['round-rating', '1000']);
     });
 
     it('on 22 Oct, shows no line for a round after 6 Dec alone, and keeps the line of a round before it', () => {
@@ -1882,24 +1894,24 @@ describe('how it works', () => {
     expect(reset.disabled).toBe(true);
   });
 
-  it('stops at 28 and 14 px, moving focus off a button it disables', () => {
+  it('stops at 32 and 14 px, moving focus off a button it disables', () => {
     const onTextStep = vi.fn();
-    const view = document.body.appendChild(guidePage({ textStep: 10, onTextStep }));
+    const view = document.body.appendChild(guidePage({ textStep: 14, onTextStep }));
     const { smaller, larger } = textTools(view);
     larger.focus();
     larger.click();
-    expect(onTextStep).toHaveBeenLastCalledWith(11);
-    expect(view.style.fontSize).toBe('28px');
+    expect(onTextStep).toHaveBeenLastCalledWith(15);
+    expect(view.style.fontSize).toBe('32px');
     expect(larger.disabled).toBe(true);
     expect(document.activeElement).toBe(smaller);
     view.remove();
 
-    // From 22 px, the largest step shows 28, and A− shows 27.
-    const cut = guidePage({ baseTextSize: 22, textStep: 14, onTextStep });
-    expect(cut.style.fontSize).toBe('28px');
+    // From 22 px, the largest step shows 32, and A− shows 31.
+    const cut = guidePage({ baseTextSize: 22, textStep: 18, onTextStep });
+    expect(cut.style.fontSize).toBe('32px');
     textTools(cut).smaller.click();
-    expect(onTextStep).toHaveBeenLastCalledWith(5);
-    expect(cut.style.fontSize).toBe('27px');
+    expect(onTextStep).toHaveBeenLastCalledWith(9);
+    expect(cut.style.fontSize).toBe('31px');
 
     const smallest = guidePage({ baseTextSize: 22, textStep: -8 });
     expect(smallest.style.fontSize).toBe('14px');
