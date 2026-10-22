@@ -317,6 +317,10 @@ Built as (docs/plan-setup-page.md):
   which falls back to selecting the text), bookmark, paste the code as the
   address, and "Try it", which opens your ratings details on pdga.com. "If it
   doesn't work" is a closed `<details>`.
+- The paste step's bold title says first where to paste the code and that
+  the browser's address bar is the wrong place, in each platform's words:
+  the bookmark's address in Safari on iPhone, its URL field on Android and
+  on a computer (where that step also adds the bookmark).
 - The version of the last valid hand-off is stored (`bookmarklet`), whatever
   the import brought. Settings and the setup page say "Your bookmarklet:
   1.0.0, up to date", "…, a newer one (1.1.0) is available", or that this
