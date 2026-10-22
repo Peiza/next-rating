@@ -547,6 +547,37 @@ describe('app start', () => {
     expect(predicted()).toBe('950');
   });
 
+  it("shows each player's prediction in the players list, the same as the Rating tab, also after a manual round", async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player', currentRating: '1000' });
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [
+          { pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } },
+          { pdgaNumber: 100002, favorite: true, import: { at, player: other, details: [rawDetailsRow({ rating: '1000' })], events: [] } },
+          { pdgaNumber: 100003, favorite: true, import: null },
+        ],
+      }),
+    );
+    await start('/next-rating/');
+    const listed = (pdgaNumber: number, part: string) => document.querySelector(`#player-${pdgaNumber} .${part}`);
+    expect(listed(100001, 'player-rating')!.textContent).toBe(predicted());
+    expect(listed(100002, 'player-rating')!.textContent).toBe('1000');
+    // No new rounds: the official rating, with no change.
+    expect(listed(100002, 'player-change')!.textContent).toBe('→0');
+    expect(document.getElementById('player-100003')).not.toBeNull();
+    expect(listed(100003, 'player-prediction')).toBeNull();
+
+    document.getElementById('manual-toggle')!.click();
+    document.querySelector<HTMLInputElement>('#manual-rating')!.value = '1010';
+    document.querySelector('#manual-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(predicted()).not.toBe('950');
+    expect(listed(100001, 'player-rating')!.textContent).toBe(predicted());
+    expect(listed(100001, 'player-change')!.classList.contains('change-up')).toBe(true);
+  });
+
   it('leaves an unofficial event out with one tap, stored per player, and counts it again', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const event = rawEvent({ date: '20-Sep-2026' }, [rawEventRow('100001', ['1040', '1030'])]);

@@ -1,8 +1,10 @@
 import { t } from '../../i18n';
 import { el } from '../dom';
-import { deviceLocale, formatAge } from '../format';
+import { deviceLocale, formatAge, formatChange, formatRating } from '../format';
+import type { ListPrediction } from '../model';
 import { playerName, sortFavorites } from '../players';
 import type { PlayerOrder, StoredPlayer } from '../storage';
+import { direction } from './change';
 import { detailsUrl, nameSearchForm, pdgaNumberForm, type PdgaFlash } from './pdga';
 import { segmented, type Segment } from './segmented';
 
@@ -56,6 +58,8 @@ export interface PlayersProps {
   flash: PdgaFlash;
   order: PlayerOrder;
   now: Date;
+  /** Each player's prediction, by PDGA number; a player without one is left out. */
+  predictions: ReadonlyMap<number, ListPrediction>;
   onOrder: (order: PlayerOrder) => void;
   /** Opens pdga.com's player search. */
   onSearch: (url: string) => void;
@@ -73,9 +77,36 @@ function imported(player: StoredPlayer, now: Date): string {
   return player.import ? t('players.imported', { age: formatAge(player.import.at, now) }) : t('players.notImported');
 }
 
+/**
+ * The predicted rating with the change under it, as on the Rating tab. The
+ * figures are hidden from screen readers, which read a sentence instead.
+ */
+function predictionColumn({ rating, change }: ListPrediction): HTMLElement {
+  const [dir, arrow] = direction(change ?? 0);
+  const [shown, signed] = [formatRating(rating), change !== null && formatChange(change)];
+  return el(
+    'span',
+    { class: 'player-prediction' },
+    el(
+      'span',
+      { class: 'visually-hidden' },
+      signed ? t('players.predictionChange', { rating: shown, change: signed }) : t('players.prediction', { rating: shown }),
+    ),
+    el('span', { class: 'player-rating', 'aria-hidden': 'true' }, shown),
+    signed &&
+      el(
+        'span',
+        { class: `player-change change-${dir}`, 'aria-hidden': 'true' },
+        el('span', { class: 'change-arrow' }, arrow),
+        signed,
+      ),
+  );
+}
+
 /** Selected is marked with a check mark and aria-current, never by colour alone. */
 function selectButton(player: StoredPlayer, props: PlayersProps): HTMLElement {
   const selected = player.pdgaNumber === props.selected;
+  const prediction = props.predictions.get(player.pdgaNumber);
   return el(
     'button',
     {
@@ -87,13 +118,18 @@ function selectButton(player: StoredPlayer, props: PlayersProps): HTMLElement {
     },
     el(
       'span',
-      { class: 'player-name' },
-      selected && el('span', { class: 'player-check wide-only', 'aria-hidden': 'true' }, '✓ '),
-      playerLabel(player),
-      player.pdgaNumber === props.me && el('span', { class: 'badge' }, t('players.me')),
-      selected && el('span', { class: 'badge menu-only' }, t('players.now')),
+      { class: 'player-text' },
+      el(
+        'span',
+        { class: 'player-name' },
+        selected && el('span', { class: 'player-check wide-only', 'aria-hidden': 'true' }, '✓ '),
+        playerLabel(player),
+        player.pdgaNumber === props.me && el('span', { class: 'badge' }, t('players.me')),
+        selected && el('span', { class: 'badge menu-only' }, t('players.now')),
+      ),
+      el('span', { class: 'player-meta' }, imported(player, props.now)),
     ),
-    el('span', { class: 'player-meta' }, imported(player, props.now)),
+    prediction && predictionColumn(prediction),
   );
 }
 

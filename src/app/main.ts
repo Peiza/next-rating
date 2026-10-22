@@ -8,7 +8,7 @@ import { readPages } from './handoff';
 import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
-import { playerModel, type Model } from './model';
+import { createPredictionCache, playerModel, type ListPrediction, type Model } from './model';
 import {
   addFavorite,
   addManualRound,
@@ -838,6 +838,18 @@ function modelOf(player: StoredPlayer, now: Date): Model {
   return playerModel(player, player.import!, now);
 }
 
+const predictionOf = createPredictionCache();
+
+/** Every stored player's prediction for the players panel, by PDGA number. */
+function predictions(players: readonly StoredPlayer[], now: Date): Map<number, ListPrediction> {
+  const shown = new Map<number, ListPrediction>();
+  for (const player of players) {
+    const prediction = predictionOf(player, now);
+    if (prediction) shown.set(player.pdgaNumber, prediction);
+  }
+  return shown;
+}
+
 function chartProps(player: StoredPlayer, model: Model, now: Date): ChartProps {
   return {
     chart: chartData(model, store.get().chartPeriod, today(now)),
@@ -914,6 +926,7 @@ function restoreFocus(focusId: string): void {
 /** Rebuilds the page, then puts focus back on the element with the same id. */
 function render(focusId = document.activeElement?.id): void {
   const data = store.get();
+  const now = new Date();
   document.title = pageTitle();
   // The full-screen chart is all the page shows; without a player to chart, the tab shows instead.
   const full = overlay?.view === 'chart' ? chartFull() : null;
@@ -933,7 +946,8 @@ function render(focusId = document.activeElement?.id): void {
         confirmRemove,
         flash: addFlash,
         order: data.playerOrder,
-        now: new Date(),
+        now,
+        predictions: predictions(data.players, now),
         onOrder: setPlayerOrder,
         onSearch: searchPdga,
         onSelect: selectPlayer,
