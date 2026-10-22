@@ -169,7 +169,7 @@ let targetMemo: { key: string; answer: TargetAnswer } | null = null;
 let examplesFlash: ExamplesFlash = null;
 /** "How to refresh" opened or closed by hand; null follows the data age (open when it is old). */
 let refreshOpen: boolean | null = null;
-/** The Rounds card shows every round after "Show more", for this player while the app is open. */
+/** The Rounds card shows every round after "Show more", until the card is closed or another player is shown. */
 let roundsExpanded = false;
 /**
  * The player the manual entry and target calculator drafts belong to;
@@ -456,6 +456,8 @@ function toggleCard(name: CardName): void {
     // A form opened on a later day starts on that day.
     if (open && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
   }
+  // Reopened, the Rounds card shows the short list again.
+  if (name === 'rounds' && !open) roundsExpanded = false;
   render(cardToggleId(name));
 }
 
