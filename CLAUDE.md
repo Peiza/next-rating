@@ -96,8 +96,8 @@ chart table; date fields with a calendar icon on iPhone; a hint to turn
 the iPhone in full screen; "manual rounds" everywhere; the period and
 x-axis above the full-screen chart on wide screens; the chosen round on
 one line above the full-screen chart), and a plain Ko-fi link at the
-bottom of Settings and at the end of How it works (no Ko-fi script or
-widget, nothing on the Rating tab), and the polish from computer and
+bottom of the Rating tab and of Settings and at the end of How it works
+(no Ko-fi script or widget), and the polish from computer and
 Android testing (the chart's period and x-axis in one row of the same
 height; full-screen controls only on screens tall enough too; each tab
 remembers its scroll position; the Rounds card lists the rounds that

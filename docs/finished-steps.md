@@ -1010,7 +1010,8 @@ Built in this order:
   table, date fields, the full-screen hint, controls and round strip, and
   manual rounds (docs/plan-iphone-testing.md) (done)
 - Ko-fi link: a plain link at the bottom of Settings, at the end of How it
-  works and in the README, opened in the same tab (done)
+  works and in the README, opened in the same tab (done); the bottom of the
+  Rating tab got the same link with the text size step
 - Polish from computer and Android testing: the chart controls, full-screen
   controls only where there is height, remembered scroll positions and a
   shorter Rounds card (docs/plan-computer-android-polish.md) (done)

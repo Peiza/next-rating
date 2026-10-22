@@ -220,8 +220,8 @@ the pages to open and run it on.
 
 Like Next Rating? [Buy me a coffee on Ko-fi](https://ko-fi.com/peiza).
 
-The app has the same plain link at the bottom of Settings and at the end of
-How it works, opened in the same tab. There is no Ko-fi button, widget or
+The app has the same plain link at the bottom of the Rating tab and of
+Settings, and at the end of How it works, opened in the same tab. There is no Ko-fi button, widget or
 script, so nothing from Ko-fi loads in the app.
 
 ## Development

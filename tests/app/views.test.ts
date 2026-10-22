@@ -352,8 +352,21 @@ describe('rating view', () => {
     ]);
   });
 
-  it('has no Ko-fi link', () => {
-    expect(ratingPage().querySelector('a[href*="ko-fi"]')).toBeNull();
+  it('links to Ko-fi in the same tab at the bottom, just before the unofficial notice, as in Settings', () => {
+    const view = ratingPage();
+    const links = view.querySelectorAll<HTMLAnchorElement>('a[href*="ko-fi"]');
+    expect(links).toHaveLength(1);
+    const link = links[0]!;
+    expect(link.getAttribute('href')).toBe(KOFI_URL);
+    expect(link.parentElement!.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
+    expect(link.getAttribute('rel')).toBe('noreferrer');
+    expect(link.hasAttribute('target')).toBe(false);
+    expect(link.parentElement!.nextElementSibling).toBe(view.lastElementChild);
+    expect(view.lastElementChild!.className).toBe('notice');
+    setLanguage('sv');
+    expect(ratingPage().querySelector('a[href*="ko-fi"]')!.parentElement!.textContent).toBe(
+      'Gillar du Next Rating? Bjud mig på en kaffe på Ko-fi',
+    );
   });
 
   it('shows the data age with a closed "How to refresh" and the Refresh button under it', () => {
@@ -899,11 +912,13 @@ describe('rating tab cards', () => {
     return ratingView({ model, manual, target, top8, chart, cards, onToggleCard, favorite: true, now: NOW, onAddFavorite: vi.fn() });
   }
 
-  it('follow the summary in a fixed order, then the unofficial notice', () => {
+  it('follow the summary in a fixed order, then the Ko-fi link and the unofficial notice', () => {
     const view = page();
     expect([...view.querySelectorAll('.card')].map((card) => card.id)).toEqual(['why', 'chart', 'manual', 'target', 'top8', 'stats', 'rounds']);
     expect(view.querySelector('.summary')!.nextElementSibling!.id).toBe('why');
-    expect(view.querySelector('#rounds')!.nextElementSibling!.className).toBe('notice');
+    const support = view.querySelector('#rounds')!.nextElementSibling!;
+    expect(support.querySelector(`a[href="${KOFI_URL}"]`)).not.toBeNull();
+    expect(support.nextElementSibling!.className).toBe('notice');
   });
 
   it('start with only Rounds open', () => {
