@@ -195,7 +195,9 @@ describe('settings view', () => {
     expect([slider.type, slider.min, slider.max, slider.step, slider.value]).toEqual(['range', '14', '22', '1', '15']);
     expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatic (15)');
     expect(slider.getAttribute('aria-valuetext')).toBe('Automatic (15)');
-    expect(view.querySelector('#text-size-hint')!.textContent).toBe('The whole app changes when you let go.');
+    expect(view.querySelector('#text-size-hint')!.textContent).toBe(
+      "The whole app changes when you let go. Reset goes back to the device's size.",
+    );
     expect(view.querySelector<HTMLElement>('#text-size-sample')!.style.fontSize).toBe('15px');
     expect(view.querySelector<HTMLButtonElement>('#text-size-reset')!.disabled).toBe(true);
 
@@ -219,9 +221,13 @@ describe('settings view', () => {
     expect(onTextSize).toHaveBeenLastCalledWith(21);
   });
 
-  it('goes back to the device size', () => {
+  it('goes back to the device size with Reset, on the slider’s row', () => {
     const onTextSize = vi.fn();
-    settingsView({ ...props, textSize: 19, onTextSize }).querySelector<HTMLButtonElement>('#text-size-reset')!.click();
+    const reset = settingsView({ ...props, textSize: 19, onTextSize }).querySelector<HTMLButtonElement>('#text-size-reset')!;
+    expect(reset.textContent).toBe('Reset');
+    expect(reset.parentElement!.className).toBe('range-row');
+    expect(reset.previousElementSibling!.id).toBe('text-size');
+    reset.click();
     expect(onTextSize).toHaveBeenLastCalledWith(null);
   });
 
@@ -230,7 +236,10 @@ describe('settings view', () => {
     const view = settingsView(props);
     expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Brödtextstorlek');
     expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatiskt (17)');
-    expect(view.querySelector('#text-size-reset')!.textContent).toBe('Använd enhetens storlek');
+    expect(view.querySelector('#text-size-reset')!.textContent).toBe('Återställ');
+    expect(view.querySelector('#text-size-hint')!.textContent).toBe(
+      'Hela appen ändras när du släpper. Återställ går tillbaka till enhetens storlek.',
+    );
   });
 
   it('opens with you by default, or with the last viewed player', () => {

@@ -466,6 +466,24 @@ a {
   touch-action: manipulation;
 }
 
+/* The slider and its Reset on one row at every size: the slider gives way, the button keeps its one line. */
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.range-row > .range {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+.range-row > .button {
+  flex: none;
+  white-space: nowrap;
+}
+
 /* Sized in pixels by the view, so it shows the size while the slider moves. */
 .text-sample {
   margin: 0 0 0.75rem;

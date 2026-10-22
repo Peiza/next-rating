@@ -24,8 +24,9 @@ break words; built with wrapping rows instead of a container query, see 3).
 - Named "Body text size" ("Brödtextstorlek"): headings and large numbers
   change by half as much (2b).
 - After Theme: the label with the value ("17", or "Automatic (17)" while
-  following the device), a range input 14–22 in steps of 1, a hint, a sample
-  line and "Use the device's size", disabled while following the device.
+  following the device), a range input 14–22 in steps of 1 with Reset beside
+  it (disabled while following the device), a hint and a sample line. See
+  "Polish after part 2" for why Reset sits there.
 - `input` changes only the value, `aria-valuetext` and the sample's size, in
   place, so the slider is not rebuilt under the finger. `change` (let go, or
   each arrow key step) stores the size and renders with focus on the slider.
@@ -113,3 +114,11 @@ The bookmarklet's code box sat about 3rem below its Copy button (an empty
 status line and the field's margin), more at large text. The status line
 now takes no space until it says Copied (`.copy-status:empty`), and 0.5rem
 is left above the code's label.
+
+## Polish after part 2 (from phone testing)
+- How it works goes up to 32 px (part 2 above).
+- Settings: "Use the device's size" broke onto a row of its own at 22 px.
+  The button is now "Reset" ("Återställ") on the slider's row
+  (`.range-row`): the slider gives way (`flex: 1 1 0; min-width: 0`), the
+  button keeps one line (`white-space: nowrap`), so the row never wraps. The
+  hint says what Reset does: "Reset goes back to the device's size."
