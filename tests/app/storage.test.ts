@@ -415,6 +415,12 @@ describe('Rating tab settings', () => {
     for (const bad of ['Day', 'iso', 1, true, {}]) expect(validateData({ dateOrder: bad }).dateOrder).toBeNull();
   });
 
+  it('follow the device text size unless a size in the range is stored', () => {
+    expect(validateData({}).textSize).toBeNull();
+    for (const size of [14, 17, 22]) expect(validateData({ textSize: size }).textSize).toBe(size);
+    for (const bad of [13, 23, 17.5, '17', Number.NaN, null, true]) expect(validateData({ textSize: bad }).textSize).toBeNull();
+  });
+
   it('keep the chart table closed unless open is stored', () => {
     expect(validateData({}).chartTable).toBe(false);
     expect(validateData({ chartTable: true }).chartTable).toBe(true);
@@ -439,8 +445,10 @@ describe('Rating tab settings', () => {
       chartAxis: 'even',
       dateOrder: 'day',
       chartTable: true,
+      textSize: 20,
     });
     const data = createStore(storage).get();
+    expect(data.textSize).toBe(20);
     expect(data.dateOrder).toBe('day');
     expect(data.chartTable).toBe(true);
     expect(data.chartAxis).toBe('even');
