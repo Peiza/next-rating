@@ -710,6 +710,65 @@ describe('app start', () => {
     expect(document.getElementById('manual-undo')).toBeNull();
   });
 
+  it('edits a manual round from the Rounds card in place, and ends the edit when the round goes', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const rounds = [
+      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null },
+      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9 },
+    ];
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] }, manualRounds: rounds }],
+      }),
+    );
+    await start('/next-rating/');
+    const rating = () => document.querySelector<HTMLInputElement>('#manual-rating')!;
+    // Typed before the edit: the form gets it back afterwards.
+    document.getElementById('manual-toggle')!.click();
+    rating().value = '777';
+    rating().dispatchEvent(new Event('input'));
+    document.getElementById('manual-toggle')!.click();
+
+    // The card was closed; a tap on the row opens it with the round, and focus on the form's heading.
+    document.querySelector<HTMLElement>('#round-edit-m2')!.closest('li')!.click();
+    expect(stored().cards.manual).toBe(true);
+    expect(document.activeElement?.id).toBe('manual-edit-title');
+    expect(rating().value).toBe('985');
+    expect(document.querySelector<HTMLInputElement>('#manual-event')!.value).toBe('Club night');
+    rating().value = '990';
+    document.querySelector('#manual-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(stored().players[0].manualRounds).toEqual([rounds[0], { ...rounds[1], rating: 990 }]);
+    expect(document.getElementById('manual-status')!.textContent).toBe('990 saved.');
+    expect(document.activeElement?.id).toBe('manual-edit-m2');
+    expect(document.getElementById('manual-add')).not.toBeNull();
+    expect(rating().value).toBe('777');
+
+    // Cancel saves nothing, and focus goes back to the button that opened the edit.
+    document.getElementById('manual-edit-m1')!.click();
+    rating().value = '1';
+    document.getElementById('manual-edit-cancel')!.click();
+    expect(stored().players[0].manualRounds[0]).toEqual(rounds[0]);
+    expect(document.activeElement?.id).toBe('manual-edit-m1');
+    expect(rating().value).toBe('777');
+
+    // Deleting the edited round ends the edit, with Undo as after any delete.
+    document.getElementById('manual-edit-m1')!.click();
+    document.getElementById('manual-delete-m1')!.click();
+    expect(document.getElementById('manual-edit-title')).toBeNull();
+    expect(document.getElementById('manual-status')!.textContent).toBe('Removed 950');
+
+    // Removed in another tab while edited: the edit ends unsaved and says so.
+    document.getElementById('manual-edit-m2')!.click();
+    const data = stored();
+    data.players[0].manualRounds = [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
+    expect(document.getElementById('manual-edit-title')).toBeNull();
+    expect(document.getElementById('manual-status')!.textContent).toBe('That round was removed, so nothing was saved.');
+  });
+
   it('calculates a target, keeps the answer through a re-render, and starts empty for another player', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const other = rawPlayer({ pdgaNumber: '100002', name: 'Other Player', currentRating: '1000' });

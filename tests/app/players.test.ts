@@ -14,6 +14,7 @@ import {
   setLeftOut,
   setMe,
   sortFavorites,
+  updateManualRound,
 } from '../../src/app/players';
 import { EMPTY_DATA, MAX_FAVORITES, MAX_MANUAL_ROUNDS, type AppData, type StoredPlayer } from '../../src/app/storage';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer } from '../handoff/raw';
@@ -262,6 +263,21 @@ describe('manual rounds', () => {
     expect(restoreManualRound(full, 100001, rounds[0]!, 0)).toBe(full);
     const gone = data([player(100002)]);
     expect(restoreManualRound(gone, 100001, rounds[0]!, 0)).toBe(gone);
+  });
+
+  it('updates a round in its place, with its id, for one player only', () => {
+    const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...round, id, rating: 950 + i }));
+    const before = data([player(100001, { manualRounds: rounds }), player(100002, { manualRounds: rounds })]);
+    const edited = { rating: 1001, date: '2026-10-20', eventName: 'Club night', holes: 9 };
+    const next = updateManualRound(before, 100001, 'm2', edited);
+    expect(roundsOf(next, 100001)).toEqual([rounds[0], { id: 'm2', ...edited }, rounds[2]]);
+    expect(roundsOf(next, 100002)).toEqual(rounds);
+  });
+
+  it('does not update a round that is gone, or for a removed player', () => {
+    const before = data([player(100001, { manualRounds: [{ ...round, id: 'm1' }] })]);
+    expect(updateManualRound(before, 100001, 'm2', round)).toBe(before);
+    expect(updateManualRound(before, 100002, 'm1', round)).toBe(before);
   });
 
   it('clears one player only', () => {

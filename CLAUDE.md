@@ -124,7 +124,10 @@ Body text size, changed in place; the bookmarklet's code box closer to its
 Copy button), and the large text polish (Reset beside the Settings slider
 on one row; the target answer as one large figure, the only bold, with a
 sentence and muted notes; rating and change figures never wrap, the text
-beside them does).
+beside them does), and manual round editing (a tap on a manual round in the
+Rounds card, or Edit in the Add a round list, fills the form with Save and
+Cancel) with the following update's arrow sloped and shaded by the size of
+the change.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -251,9 +254,13 @@ rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
 Ko-fi link, the polish from computer and Android testing, the rating
 history line, the bookmarklet size, the prediction in the players list,
-the following update, the text size, the How it works text size and the
-large text polish (docs/finished-steps.md). Nothing is planned: the open items under
-Architecture are optional and wait until I ask. Commit
+the following update, the text size, the How it works text size, the
+large text polish and part A of docs/plan-edit-and-arrows.md (manual round
+editing and the sloped arrow) (docs/finished-steps.md). Planned, each after
+the previous one is merged: part B, example rounds under the target
+answer, and part C, dragging the chart through history with a long-press
+for the value. The open items under Architecture are optional and wait
+until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.
 

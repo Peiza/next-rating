@@ -20,6 +20,11 @@
   --on-accent: #ffffff;
   --good: #00561d;
   --bad: #9e0000;
+  /* Weaker tones of --good and --bad, toward --text-muted, for smaller changes (1 weakest). */
+  --good-1: #1e3c28;
+  --good-2: #104823;
+  --bad-1: #551e1e;
+  --bad-2: #771010;
   --warn-bg: #fff1b8;
   --focus: #003a9e;
   --tab-height: 3.75rem;
@@ -42,6 +47,10 @@
     --on-accent: #000000;
     --good: #7ee2a0;
     --bad: #ff9c9c;
+    --good-1: #b9dcc5;
+    --good-2: #9edfb4;
+    --bad-1: #e6c4c4;
+    --bad-2: #f2b1b1;
     --warn-bg: #3d3000;
     --focus: #ffd60a;
   }
@@ -58,6 +67,10 @@
   --on-accent: #000000;
   --good: #7ee2a0;
   --bad: #ff9c9c;
+  --good-1: #b9dcc5;
+  --good-2: #9edfb4;
+  --bad-1: #e6c4c4;
+  --bad-2: #f2b1b1;
   --warn-bg: #3d3000;
   --focus: #ffd60a;
 }
@@ -644,6 +657,69 @@ a {
 
 .following-change {
   font-weight: 700;
+}
+
+/* A smaller change in a weaker tone; 3, the largest, keeps --good or --bad. */
+.change-up.change-strength-1 {
+  color: var(--good-1);
+}
+
+.change-up.change-strength-2 {
+  color: var(--good-2);
+}
+
+.change-down.change-strength-1 {
+  color: var(--bad-1);
+}
+
+.change-down.change-strength-2 {
+  color: var(--bad-2);
+}
+
+/*
+ * The sloped arrow: one arrow pointing right, turned by its slope, so a small
+ * change is a shallow arrow and a large one points straight up or down.
+ * Sized in em, it grows with the text.
+ */
+.slope-arrow {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.3em;
+  vertical-align: -0.125em;
+  overflow: visible;
+}
+
+.slope-arrow path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.slope-up-1 {
+  transform: rotate(-20deg);
+}
+
+.slope-up-2 {
+  transform: rotate(-45deg);
+}
+
+.slope-up-3 {
+  transform: rotate(-90deg);
+}
+
+.slope-down-1 {
+  transform: rotate(20deg);
+}
+
+.slope-down-2 {
+  transform: rotate(45deg);
+}
+
+.slope-down-3 {
+  transform: rotate(90deg);
 }
 
 .predicted {
@@ -1426,6 +1502,16 @@ a {
   margin: 0;
 }
 
+/* A manual round takes a tap anywhere on it, which opens it in the Add a round card; Edit says so. */
+.round-editable {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.round-edit {
+  margin-top: 0.5rem;
+}
+
 .round-main {
   display: flex;
   align-items: baseline;
@@ -1558,17 +1644,36 @@ a {
   padding: 0;
 }
 
+/* The buttons go under the round when both do not fit beside it, as at large text. */
 .manual-round {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   padding: 0.5rem 0;
   border-bottom: 2px solid var(--border);
 }
 
 .manual-round p {
   margin: 0;
+}
+
+.manual-round-actions {
+  display: flex;
+  flex: none;
+  gap: 0.5rem;
+}
+
+/* The round the form edits. */
+.manual-round-editing .round-meta {
+  font-weight: 700;
+}
+
+.manual-edit-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .confirm-flush {

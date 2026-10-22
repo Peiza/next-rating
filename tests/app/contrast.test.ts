@@ -50,7 +50,7 @@ function contrast(a: string, b: string): number {
 }
 
 const TEXT_PAIRS: [string, string][] = [
-  ...['text', 'text-muted', 'accent', 'good', 'bad'].flatMap((fg) => [
+  ...['text', 'text-muted', 'accent', 'good', 'bad', 'good-1', 'good-2', 'bad-1', 'bad-2'].flatMap((fg) => [
     [fg, 'bg'] as [string, string],
     [fg, 'surface'] as [string, string],
   ]),

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import {
+  draftOf,
   emptyDraft,
   latestManualDate,
   manualEntry,
@@ -34,8 +35,12 @@ function props(extra: Partial<ManualProps> = {}): ManualProps {
     undo: null,
     player: 'Test Player #100001',
     today: TODAY,
+    editing: null,
     onDraft: vi.fn(),
     onAdd: vi.fn(),
+    onEdit: vi.fn(),
+    onSave: vi.fn(),
+    onCancelEdit: vi.fn(),
     onDelete: vi.fn(),
     onUndo: vi.fn(),
     onAskClear: vi.fn(),
@@ -105,12 +110,12 @@ describe('readManualRound', () => {
   });
 });
 
-function ratingPage(manual: ManualProps, open = false): HTMLElement {
+function ratingPage(manual: ManualProps, open = false, onEditManual?: (id: string) => void): HTMLElement {
   const stored: StoredImport = { at: '2026-10-19T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [] };
   const now = new Date('2026-10-20T10:00:00.000Z');
   const model = buildModel(stored, 100001, now, manualToRounds(manual.rounds));
   const cards = { ...DEFAULT_CARDS, manual: open };
-  return ratingView({ model, manual, cards, favorite: true, now, onAddFavorite: vi.fn() });
+  return ratingView({ model, manual, cards, favorite: true, now, onAddFavorite: vi.fn(), onEditManual });
 }
 
 describe('manual entry view', () => {
@@ -226,6 +231,92 @@ describe('manual entry view', () => {
     expect(buttons.map((button) => button.id)).toEqual(['manual-clear-cancel', 'manual-clear-confirm']);
     buttons[1]!.click();
     expect(onClear).toHaveBeenCalled();
+  });
+
+  it('gives each listed round an Edit button before Delete, and marks the round being edited', () => {
+    const onEdit = vi.fn();
+    const view = entry(props({ rounds: ROUNDS, onEdit }));
+    const buttons = [...view.querySelectorAll('.manual-round')].at(-1)!.querySelectorAll('button');
+    expect([...buttons].map((button) => button.id)).toEqual(['manual-edit-m1', 'manual-delete-m1']);
+    expect(buttons[0]!.getAttribute('aria-label')).toMatch(/^Edit round 950 from /);
+    buttons[0]!.click();
+    expect(onEdit).toHaveBeenCalledWith('m1');
+    expect(view.querySelector('.manual-round-editing')).toBeNull();
+
+    const editing = entry(props({ rounds: ROUNDS, editing: ROUNDS[0]! }));
+    const marked = editing.querySelector('.manual-round-editing')!;
+    expect(marked.querySelector('#manual-edit-m1')).not.toBeNull();
+    expect(marked.querySelector('.round-meta')!.textContent).toMatch(/· Editing$/);
+  });
+
+  it('fills the form with the round to edit, with Save and Cancel in place of Add', () => {
+    const [round] = ROUNDS;
+    expect(draftOf(round!)).toEqual({ rating: '950', date: '2026-10-10', eventName: 'Club night', holes: '9' });
+    expect(draftOf(ROUNDS[1]!)).toEqual({ rating: '985', date: '2026-10-16', eventName: '', holes: '' });
+    const onSave = vi.fn();
+    const onCancelEdit = vi.fn();
+    const view = entry(props({ rounds: ROUNDS, editing: round!, draft: draftOf(round!), onSave, onCancelEdit }));
+    const form = view.querySelector('form')!;
+    const title = form.firstElementChild!;
+    expect(title.id).toBe('manual-edit-title');
+    expect(title.textContent).toBe('Edit round 950');
+    expect(title.getAttribute('tabindex')).toBe('-1');
+    expect(view.querySelector<HTMLInputElement>('#manual-rating')!.value).toBe('950');
+    expect(view.querySelector<HTMLInputElement>('#manual-holes')!.value).toBe('9');
+    expect(view.querySelector<HTMLDetailsElement>('details')!.open).toBe(true);
+    expect(view.querySelector('#manual-add')).toBeNull();
+    const buttons = [...form.querySelectorAll<HTMLButtonElement>('.row > button')];
+    expect(buttons.map((button) => [button.id, button.textContent])).toEqual([
+      ['manual-edit-cancel', 'Cancel'],
+      ['manual-save', 'Save changes'],
+    ]);
+
+    type(view, 'manual-rating', '960');
+    submit(view);
+    expect(onSave).toHaveBeenCalledWith('m1', { rating: 960, date: '2026-10-10', eventName: 'Club night', holes: 9 });
+    buttons[0]!.click();
+    expect(onCancelEdit).toHaveBeenCalled();
+  });
+
+  it('checks an edit the same way as a new round', () => {
+    const onSave = vi.fn();
+    const view = entry(props({ rounds: ROUNDS, editing: ROUNDS[0]!, draft: draftOf(ROUNDS[0]!), onSave }));
+    type(view, 'manual-rating', '2001');
+    submit(view);
+    expect(onSave).not.toHaveBeenCalled();
+    expect(view.querySelector('#manual-rating')!.getAttribute('aria-invalid')).toBe('true');
+    expect(view.querySelector('#manual-status')!.textContent).toBe('Enter a round rating from 0 to 2000.');
+  });
+
+  it('says when a round was saved, or was gone before it could be', () => {
+    expect(entry(props({ flash: { kind: 'saved', rating: 960 } })).querySelector('#manual-status')!.textContent).toBe('960 saved.');
+    expect(entry(props({ flash: { kind: 'edit-gone' } })).querySelector('#manual-status')!.textContent).toBe(
+      'That round was removed, so nothing was saved.',
+    );
+  });
+
+  it('lets a tap on a manual round in the Rounds card edit it, and only a manual round', () => {
+    const onEditManual = vi.fn();
+    const view = ratingPage(props({ rounds: ROUNDS }), false, onEditManual);
+    const editable = [...view.querySelectorAll('#rounds .round-editable')];
+    expect(editable).toHaveLength(2);
+    expect(view.querySelectorAll('#rounds .round-edit')).toHaveLength(2);
+    const official = [...view.querySelectorAll('#rounds .round')].filter((row) => !row.matches('.round-editable'));
+    expect(official.length).toBeGreaterThan(0);
+    expect(official.every((row) => row.querySelector('button') === null)).toBe(true);
+
+    const button = view.querySelector<HTMLButtonElement>('#round-edit-m1')!;
+    expect(button.textContent).toBe('Edit');
+    expect(button.getAttribute('aria-label')).toMatch(/^Edit manual round 950, /);
+    button.click();
+    expect(onEditManual).toHaveBeenCalledTimes(1);
+    expect(onEditManual).toHaveBeenCalledWith('m1');
+    // A tap anywhere on the row does the same.
+    button.closest('li')!.querySelector<HTMLElement>('.round-meta')!.click();
+    expect(onEditManual).toHaveBeenCalledTimes(2);
+
+    // Without the handler, as in a view that cannot edit, no row offers it.
+    expect(ratingPage(props({ rounds: ROUNDS })).querySelector('.round-editable')).toBeNull();
   });
 
   it('follows Why it changed on the Rating tab, and its rounds show in the round list', () => {

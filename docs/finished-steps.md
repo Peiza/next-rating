@@ -1038,3 +1038,6 @@ Built in this order:
   slider, the target answer as one figure with quiet details, and rating
   figures that never wrap (docs/plan-text-size.md, polish after part 2)
   (done)
+- Edit manual rounds from the Rounds card and the Add a round card's list,
+  and the following update's arrow sloped and shaded by the size of the
+  change (docs/plan-edit-and-arrows.md, part A) (done)
