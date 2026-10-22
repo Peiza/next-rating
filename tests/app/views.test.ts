@@ -303,6 +303,9 @@ describe('settings view', () => {
     expect(link.parentElement!.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
     expect(link.getAttribute('rel')).toBe('noreferrer');
     expect(link.hasAttribute('target')).toBe(false);
+    // The class gives the line the same spacing as in the other views.
+    expect(link.parentElement!.className).toBe('support');
+    expect(view.querySelectorAll('.support')).toHaveLength(1);
     expect(link.parentElement!.nextElementSibling).toBe(view.lastElementChild);
   });
 });
@@ -361,6 +364,8 @@ describe('rating view', () => {
     expect(link.parentElement!.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
     expect(link.getAttribute('rel')).toBe('noreferrer');
     expect(link.hasAttribute('target')).toBe(false);
+    expect(link.parentElement!.className).toBe('support');
+    expect(view.querySelectorAll('.support')).toHaveLength(1);
     expect(link.parentElement!.nextElementSibling).toBe(view.lastElementChild);
     expect(view.lastElementChild!.className).toBe('notice');
     setLanguage('sv');
@@ -1787,6 +1792,8 @@ describe('how it works', () => {
     const view = guideView({ onBack: vi.fn() });
     const support = view.querySelector(`a[href="${KOFI_URL}"]`)!.parentElement!;
     expect(support.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
+    expect(support.className).toBe('support');
+    expect(view.querySelectorAll('.support')).toHaveLength(1);
     expect(support.nextElementSibling!.id).toBe('guide-back');
   });
 
