@@ -357,12 +357,13 @@ describe('rating view', () => {
     expect(view.querySelectorAll('#refresh')).toHaveLength(1);
   });
 
-  it('shows the next update and its report deadline, linked to the rule on pdga.com', () => {
+  it('shows the next update and its report deadline briefly, without a link (How it works has it)', () => {
     // On 4 Oct 2026 the next update is Tuesday 13 Oct, for events reported by Sunday 11 Oct.
-    const link = ratingPage().querySelector<HTMLAnchorElement>('#next-update a')!;
-    expect(link.textContent).toMatch(/^Next ratings update: \D*13\D* \(events reported by \D*11\D*\)$/);
-    expect(link.getAttribute('href')).toBe('https://www.pdga.com/faq/ratings/when-updated');
-    expect(link.hasAttribute('target')).toBe(false);
+    const line = ratingPage().querySelector('#next-update')!;
+    expect(line.textContent).toMatch(/^Next update \D*13\D*, deadline \D*11\D*$/);
+    expect(line.querySelector('a')).toBeNull();
+    setLanguage('sv');
+    expect(ratingPage().querySelector('#next-update')!.textContent).toMatch(/^Uppdateras \D*13\D*, sista rapportdag \D*11\D*$/);
   });
 
   it("refreshes from the player's ratings details on pdga.com, in the same tab", () => {

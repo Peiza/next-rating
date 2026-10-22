@@ -113,7 +113,7 @@
   "rating.officialCalculated": "{rating} (calculated {exact})",
   "rating.lastImport": "Last import: {time}",
   "rating.updated": "Updated {age}",
-  "rating.nextUpdate": "Next ratings update: {update} (events reported by {deadline})",
+  "rating.nextUpdate": "Next update {update}, deadline {deadline}",
   "rating.following": "Then {update}: {rating} {change}",
   "rating.followingNoChange": "Then {update}: {rating}",
   "rating.refresh": "Refresh on pdga.com",

@@ -113,7 +113,7 @@
   "rating.officialCalculated": "{rating} (beräknat {exact})",
   "rating.lastImport": "Senaste import: {time}",
   "rating.updated": "Uppdaterad {age}",
-  "rating.nextUpdate": "Nästa ratinguppdatering: {update} (tävlingar rapporterade senast {deadline})",
+  "rating.nextUpdate": "Uppdateras {update}, sista rapportdag {deadline}",
   "rating.following": "Därefter {update}: {rating} {change}",
   "rating.followingNoChange": "Därefter {update}: {rating}",
   "rating.refresh": "Uppdatera på pdga.com",

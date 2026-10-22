@@ -61,9 +61,6 @@ export const ROUNDS_MORE_ID = 'rounds-more';
 /** The first round "Show more" adds, which gets focus so a screen reader goes on from there. */
 export const ROUNDS_NEXT_ID = 'rounds-next';
 
-/** Where PDGA publishes when ratings are updated and which events an update counts. */
-const UPDATES_URL = 'https://www.pdga.com/faq/ratings/when-updated';
-
 /** Every status has a symbol next to its text label (`statusKey`), so it never depends on colour alone. */
 const SYMBOL: Record<RoundStatus, string> = {
   included: '✓',
@@ -95,18 +92,15 @@ function change(value: number): HTMLElement {
 }
 
 /**
- * When the next update comes and which events it counts, linked to PDGA's
- * page with the rule. The same dates the prediction is made for.
+ * When the next update comes and which events it counts, short enough for
+ * one line on a phone: the same dates the prediction is made for. How it
+ * works links to PDGA's page with the rule.
  */
 function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
   return el(
     'p',
     { id: 'next-update', class: 'next-update' },
-    el(
-      'a',
-      { href: UPDATES_URL, rel: 'noreferrer' },
-      t('rating.nextUpdate', { update: formatDayMonth(update), deadline: formatDayMonth(deadline) }),
-    ),
+    t('rating.nextUpdate', { update: formatDayMonth(update), deadline: formatDayMonth(deadline) }),
   );
 }
 
