@@ -1,5 +1,7 @@
 import { t, type MessageKey } from '../../i18n';
 import { el, textWithNodes, type Child } from '../dom';
+import { formatCount } from '../format';
+import { canStepGuide, displayScale, guideTextSize, nextGuideStep } from '../text-size';
 import { supportLink } from './support';
 import { GMS_URL } from './top8';
 
@@ -20,8 +22,17 @@ export function guideSectionId(section: GuideSection): string {
 }
 
 export interface GuideProps {
+  /** The app's text size in CSS pixels: the size picked in Settings, or the device's. */
+  baseTextSize: number;
+  /** The device's text size, which headings change half as much from (text-size.ts displayScale). */
+  deviceTextSize: number;
+  /** The pixels A− / A+ have added to this page's text size. */
+  textStep: number;
+  onTextStep: (step: number) => void;
   onBack: () => void;
 }
+
+export const GUIDE_TEXT_ID = 'guide-text';
 
 const RATINGS_GUIDE_URL = 'https://www.pdga.com/ratings/guide';
 const UPDATES_URL = 'https://www.pdga.com/faq/ratings/when-updated';
@@ -102,12 +113,63 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
   },
 };
 
-export function guideView({ onBack }: GuideProps): HTMLElement {
+/**
+ * A− / A+ and Reset for this page's text size. They change the page in
+ * place, so it is not rebuilt and scroll and focus stay. The toolbar keeps
+ * the app's size (styles.css), so the buttons do not move under the finger.
+ */
+function textTools(page: HTMLElement, props: GuideProps): HTMLElement {
+  const { baseTextSize: base, deviceTextSize, onTextStep } = props;
+  let step = props.textStep;
+  const labelId = `${GUIDE_TEXT_ID}-label`;
+  const value = el('output', { id: `${GUIDE_TEXT_ID}-value`, class: 'guide-tools-value' });
+  const button = (id: string, text: MessageKey, label: MessageKey | null, onclick: () => void) =>
+    el('button', { id: `${GUIDE_TEXT_ID}-${id}`, class: 'button button-small', type: 'button', 'aria-label': label && t(label), onclick }, t(text));
+  const smaller = button('smaller', 'guide.textSmaller', 'guide.textSmallerLabel', () => change(nextGuideStep(base, step, -1)));
+  const larger = button('larger', 'guide.textLarger', 'guide.textLargerLabel', () => change(nextGuideStep(base, step, 1)));
+  const reset = button('reset', 'guide.textReset', null, () => change(0));
+  // CSSOM, which the CSP allows (dom.ts sets no style attribute). At step 0 the page follows <html>.
+  const show = () => {
+    const size = guideTextSize(base, step);
+    if (step === 0) {
+      page.style.fontSize = '';
+      page.style.removeProperty('--display-scale');
+    } else {
+      page.style.fontSize = `${size}px`;
+      // Headings change by half as much, as in the rest of the app.
+      page.style.setProperty('--display-scale', String(displayScale(size, deviceTextSize)));
+    }
+    value.textContent = formatCount(size);
+    smaller.disabled = !canStepGuide(base, step, -1);
+    larger.disabled = !canStepGuide(base, step, 1);
+    reset.disabled = step === 0;
+  };
+  const change = (next: number) => {
+    step = next;
+    onTextStep(step);
+    show();
+    // A button that has just been disabled loses focus: the other size button gets it.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLButtonElement && focused.disabled) (focused === larger || larger.disabled ? smaller : larger).focus();
+  };
+  show();
   return el(
-    'section',
-    { class: 'view guide', 'aria-labelledby': GUIDE_ID },
+    'div',
+    { class: 'guide-tools', role: 'group', 'aria-labelledby': labelId },
+    el('span', { id: labelId, class: 'guide-tools-label' }, t('guide.textSize')),
+    value,
+    smaller,
+    larger,
+    reset,
+  );
+}
+
+export function guideView(props: GuideProps): HTMLElement {
+  const page = el('section', { class: 'view guide', 'aria-labelledby': GUIDE_ID });
+  page.append(
     // On phones the top bar shows the heading instead, so only one h1 shows.
     el('h1', { id: GUIDE_ID, class: 'wide-only', tabindex: -1 }, t('guide.title')),
+    textTools(page, props),
     ...GUIDE_SECTIONS.map((section) =>
       el(
         'section',
@@ -117,6 +179,7 @@ export function guideView({ onBack }: GuideProps): HTMLElement {
       ),
     ),
     supportLink(),
-    el('button', { id: 'guide-back', class: 'button button-block', type: 'button', onclick: onBack }, t('setup.back')),
+    el('button', { id: 'guide-back', class: 'button button-block', type: 'button', onclick: props.onBack }, t('setup.back')),
   );
+  return page;
 }

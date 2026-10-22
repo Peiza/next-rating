@@ -25,6 +25,12 @@ export type DateOrder = (typeof DATE_ORDERS)[number];
 /** The text sizes Settings offers, in CSS pixels; around the 17 px a phone shows by default. */
 export const TEXT_SIZES = [14, 22] as const;
 
+/**
+ * How many pixels How it works adds to the app's text size with A− / A+:
+ * enough to reach 28 px from 14 and 14 px from 22 (text-size.ts).
+ */
+export const GUIDE_TEXT_STEPS = [-8, 14] as const;
+
 /** How the players panel orders favorites after "me": by name, or newest import first. */
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
@@ -115,6 +121,8 @@ export interface AppData {
   dateOrder: DateOrder | null;
   /** The text size picked in Settings, in CSS pixels; null follows the device. */
   textSize: number | null;
+  /** The pixels How it works adds to the text size with A− / A+; 0 shows it at the app's size. */
+  guideTextStep: number;
   /** The order picked in the players panel. */
   playerOrder: PlayerOrder;
   /** Which Rating tab cards are open, the same for every player. */
@@ -146,6 +154,7 @@ export const EMPTY_DATA: AppData = {
   theme: null,
   dateOrder: null,
   textSize: null,
+  guideTextStep: 0,
   playerOrder: 'name',
   cards: DEFAULT_CARDS,
   top8Period: DEFAULT_TOP_PERIOD,
@@ -295,6 +304,7 @@ export function validateData(value: unknown): AppData {
     theme: THEMES.find((name) => name === theme) ?? null,
     dateOrder: DATE_ORDERS.find((name) => name === fields.dateOrder) ?? null,
     textSize: wholeIn(fields.textSize, TEXT_SIZES) ? fields.textSize : null,
+    guideTextStep: wholeIn(fields.guideTextStep, GUIDE_TEXT_STEPS) ? fields.guideTextStep : 0,
     playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
     cards: validateCards(fields.cards),
     top8Period: validateTopPeriod(fields.top8Period),

@@ -5,7 +5,7 @@ import { formatCount, formatDate } from '../../src/app/format';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
-import { GUIDE_SECTIONS, guideSectionId, guideView } from '../../src/app/views/guide';
+import { GUIDE_SECTIONS, guideSectionId, guideView, type GuideProps } from '../../src/app/views/guide';
 import { ratingView, shownRounds } from '../../src/app/views/rating';
 import type { ListedResult } from '../../src/app/model';
 import type { RoundStatus } from '../../src/engine';
@@ -19,6 +19,7 @@ import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { startView, type StartProps } from '../../src/app/views/start';
 import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/players';
 import { CARDS, DEFAULT_CARDS, type CardState, type StoredPlayer } from '../../src/app/storage';
+import { displayScale } from '../../src/app/text-size';
 import { setLanguage } from '../../src/i18n';
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
@@ -31,6 +32,11 @@ const NOW = new Date('2026-10-04T10:00:00.000Z');
 const THIS_YEAR: TopPeriod = { kind: 'year', year: null };
 
 const ALL_OPEN = Object.fromEntries(CARDS.map((name) => [name, true])) as CardState;
+
+/** How it works at a 17 px phone's size, unless the test says otherwise. */
+function guidePage(props: Partial<GuideProps> = {}) {
+  return guideView({ baseTextSize: 17, deviceTextSize: 17, textStep: 0, onTextStep: vi.fn(), onBack: vi.fn(), ...props });
+}
 
 function startPage(pdgaNumber: number | null, onSavePdgaNumber = vi.fn(), props: Partial<StartProps> = {}) {
   return startView({
@@ -1334,6 +1340,15 @@ describe('bookmarklet setup', () => {
     expect(view.querySelector('a[href^="javascript"]')).toBeNull();
   });
 
+  it('keeps the code box close to the Copy button: the status line between them starts empty', () => {
+    const first = setupView(setupProps(CODE)).querySelector('#setup-steps > .step')!;
+    const status = first.querySelector('#copy-bookmarklet')!.nextElementSibling!;
+    expect(status.id).toBe('bookmarklet-code-status');
+    expect(status.classList.contains('copy-status')).toBe(true);
+    expect(status.textContent).toBe('');
+    expect(status.nextElementSibling!.className).toBe('field');
+  });
+
   it.each([
     ['iphone', 'Safari on iPhone', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its address.', 'Try it on pdga.com.']],
     ['android', 'Android browsers', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
@@ -1431,7 +1446,7 @@ describe('bookmarklet setup', () => {
   });
 
   it('explains the events the next update may not count: a late report, an unfinished league and X-tier', () => {
-    const section = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!;
+    const section = guidePage().querySelector('#guide-xtier')!.parentElement!;
     expect(section.querySelector('h2')!.textContent).toBe('Events the next update may not count');
     expect([...section.querySelectorAll('li')].map((item) => item.textContent!.split('.')[0])).toEqual([
       'A late report',
@@ -1456,14 +1471,14 @@ describe('bookmarklet setup', () => {
   });
 
   it('says the Rating tab and the chart also show the following update', () => {
-    const text = guideView({ onBack: vi.fn() }).querySelector('#guide-rounds')!.parentElement!.textContent!;
+    const text = guidePage().querySelector('#guide-rounds')!.parentElement!.textContent!;
     expect(text).toContain('count in the following update, and the round list says so. The Rating tab then also shows the prediction for that update');
     expect(text).toContain('the chart adds it as one more step');
   });
 
   it('keeps the PDGA term X-tier in Swedish and explains it once', () => {
     setLanguage('sv');
-    const text = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
+    const text = guidePage().querySelector('#guide-xtier')!.parentElement!.textContent!;
     expect(text.split('X-tier (nivåerna XA, XB, XC och XM på pdga.com)')).toHaveLength(2);
     expect(text).toContain('Liga: räknas först när hela ligan är klar och rapporterad');
     expect(text).toContain('X-tier: räknas kanske inte');
@@ -1767,7 +1782,7 @@ describe('getting-started view for a player without data', () => {
 
 describe('how it works', () => {
   it('has a section for each topic, in order, each heading ready for focus', () => {
-    const view = guideView({ onBack: vi.fn() });
+    const view = guidePage();
     expect(view.querySelector('h1')!.textContent).toBe('How it works');
     const headings = [...view.querySelectorAll('h2')];
     expect(headings.map((h2) => h2.id)).toEqual(GUIDE_SECTIONS.map(guideSectionId));
@@ -1776,7 +1791,7 @@ describe('how it works', () => {
   });
 
   it('says the app is unofficial, and links to the PDGA pages it follows, in the same tab', () => {
-    const view = guideView({ onBack: vi.fn() });
+    const view = guidePage();
     expect(view.querySelector('#guide-about')!.parentElement!.textContent).toMatch(/not affiliated with/);
     const links = [...view.querySelectorAll<HTMLAnchorElement>('a')].map((a) => a.getAttribute('href'));
     expect(links).toEqual([
@@ -1789,7 +1804,7 @@ describe('how it works', () => {
   });
 
   it('ends with the Ko-fi link, just before Back', () => {
-    const view = guideView({ onBack: vi.fn() });
+    const view = guidePage();
     const support = view.querySelector(`a[href="${KOFI_URL}"]`)!.parentElement!;
     expect(support.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
     expect(support.className).toBe('support');
@@ -1798,7 +1813,7 @@ describe('how it works', () => {
   });
 
   it('explains the rules, and is honest about what is not yet checked and where the decimals come from', () => {
-    const rules = guideView({ onBack: vi.fn() }).querySelector('#guide-rules')!.parentElement!.textContent!;
+    const rules = guidePage().querySelector('#guide-rules')!.parentElement!.textContent!;
     for (const part of ['12 months', '24 months', '2.5 standard deviations', 'at least 7 rounds', 'at least 9 counted rounds', 'highest rated rounds of that event', '9-hole round counts half', 'DNF']) {
       expect(rules).toContain(part);
     }
@@ -1810,8 +1825,109 @@ describe('how it works', () => {
 
   it('goes back', () => {
     const onBack = vi.fn();
-    guideView({ onBack }).querySelector<HTMLButtonElement>('#guide-back')!.click();
+    guidePage({ onBack }).querySelector<HTMLButtonElement>('#guide-back')!.click();
     expect(onBack).toHaveBeenCalled();
+  });
+
+  /** The text size toolbar's value and buttons. */
+  function textTools(view: HTMLElement) {
+    const button = (id: string) => view.querySelector<HTMLButtonElement>(`#guide-text-${id}`)!;
+    return {
+      value: () => view.querySelector('#guide-text-value')!.textContent,
+      smaller: button('smaller'),
+      larger: button('larger'),
+      reset: button('reset'),
+    };
+  }
+
+  it('puts A−, A+ and Reset under the heading, at the app’s size until a step is picked', () => {
+    const view = guidePage();
+    const tools = view.querySelector('.guide-tools')!;
+    expect(tools.previousElementSibling!.id).toBe('guide-title');
+    expect(tools.getAttribute('role')).toBe('group');
+    expect(view.querySelector(`#${tools.getAttribute('aria-labelledby')}`)!.textContent).toBe('Text size');
+    const { value, smaller, larger, reset } = textTools(view);
+    expect(value()).toBe('17');
+    expect([smaller, larger, reset].map((button) => button.textContent)).toEqual(['A−', 'A+', 'Reset']);
+    expect([smaller, larger, reset].map((button) => button.getAttribute('aria-label'))).toEqual(['Smaller text', 'Larger text', null]);
+    expect([smaller.disabled, larger.disabled, reset.disabled]).toEqual([false, false, true]);
+    expect(view.style.fontSize).toBe('');
+    expect(view.style.getPropertyValue('--display-scale')).toBe('');
+  });
+
+  it('adds the step to the app’s size, with headings changing half as much', () => {
+    const view = guidePage({ textStep: 3 });
+    expect(view.style.fontSize).toBe('20px');
+    expect(Number(view.style.getPropertyValue('--display-scale'))).toBeCloseTo(displayScale(20, 17));
+    expect(textTools(view).value()).toBe('20');
+    expect(textTools(view).reset.disabled).toBe(false);
+    // The step stays when Settings changes the app's size.
+    expect(guidePage({ baseTextSize: 22, textStep: 3 }).style.fontSize).toBe('25px');
+  });
+
+  it('changes the size in place, so the page is not drawn again', () => {
+    const onTextStep = vi.fn();
+    const view = guidePage({ onTextStep });
+    const tools = view.querySelector('.guide-tools');
+    const { value, smaller, larger, reset } = textTools(view);
+    larger.click();
+    expect(onTextStep).toHaveBeenLastCalledWith(1);
+    expect(view.style.fontSize).toBe('18px');
+    expect(value()).toBe('18');
+    expect(reset.disabled).toBe(false);
+    expect(view.querySelector('.guide-tools')).toBe(tools);
+    smaller.click();
+    expect(onTextStep).toHaveBeenLastCalledWith(0);
+    expect(view.style.fontSize).toBe('');
+    expect(reset.disabled).toBe(true);
+  });
+
+  it('stops at 28 and 14 px, moving focus off a button it disables', () => {
+    const onTextStep = vi.fn();
+    const view = document.body.appendChild(guidePage({ textStep: 10, onTextStep }));
+    const { smaller, larger } = textTools(view);
+    larger.focus();
+    larger.click();
+    expect(onTextStep).toHaveBeenLastCalledWith(11);
+    expect(view.style.fontSize).toBe('28px');
+    expect(larger.disabled).toBe(true);
+    expect(document.activeElement).toBe(smaller);
+    view.remove();
+
+    // From 22 px, the largest step shows 28, and A− shows 27.
+    const cut = guidePage({ baseTextSize: 22, textStep: 14, onTextStep });
+    expect(cut.style.fontSize).toBe('28px');
+    textTools(cut).smaller.click();
+    expect(onTextStep).toHaveBeenLastCalledWith(5);
+    expect(cut.style.fontSize).toBe('27px');
+
+    const smallest = guidePage({ baseTextSize: 22, textStep: -8 });
+    expect(smallest.style.fontSize).toBe('14px');
+    expect(textTools(smallest).smaller.disabled).toBe(true);
+    expect(textTools(smallest).larger.disabled).toBe(false);
+  });
+
+  it('goes back to the app’s size with Reset, focus moving to A+', () => {
+    const onTextStep = vi.fn();
+    const view = document.body.appendChild(guidePage({ textStep: 5, onTextStep }));
+    const { larger, reset } = textTools(view);
+    reset.focus();
+    reset.click();
+    expect(onTextStep).toHaveBeenLastCalledWith(0);
+    expect(view.style.fontSize).toBe('');
+    expect(view.style.getPropertyValue('--display-scale')).toBe('');
+    expect(reset.disabled).toBe(true);
+    expect(document.activeElement).toBe(larger);
+    view.remove();
+  });
+
+  it('names the text size buttons in Swedish', () => {
+    setLanguage('sv');
+    const view = guidePage();
+    const { smaller, larger, reset } = textTools(view);
+    expect(view.querySelector('.guide-tools-label')!.textContent).toBe('Textstorlek');
+    expect([smaller, larger].map((button) => button.getAttribute('aria-label'))).toEqual(['Mindre text', 'Större text']);
+    expect(reset.textContent).toBe('Återställ');
   });
 
   it('opens from Settings', () => {

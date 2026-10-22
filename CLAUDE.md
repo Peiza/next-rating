@@ -118,7 +118,10 @@ Settings, 14–22 px or the device's size, applied when let go; headings and
 large numbers change by half as much; segmented controls, date ranges, Top
 8 figures and titles stay whole at large text; the chart grows with the
 text; the Ko-fi link at the bottom of the Rating tab too, with the same
-spacing in every view).
+spacing in every view), and the How it works text size (A− / A+ and Reset
+under its heading, 14–28 px on that page only, a stored step on top of
+Body text size, changed in place; the bookmarklet's code box closer to its
+Copy button).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -245,10 +248,9 @@ rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
 Ko-fi link, the polish from computer and Android testing, the rating
 history line, the bookmarklet size, the prediction in the players list,
-the following update and the text size (docs/finished-steps.md). Planned
-next, after the text size is merged: A− / A+ on How it works, from 14 up
-to 28 px on that page (docs/plan-text-size.md, part 2). Nothing else is planned: the open items
-under Architecture are optional and wait until I ask. Commit
+the following update, the text size and the How it works text size
+(docs/finished-steps.md). Nothing is planned: the open items under
+Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.
 

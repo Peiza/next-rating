@@ -135,7 +135,7 @@ function copyStep(bookmarklet: string): HTMLElement {
     onfocus: () => code.select(),
   });
   code.value = bookmarklet;
-  const status = el('p', { id: statusId, class: 'status', role: 'status' });
+  const status = el('p', { id: statusId, class: 'status copy-status', role: 'status' });
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(bookmarklet);
