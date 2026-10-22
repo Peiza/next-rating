@@ -41,7 +41,7 @@ import {
   type Theme,
 } from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
-import { PHONE_TEXT_SIZE } from './text-size';
+import { PHONE_TEXT_SIZE, textScale } from './text-size';
 import {
   calculateTarget,
   emptyTargetDraft,
@@ -78,7 +78,7 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { cardToggleId } from './views/card';
-import { CHART_FULL_TITLE_ID, chartFullView, type ChartProps } from './views/chart';
+import { CHART_FULL_TITLE_ID, chartFullView, setChartTextScale, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ROUNDS_NEXT_ID, ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
@@ -224,6 +224,7 @@ function applyTextSize(): void {
   html.style.fontSize = '';
   deviceTextSize = parseFloat(getComputedStyle(html).fontSize) || PHONE_TEXT_SIZE;
   if (textSize !== null) html.style.fontSize = `${textSize}px`;
+  setChartTextScale(textScale(textSize, deviceTextSize));
 }
 
 function setTextSize(textSize: number | null): void {
