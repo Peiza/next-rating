@@ -246,8 +246,8 @@ polish, the polish from phone testing, the fixes from iPhone testing, the
 Ko-fi link, the polish from computer and Android testing, the rating
 history line, the bookmarklet size, the prediction in the players list,
 the following update and the text size (docs/finished-steps.md). Planned
-next, after the text size is merged: A− / A+ on How it works
-(docs/plan-text-size.md, part 2). Nothing else is planned: the open items
+next, after the text size is merged: A− / A+ on How it works, from 14 up
+to 28 px on that page (docs/plan-text-size.md, part 2). Nothing else is planned: the open items
 under Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.
