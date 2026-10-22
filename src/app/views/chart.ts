@@ -255,21 +255,26 @@ function ratingLines(chart: ChartData, layout: Layout): SVGElement[] {
 
 /**
  * The official rating after each update as one dashed line that steps at
- * each update, and the prediction as a solid rise at the next update, held
- * to the period's end, with its value just after it. A step that runs to the
- * period's end ends after that day's rounds, as the band does.
+ * each update, and the prediction as a solid rise at the next update, with
+ * one more step at the following update when it has a prediction of its
+ * own, held to the period's end with the last value just after it. A step
+ * that runs to the period's end ends after that day's rounds, as the band
+ * does.
  */
 function stepLines(chart: ChartData, layout: Layout): SVGElement[] {
-  const { steps, next } = chart;
+  const { steps, next, following } = chart;
   if (!steps) return [];
   const x = (date: PlainDate) => (date === chart.to ? layout.end(date) : layout.start(date));
   const path = steps.map((step, i) => `${i === 0 ? `M${x(step.from)} ` : 'V'}${layout.y(step.rating)}H${x(step.to)}`).join('');
   const lines: SVGElement[] = [svg('path', { class: 'chart-line chart-line-official', d: path })];
   if (next) {
-    const [rise, end, y] = [x(next.date), layout.end(chart.to), layout.y(next.rating)];
+    const end = layout.end(chart.to);
+    const rises = [next, ...(following ? [following] : [])];
+    const predicted = rises.map((rise, i) => `V${layout.y(rise.rating)}H${rises[i + 1] ? x(rises[i + 1]!.date) : end}`).join('');
+    const y = layout.y(rises.at(-1)!.rating);
     lines.push(
-      svg('path', { class: 'chart-line chart-line-predicted', d: `M${rise} ${layout.y(steps.at(-1)!.rating)}V${y}H${end}` }),
-      svg('text', { class: 'chart-line-label', x: end + 4, y, 'dominant-baseline': 'middle' }, formatRating(next.rating)),
+      svg('path', { class: 'chart-line chart-line-predicted', d: `M${x(next.date)} ${layout.y(steps.at(-1)!.rating)}${predicted}` }),
+      svg('text', { class: 'chart-line-label', x: end + 4, y, 'dominant-baseline': 'middle' }, formatRating(rises.at(-1)!.rating)),
     );
   }
   return lines;
@@ -315,8 +320,8 @@ function stepRange(steps: readonly RatingStep[]): { low: string; high: string } 
   return { low: formatRating(Math.min(...ratings)), high: formatRating(Math.max(...ratings)) };
 }
 
-/** The prediction's step: its rating and the update, "10 Nov". */
-function nextValues(next: NonNullable<ChartData['next']>): { rating: string; update: string } {
+/** A prediction's step: its rating and the update, "10 Nov". */
+function nextValues(next: NonNullable<ChartData['next' | 'following']>): { rating: string; update: string } {
   return { rating: formatRating(next.rating), update: formatDayMonth(next.date) };
 }
 
@@ -336,6 +341,7 @@ function summaryText(chart: ChartData): string {
     !chart.same && chart.official !== null && t('chart.summaryOfficial', { rating: formatRating(chart.official) }),
     chart.steps && t('chart.summarySteps', stepRange(chart.steps)),
     chart.next && t('chart.summaryNext', nextValues(chart.next)),
+    chart.following && t('chart.summaryNext', nextValues(chart.following)),
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -603,6 +609,7 @@ function legend(chart: ChartData): HTMLElement {
     !chart.same && chart.official !== null && item(icon(line('official')), t('chart.official', { rating: formatRating(chart.official) })),
     chart.steps && item(icon(line('official')), t('chart.steps')),
     chart.next && item(icon(line('predicted')), t('chart.next', nextValues(chart.next))),
+    chart.following && item(icon(line('predicted')), t('chart.next', nextValues(chart.following))),
   );
 }
 

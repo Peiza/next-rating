@@ -164,10 +164,41 @@ describe('chart panel', () => {
 
   describe('with the ratings history', () => {
     const history = [rawHistoryRow('8-Sep-2026', '950', '20'), rawHistoryRow('11-Aug-2026', '947', '18')];
-    // The planned round on 1 Dec ends the last 24 months after the 13 Oct update.
-    const withHistory = buildModel({ ...stored, history }, 100001, NOW, own);
+    // The planned round on 1 Dec ends the last 24 months after the 13 Oct update. Without the
+    // event after the deadline, only the next update has a prediction.
+    const withHistory = buildModel({ ...stored, events: [], history }, 100001, NOW, own);
     const predicted = String(withHistory.prediction.rating);
     const NUMBER = '[\\d.]+';
+
+    describe('and rounds that count only in the following update', () => {
+      const both = buildModel({ ...stored, history }, 100001, NOW, own);
+      const [next, following] = [both.prediction.rating, both.following!.rating].map(String);
+
+      it('steps the prediction once more at the following update, with the last value at the end', () => {
+        const svg = plot(panel({ kind: 'recent' }, {}, both));
+        const rise = svg.querySelector('.chart-line-official')!.getAttribute('d')!.split('H').at(-1)!;
+        const prediction = svg.querySelector('.chart-line-predicted')!.getAttribute('d')!;
+        expect(prediction).toMatch(new RegExp(`^M${rise} ${NUMBER}V${NUMBER}H${NUMBER}V${NUMBER}H${NUMBER}$`));
+        const [, second, end] = prediction.split('H').map((part) => Number(part.split('V')[0]));
+        expect(second).toBeGreaterThan(Number(rise));
+        expect(end).toBeGreaterThan(second!);
+        const labels = [...svg.querySelectorAll('.chart-line-label')];
+        expect(labels.map((label) => label.textContent)).toEqual([following]);
+        expect(Number(labels[0]!.getAttribute('x'))).toBeCloseTo(end! + 4);
+      });
+
+      it('names both predictions in the legend and the summary', () => {
+        const root = panel({ kind: 'recent' }, {}, both);
+        const items = [...root.querySelectorAll('.chart-legend li')].map((item) => item.textContent);
+        // 13 Oct and 10 Nov, in the device's order.
+        const [oct, nov] = ['\\D*13\\D*', '\\D*10\\D*'];
+        expect(items.at(-2)).toMatch(new RegExp(`^Prediction ${next} at the ${oct} update$`));
+        expect(items.at(-1)).toMatch(new RegExp(`^Prediction ${following} at the ${nov} update$`));
+        expect(plot(root).getAttribute('aria-label')).toMatch(
+          new RegExp(`\\. Prediction ${next} at the ${oct} update\\. Prediction ${following} at the ${nov} update\\.$`),
+        );
+      });
+    });
 
     it('draws one dashed line that steps at each update, and the prediction as a solid rise held to the end', () => {
       const svg = plot(panel({ kind: 'recent' }, {}, withHistory));
