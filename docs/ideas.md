@@ -17,9 +17,8 @@ Process list in CLAUDE.md.
    strict schema validation, size limits, text only.
 3. Personal bests and milestones: mark the player's highest rated round and
    when the rating passes a round number such as 950 or 1000.
-4. Following update too: when some rounds count only in the following update
-   (dated after the report deadline), also show the prediction for that
-   update, so both are visible.
+4. Built: the following update (Following update in
+   docs/finished-steps.md). The number stays so the others keep theirs.
 5. Built: the official rating history in the chart (Rating history line in
    docs/finished-steps.md). The number stays so the others keep theirs.
 6. Zoom in the chart: pinch to zoom and drag to pan, so a short stretch of a

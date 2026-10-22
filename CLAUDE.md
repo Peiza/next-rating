@@ -109,7 +109,11 @@ first and Day first), and the bookmarklet size (bookmarklet 1.3.0, 4171
 characters, under the 5,000 that the bookmark URL field in Chrome on Android
 keeps; the setup page gives the code's length and ending), and the
 prediction in the players list (each stored player's predicted rating and
-change, from stored data only, the same model as the Rating tab).
+change, from stored data only, the same model as the Rating tab), and the
+following update (when some rounds count only in the update after the next
+one, its prediction under the next update and as one more step in the
+chart, with the change from the next prediction; the players list keeps the
+next update only).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -235,8 +239,8 @@ with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
 Ko-fi link, the polish from computer and Android testing, the rating
-history line, the bookmarklet size and the prediction in the players list
-(docs/finished-steps.md). Nothing else is planned: the
+history line, the bookmarklet size, the prediction in the players list and
+the following update (docs/finished-steps.md). Nothing else is planned: the
 open items under Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.
