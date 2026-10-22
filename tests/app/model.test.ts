@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
+import { predictRating } from '../../src/engine';
 import { buildModel, createPredictionCache, listPrediction, manualToRounds, playerModel, STALE_DAYS } from '../../src/app/model';
 import type { StoredManualRound, StoredPlayer } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
@@ -283,6 +284,64 @@ describe('manualToRounds', () => {
     const status = (id: string) => model.prediction.rounds.find((round) => round.id === id)!.status;
     expect(status('m:m1')).toBe('included');
     expect(status('m:m2')).toBe('after-deadline');
+  });
+});
+
+describe('the following update', () => {
+  // On 1 Oct 2026 the next update is 13 Oct (deadline 11 Oct), the following one 10 Nov (deadline 8 Nov).
+  const imported = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] });
+  const manual = (id: string, date: string, rating = 1000): StoredManualRound => ({ id, rating, date, eventName: '', holes: null });
+  const model = (rounds: StoredManualRound[], data = imported, leftOut: string[] = []) =>
+    buildModel(data, 100001, NOW, manualToRounds(rounds), leftOut);
+
+  it('is the month after the next update', () => {
+    expect(model([]).followingUpdate).toEqual({ update: '2026-11-10', deadline: '2026-11-08' });
+    const december = buildModel(imported, 100001, new Date('2026-12-01T10:00:00'));
+    expect(december.nextUpdate).toEqual({ update: '2026-12-08', deadline: '2026-12-06' });
+    expect(december.followingUpdate).toEqual({ update: '2027-01-12', deadline: '2027-01-10' });
+  });
+
+  it('has no prediction of its own when no round waits for it', () => {
+    const { following, later } = model([manual('m1', '2026-10-05')]);
+    expect(following).toBeNull();
+    expect(later.size).toBe(0);
+  });
+
+  it('counts the rounds after the next deadline, with the change vs the next prediction', () => {
+    const withLater = model([manual('m1', '2026-10-20')]);
+    const next = model([]);
+    expect(withLater.prediction.rating).toBe(next.prediction.rating);
+    const expected = predictRating(withLater.rounds, { currentRating: 950, deadline: '2026-11-08', leaveOut: withLater.leaveOut });
+    expect(withLater.following).toEqual({
+      rating: expected.rating,
+      change: expected.rating! - withLater.prediction.rating!,
+      rounds: 1,
+    });
+    expect(withLater.following!.change).toBeGreaterThan(0);
+  });
+
+  it('leaves rounds after its own deadline for a later update', () => {
+    const both = model([manual('m1', '2026-10-20'), manual('m2', '2026-11-20', 700)]);
+    expect(both.following).toEqual(model([manual('m1', '2026-10-20')]).following);
+    expect(both.later).toEqual(new Set(['m:m2']));
+    const onlyLater = model([manual('m2', '2026-11-20')]);
+    expect(onlyLater.following).toBeNull();
+    expect(onlyLater.later).toEqual(new Set(['m:m2']));
+  });
+
+  it('keeps left-out events out', () => {
+    const late = rawEvent({ eventId: '900005', name: 'Example Late', date: '20-Oct-2026' });
+    const data = { ...imported, events: [rawEvent(), late] };
+    expect(model([], data).following!.rounds).toBe(2);
+    expect(model([], data, ['e:900005']).following).toBeNull();
+    const withManual = model([manual('m1', '2026-10-20')], data, ['e:900005']);
+    expect(withManual.following).toEqual(model([manual('m1', '2026-10-20')]).following);
+  });
+
+  it('has no change without a next prediction', () => {
+    const { prediction, following } = model([manual('m1', '2026-10-20')], stored());
+    expect(prediction.rating).toBeNull();
+    expect(following).toEqual({ rating: 1000, change: null, rounds: 1 });
   });
 });
 
