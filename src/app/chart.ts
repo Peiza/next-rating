@@ -17,7 +17,7 @@ export type { ChartAxis, ChartPeriod };
 export const RECENT_MONTHS = 24;
 
 /** Where a round comes from, which the point's shape shows. */
-export type PointKind = 'official' | 'unofficial' | 'own';
+export type PointKind = 'official' | 'unofficial' | 'own' | 'example';
 
 /**
  * What the next update does with a round, which the point's fill shows:
@@ -135,7 +135,8 @@ function earlier(a: PlainDate, b: PlainDate): PlainDate {
 }
 
 function kindOf({ round }: ListedResult): PointKind {
-  return round.source === 'manual' ? 'own' : round.source;
+  if (round.source !== 'manual') return round.source;
+  return round.example ? 'example' : 'own';
 }
 
 /** The years the period select offers, newest first. */

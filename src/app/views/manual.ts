@@ -22,6 +22,7 @@ export const MANUAL_ADD_ID = 'manual-add';
 export const MANUAL_CLEAR_ID = 'manual-clear';
 export const MANUAL_CLEAR_CANCEL_ID = 'manual-clear-cancel';
 export const MANUAL_UNDO_ID = 'manual-undo';
+const MANUAL_EXAMPLES_REMOVE_ID = 'manual-examples-remove';
 /** The form's heading while it edits a round, which gets focus so the form scrolls into view without a keyboard. */
 export const MANUAL_EDIT_TITLE_ID = 'manual-edit-title';
 export const MANUAL_SAVE_ID = 'manual-save';
@@ -52,7 +53,7 @@ export type ManualField = keyof ManualDraft;
 export type ManualFlash =
   | { kind: 'added'; rating: number; savedFavorite: boolean }
   | { kind: 'restored' | 'saved'; rating: number }
-  | { kind: 'cleared' | 'favorites-full' | 'rounds-full' | 'edit-gone' }
+  | { kind: 'cleared' | 'favorites-full' | 'rounds-full' | 'edit-gone' | 'examples-removed' }
   | null;
 
 export function emptyDraft(today: PlainDate): ManualDraft {
@@ -118,6 +119,8 @@ export interface ManualProps {
   onUndo: () => void;
   onAskClear: (ask: boolean) => void;
   onClear: () => void;
+  /** Removes the example rounds added under the target answer, without asking: another tap there adds them again. */
+  onRemoveExamples: () => void;
 }
 
 const FIELD_IDS: Record<ManualField, string> = {
@@ -141,6 +144,8 @@ function flashText(flash: NonNullable<ManualFlash>, player: string): string {
       return t('manual.editGone');
     case 'cleared':
       return t('manual.cleared');
+    case 'examples-removed':
+      return t('target.examplesRemoved');
     case 'favorites-full':
       return t('favorites.full', { max: MAX_FAVORITES });
     case 'rounds-full':
@@ -259,6 +264,7 @@ function roundText(round: StoredManualRound, editing: boolean): string {
     formatDate(round.date),
     round.eventName,
     round.holes !== null && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
+    round.example ? t('round.source.example') : '',
     editing ? t('manual.editing') : '',
   ]
     .filter(Boolean)
@@ -314,13 +320,23 @@ function roundItem(round: StoredManualRound, props: ManualProps): HTMLElement {
   );
 }
 
-/** Deleting all asks first, in place rather than with a dialog. */
+/** Deleting all asks first, in place rather than with a dialog. Example rounds go with a tap of their own. */
 function clearRow(props: ManualProps): HTMLElement {
   if (!props.confirmClear) {
     return el(
-      'button',
-      { id: MANUAL_CLEAR_ID, class: 'button button-small button-danger', type: 'button', onclick: () => props.onAskClear(true) },
-      t('manual.clear'),
+      'div',
+      { class: 'row manual-list-actions' },
+      props.rounds.some((round) => round.example) &&
+        el(
+          'button',
+          { id: MANUAL_EXAMPLES_REMOVE_ID, class: 'button button-small', type: 'button', onclick: props.onRemoveExamples },
+          t('target.examplesRemove'),
+        ),
+      el(
+        'button',
+        { id: MANUAL_CLEAR_ID, class: 'button button-small button-danger', type: 'button', onclick: () => props.onAskClear(true) },
+        t('manual.clear'),
+      ),
     );
   }
   return el(

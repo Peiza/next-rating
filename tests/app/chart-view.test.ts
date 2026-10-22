@@ -122,6 +122,17 @@ describe('chart panel', () => {
     ]);
   });
 
+  it('draws example rounds as triangles too, named "Example" in the legend, the table and the details', () => {
+    const example = manualToRounds([{ id: 'm3', rating: 980, date: '2026-10-05', eventName: '', holes: 18, example: true }]);
+    const root = panel({ kind: 'recent' }, {}, buildModel(stored, 100001, NOW, [...own, ...example]));
+    const point = plot(root).querySelector('.chart-example')!;
+    expect(point.querySelector('.chart-shape')!.tagName).toBe('polygon');
+    const legend = [...root.querySelectorAll('.chart-legend li')].map((item) => item.textContent);
+    expect(legend.slice(0, 4)).toEqual(['Official', 'Unofficial', 'Manual', 'Example']);
+    const row = [...root.querySelectorAll('details.chart-table tbody tr')].find((tr) => tr.querySelector('.chart-number')!.textContent === '980')!;
+    expect(row.querySelector('.chart-round-status')!.textContent).toMatch(/ · Example$/);
+  });
+
   it('marks rounds that count twice with a ring and dropped ones with a cross, both hollow when not counted', () => {
     const svg = plot(panel());
     const marks = [...svg.querySelectorAll('.chart-point')].map((point) => point.classList[2]);

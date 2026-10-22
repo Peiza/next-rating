@@ -936,8 +936,12 @@ describe('rating tab cards', () => {
       draft: { target: '1000', count: '3', date: '2026-10-04' },
       dates: { min: '2026-10-04', max: '2027-10-04' },
       answer: null,
+      examples: 0,
+      examplesFlash: null,
       onDraft: vi.fn(),
       onCalculate: vi.fn(),
+      onExamples: vi.fn(),
+      onRemoveExamples: vi.fn(),
     };
     const manual = {
       rounds: [],
@@ -957,6 +961,7 @@ describe('rating tab cards', () => {
       onUndo: vi.fn(),
       onAskClear: vi.fn(),
       onClear: vi.fn(),
+      onRemoveExamples: vi.fn(),
     };
     const top8 = { top: topEight(model, THIS_YEAR, '2026-10-04'), today: '2026-10-04', onPeriod: vi.fn(), onOwn: vi.fn() };
     const chart = { chart: chartData(model, { kind: 'recent' }, '2026-10-04'), pdgaNumber: 100001, today: '2026-10-04', onPeriod: vi.fn(), axis: 'time' as const, onAxis: vi.fn() };

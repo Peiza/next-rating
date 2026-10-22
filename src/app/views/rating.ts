@@ -252,7 +252,7 @@ function roundItem(row: ListedResult, next = false, onEdit?: (id: string) => voi
   const details = [
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
-    t(SOURCE[round.source]),
+    t(round.example ? 'round.source.example' : SOURCE[round.source]),
     tierNote(round),
   ].filter(Boolean);
   const editable = onEdit !== undefined && round.source === 'manual';

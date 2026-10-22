@@ -1632,6 +1632,11 @@ a {
   margin-top: 1.5rem;
 }
 
+/* Remove example rounds beside Delete all, wrapping at large text. */
+.manual-list-actions {
+  flex-wrap: wrap;
+}
+
 .manual-list h3 {
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
@@ -1746,6 +1751,17 @@ a {
 
 .leaving-meta {
   color: var(--text-muted);
+}
+
+/* Example rounds under the answer, set apart from it by a rule. */
+.target-examples {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--border);
+}
+
+.target-examples > .hint {
+  margin-bottom: 0;
 }
 
 /* "Removed 985" with Undo beside it. */

@@ -45,7 +45,18 @@ function draft(extra: Partial<TargetDraft> = {}): TargetDraft {
 }
 
 function props(extra: Partial<TargetProps> = {}): TargetProps {
-  return { draft: draft(), dates: DATES, answer: null, onDraft: vi.fn(), onCalculate: vi.fn(), ...extra };
+  return {
+    draft: draft(),
+    dates: DATES,
+    answer: null,
+    examples: 0,
+    examplesFlash: null,
+    onDraft: vi.fn(),
+    onCalculate: vi.fn(),
+    onExamples: vi.fn(),
+    onRemoveExamples: vi.fn(),
+    ...extra,
+  };
 }
 
 /** The card's content in one element, as the card shows it. */
@@ -374,6 +385,55 @@ describe('target calculator view', () => {
       item.querySelector('.leaving-meta')!.textContent,
     ]);
     expect(items).toEqual([['1000', `Autumn Open · ${formatDate('2024-11-15')}`]]);
+  });
+
+  it('offers example rounds under an average needed, or one that keeps the target', () => {
+    const onExamples = vi.fn();
+    const view = calculator(props({ answer: answer({}), onExamples }));
+    const button = view.querySelector<HTMLButtonElement>('#target-examples')!;
+    expect(button.textContent).toBe('Add 3 example rounds');
+    expect(view.querySelector('#target-examples-hint')!.textContent).toBe(
+      'Rounds around 1012, spread like your own, added as manual rounds.',
+    );
+    expect(button.getAttribute('aria-describedby')).toBe('target-examples-hint');
+    expect(button.type).toBe('button');
+    button.click();
+    expect(onExamples).toHaveBeenCalledOnce();
+    const keep = calculator(props({ answer: answer({ without: 1003, reached: true, average: 982 }, { query: { target: 1000, count: 1, date: TODAY } }) }));
+    expect(keep.querySelector('#target-examples')!.textContent).toBe('Add an example round');
+    expect(keep.querySelector('#target-examples-hint')!.textContent).toBe('A round at 982 or a little above, added as a manual round.');
+  });
+
+  it('offers no example rounds without an answer, out of reach, or when any rounds do', () => {
+    for (const none of [null, answer({ average: null, rating: 991 }), answer({ without: 1003, reached: true, average: 0 })]) {
+      expect(calculator(props({ answer: none })).querySelector('#target-examples')).toBeNull();
+    }
+  });
+
+  it('removes example rounds, also without an answer', () => {
+    const onRemoveExamples = vi.fn();
+    expect(calculator(props({ answer: answer({}) })).querySelector('#target-examples-remove')).toBeNull();
+    const view = calculator(props({ examples: 3, onRemoveExamples }));
+    expect(view.querySelector('#target-examples')).toBeNull();
+    const remove = view.querySelector<HTMLButtonElement>('#target-examples-remove')!;
+    expect(remove.textContent).toBe('Remove example rounds');
+    remove.click();
+    expect(onRemoveExamples).toHaveBeenCalledOnce();
+  });
+
+  it('says which rounds it added and what they give, or why not', () => {
+    const status = (examplesFlash: TargetProps['examplesFlash']) =>
+      calculator(props({ answer: answer({}), examples: 3, examplesFlash })).querySelector('#target-examples-status')!;
+    const added = status({ kind: 'added', ratings: [1031, 1004, 1019], update: DECEMBER.update, rating: 1000 });
+    expect(added.getAttribute('role')).toBe('status');
+    expect(added.textContent).toBe(`Added 1031, 1004, 1019. Prediction for ${DEC_8}: 1000.`);
+    expect(added.classList.contains('error')).toBe(false);
+    expect(status({ kind: 'removed' }).textContent).toBe('Example rounds removed.');
+    const failed = status({ kind: 'failed' });
+    expect(failed.textContent).toBe('The example rounds could not reach the target.');
+    expect(failed.classList.contains('error')).toBe(true);
+    expect(status({ kind: 'rounds-full' }).classList.contains('error')).toBe(true);
+    expect(status(null).textContent).toBe('');
   });
 
   it('sits before the statistics on the Rating tab', () => {

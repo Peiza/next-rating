@@ -16,8 +16,10 @@ import {
   findPlayer,
   initialSelection,
   playerName,
+  removeExampleRounds,
   removeManualRound,
   removePlayer,
+  replaceExampleRounds,
   restoreManualRound,
   routeImport,
   setLeftOut,
@@ -52,6 +54,7 @@ import {
   type TargetQuery,
 } from './target';
 import { chartData } from './chart';
+import { exampleRounds } from './examples';
 import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
@@ -85,7 +88,7 @@ import { cardToggleId } from './views/card';
 import { CHART_FULL_TITLE_ID, chartFullView, setChartTextScale, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { roundEditId, ROUNDS_NEXT_ID, ratingView } from './views/rating';
-import { TARGET_STATUS_ID } from './views/target';
+import { TARGET_EXAMPLES_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID, type ExamplesFlash } from './views/target';
 import { DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startTabId, startView, type StartTab } from './views/start';
@@ -162,6 +165,8 @@ let targetDraft: TargetDraft | null = null;
 let targetQuery: TargetQuery | null = null;
 /** The last answer and what it came from, so a re-render does not run the search again. */
 let targetMemo: { key: string; answer: TargetAnswer } | null = null;
+/** What the example rounds line under the answer says after the last action. */
+let examplesFlash: ExamplesFlash = null;
 /** "How to refresh" opened or closed by hand; null follows the data age (open when it is old). */
 let refreshOpen: boolean | null = null;
 /** The Rounds card shows every round after "Show more", for this player while the app is open. */
@@ -599,6 +604,62 @@ function calculate(query: TargetQuery): void {
   render(TARGET_STATUS_ID);
 }
 
+/**
+ * An edit of an example round ends quietly when the example rounds are
+ * replaced or removed, so the card says what happened to them instead.
+ */
+function endExampleEdit(): void {
+  const rounds = findPlayer(store.get(), selected)?.manualRounds ?? [];
+  if (rounds.some((round) => round.id === manualEdit?.id && round.example)) endEdit();
+}
+
+/** Adds example rounds for the answer shown, in place of earlier ones; focus stays on the button. */
+function addExamples(): void {
+  const player = findPlayer(store.get(), selected);
+  if (selected === null || !player?.import) return;
+  const now = new Date();
+  const model = modelOf(player, now);
+  const answer = targetAnswer(player, model, today(now));
+  if (!answer) return;
+  const examples = exampleRounds(model, player.manualRounds, answer);
+  if (!examples) {
+    examplesFlash = { kind: 'failed' };
+    render(TARGET_EXAMPLES_ID);
+    return;
+  }
+  const { data, error } = replaceExampleRounds(store.get(), selected, examples.rounds);
+  if (error) {
+    examplesFlash = { kind: error };
+  } else {
+    endExampleEdit();
+    store.update(data);
+    manualUndo = null;
+    const ratings = examples.rounds.map((round) => round.rating);
+    examplesFlash = { kind: 'added', ratings, update: answer.update.update, rating: examples.rating };
+  }
+  render(TARGET_EXAMPLES_ID);
+}
+
+/**
+ * Removes the example rounds without asking, since another tap adds the
+ * same ones again. The card it was tapped in says so.
+ */
+function removeExamples(from: 'target' | 'manual'): void {
+  if (selected === null) return;
+  endExampleEdit();
+  store.update(removeExampleRounds(store.get(), selected));
+  manualUndo = null;
+  confirmClear = false;
+  if (from === 'manual') {
+    manualFlash = { kind: 'examples-removed' };
+    render(MANUAL_TOGGLE_ID);
+    return;
+  }
+  examplesFlash = { kind: 'removed' };
+  // The answer is the same, so the Add button stays when it was there.
+  render(document.getElementById(TARGET_EXAMPLES_ID) ? TARGET_EXAMPLES_ID : TARGET_TOGGLE_ID);
+}
+
 /** The answer for the shown player's current rounds, from the memo when nothing it depends on changed. */
 function targetAnswer(player: StoredPlayer, model: Model, date: PlainDate): TargetAnswer | null {
   if (targetQuery === null) return null;
@@ -851,6 +912,7 @@ function currentView(): HTMLElement {
     manualUndo = null;
     targetDraft = null;
     targetQuery = null;
+    examplesFlash = null;
   }
   // The edited round is gone, as after Delete all in another tab: the edit ends unsaved.
   const editing = manualEdit && player?.manualRounds.find((round) => round.id === manualEdit!.id);
@@ -887,10 +949,14 @@ function currentView(): HTMLElement {
         draft: targetDraft,
         dates,
         answer: targetAnswer(player, model, today(now)),
+        examples: player.manualRounds.filter((round) => round.example).length,
+        examplesFlash,
         onDraft: (field, value) => {
           targetDraft = { ...targetDraft!, [field]: value };
         },
         onCalculate: calculate,
+        onExamples: addExamples,
+        onRemoveExamples: () => removeExamples('target'),
       },
       chart: chartProps(player, model, now),
       top8: {
@@ -919,6 +985,7 @@ function currentView(): HTMLElement {
         onUndo: undoDelete,
         onAskClear: askClearManual,
         onClear: clearManual,
+        onRemoveExamples: () => removeExamples('manual'),
       },
       favorite: player.favorite,
       now,
@@ -1080,6 +1147,7 @@ function render(focusId = document.activeElement?.id): void {
   flash = null;
   addFlash = null;
   manualFlash = null;
+  examplesFlash = null;
   if (focusId) restoreFocus(focusId);
 }
 
