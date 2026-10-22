@@ -73,7 +73,7 @@
   "settings.themeDevice": "Enhet",
   "settings.themeLight": "Ljust",
   "settings.themeDark": "Mörkt",
-  "settings.textSize": "Textstorlek",
+  "settings.textSize": "Brödtextstorlek",
   "settings.textSizeAuto": "Automatiskt ({size})",
   "settings.textSizeHint": "Hela appen ändras när du släpper.",
   "settings.textSizeSample": "Så här stor blir texten.",

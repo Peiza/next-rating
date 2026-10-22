@@ -41,7 +41,7 @@ import {
   type Theme,
 } from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
-import { PHONE_TEXT_SIZE, textScale } from './text-size';
+import { displayScale, PHONE_TEXT_SIZE, textScale } from './text-size';
 import {
   calculateTarget,
   emptyTargetDraft,
@@ -222,8 +222,13 @@ function applyTextSize(): void {
   const { textSize } = store.get();
   const html = document.documentElement;
   html.style.fontSize = '';
+  html.style.removeProperty('--display-scale');
   deviceTextSize = parseFloat(getComputedStyle(html).fontSize) || PHONE_TEXT_SIZE;
-  if (textSize !== null) html.style.fontSize = `${textSize}px`;
+  if (textSize !== null) {
+    html.style.fontSize = `${textSize}px`;
+    // Headings and large numbers change by half as much (styles.css).
+    html.style.setProperty('--display-scale', String(displayScale(textSize, deviceTextSize)));
+  }
   setChartTextScale(textScale(textSize, deviceTextSize));
 }
 

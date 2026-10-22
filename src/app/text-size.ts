@@ -25,3 +25,13 @@ export function sliderValue(textSize: number | null, deviceSize: number): number
 export function textScale(textSize: number | null, deviceSize: number): number {
   return textSize === null || !(deviceSize > 0) ? 1 : textSize / deviceSize;
 }
+
+/**
+ * The factor on rem for headings and large numbers (styles.css
+ * --display-scale), so they change by half as much as body text: at 22 px
+ * on a 17 px phone, an h1 of 1.75rem is 1.75 × 19.5 px. 1 while it follows
+ * the device.
+ */
+export function displayScale(textSize: number | null, deviceSize: number): number {
+  return textSize === null || !(deviceSize > 0) ? 1 : (textSize + deviceSize) / (2 * textSize);
+}

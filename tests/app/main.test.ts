@@ -356,6 +356,8 @@ describe('app start', () => {
     expect(document.getElementById('text-size')).toBe(slider);
     slider.dispatchEvent(new Event('change'));
     expect(html.style.fontSize).toBe('19px');
+    // Headings and large numbers change by half as much; jsdom's root size, the device size here, is 16 px.
+    expect(Number(html.style.getPropertyValue('--display-scale'))).toBeCloseTo((19 + 16) / 38);
     expect(stored().textSize).toBe(19);
     expect(document.activeElement?.id).toBe('text-size');
 
@@ -365,6 +367,7 @@ describe('app start', () => {
     expect((document.getElementById('text-size') as HTMLInputElement).value).toBe('19');
     document.getElementById('text-size-reset')!.click();
     expect(html.style.fontSize).toBe('');
+    expect(html.style.getPropertyValue('--display-scale')).toBe('');
     expect(stored().textSize).toBeNull();
     expect(document.activeElement?.id).toBe('text-size');
   });
