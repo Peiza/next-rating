@@ -314,11 +314,7 @@ describe('the following update', () => {
     const next = model([]);
     expect(withLater.prediction.rating).toBe(next.prediction.rating);
     const expected = predictRating(withLater.rounds, { currentRating: 950, deadline: '2026-11-08', leaveOut: withLater.leaveOut });
-    expect(withLater.following).toEqual({
-      rating: expected.rating,
-      change: expected.rating! - withLater.prediction.rating!,
-      rounds: 1,
-    });
+    expect(withLater.following).toEqual({ rating: expected.rating, change: expected.rating! - withLater.prediction.rating! });
     expect(withLater.following!.change).toBeGreaterThan(0);
   });
 
@@ -336,7 +332,7 @@ describe('the following update', () => {
   it('keeps left-out events out', () => {
     const late = rawEvent({ eventId: '900005', name: 'Example Late', date: '20-Oct-2026' });
     const data = { ...imported, events: [rawEvent(), late] };
-    expect(model([], data).following!.rounds).toBe(2);
+    expect(model([], data).following).not.toBeNull();
     expect(model([], data, ['e:900005']).following).toBeNull();
     const withManual = model([manual('m1', '2026-10-20')], data, ['e:900005']);
     expect(withManual.following).toEqual(model([manual('m1', '2026-10-20')]).following);
@@ -373,7 +369,7 @@ describe('the following update', () => {
   it('has no change without a next prediction', () => {
     const { prediction, following } = model([manual('m1', '2026-10-20')], stored());
     expect(prediction.rating).toBeNull();
-    expect(following).toEqual({ rating: 1000, change: null, rounds: 1 });
+    expect(following).toEqual({ rating: 1000, change: null });
   });
 });
 

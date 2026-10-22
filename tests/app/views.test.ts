@@ -452,7 +452,7 @@ describe('rating view', () => {
       const line = page.querySelector('#following-update')!;
       expect(line.previousElementSibling!.id).toBe('next-update');
       const { rating, change } = model.following!;
-      expect(line.textContent).toMatch(new RegExp(`^Then the \\D*10\\D* update: ${rating} ↑\\+${change}, with 1 more round reported by \\D*8\\D*$`));
+      expect(line.textContent).toMatch(new RegExp(`^Then \\D*10\\D*: ${rating} ↑\\+${change}$`));
       expect(line.querySelector('.following-rating')!.textContent).toBe(String(rating));
       const shown = line.querySelector('.following-change')!;
       expect(shown.className).toBe('following-change change-up');
@@ -461,15 +461,15 @@ describe('rating view', () => {
       expect(page.querySelector('#predicted')!.textContent).toBe('962');
     });
 
-    it('counts the rounds and marks a fall', () => {
+    it('marks a fall', () => {
       const line = view([manual('2026-10-20', 800), manual('2026-10-21', 800)]).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/: \d+ ↓−\d+, with 2 more rounds reported by /);
+      expect(line.textContent).toMatch(/^Then \D*10\D*: \d+ ↓−\d+$/);
       expect(line.querySelector('.following-change')!.classList.contains('change-down')).toBe(true);
     });
 
     it('shows the rating alone without a next prediction', () => {
       const line = view([manual('2026-10-20')], { at: stored.at, events: [] }).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/^Then the \D*10\D* update: 1000, with 1 more round reported by \D*8\D*$/);
+      expect(line.textContent).toMatch(/^Then \D*10\D*: 1000$/);
       expect(line.querySelector('.following-change')).toBeNull();
     });
 
@@ -496,7 +496,7 @@ describe('rating view', () => {
     it('is translated', () => {
       setLanguage('sv');
       const line = view([manual('2026-10-20')]).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/^Därpå uppdateringen \D*10\D*: \d+ ↑\+\d+, med 1 runda till rapporterad senast \D*8\D*$/);
+      expect(line.textContent).toMatch(/^Därefter \D*10\D*: \d+ ↑\+\d+$/);
     });
   });
 

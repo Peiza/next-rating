@@ -112,13 +112,13 @@ function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
 
 /**
  * The following update's prediction, when some rounds count there and not
- * in the next one: "Then the 8 Dec update: 985 ↑ +3, with 2 more rounds
- * reported by 6 Dec". The change is from the next update's prediction.
+ * in the next one: "Then 8 Dec: 985 ↑ +3". The change is from the next
+ * update's prediction; the Rounds card says which rounds wait for it.
  */
-function followingUpdate({ followingUpdate: { update, deadline }, following }: Model): HTMLElement | false {
+function followingUpdate({ followingUpdate: { update }, following }: Model): HTMLElement | false {
   if (!following) return false;
-  const { rating, change, rounds } = following;
-  const params = { update: formatDayMonth(update), deadline: formatDayMonth(deadline), count: rounds };
+  const { rating, change } = following;
+  const params = { update: formatDayMonth(update) };
   const nodes: Record<string, Node> = { rating: el('strong', { class: 'following-rating' }, formatRating(rating)) };
   if (change !== null) {
     const [dir, arrow] = direction(change);
