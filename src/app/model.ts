@@ -95,6 +95,8 @@ const DAY_MS = 86_400_000;
 export interface ListedResult {
   round: ListedRound;
   result: RoundResult;
+  /** Dated after the following update's deadline too, so it counts in a later update than that. */
+  later: boolean;
 }
 
 /** One line of "Why it changed": a round and what happened to it. */
@@ -125,8 +127,6 @@ export interface Model {
    * next update's prediction.
    */
   following: FollowingPrediction | null;
-  /** The ids of the rounds dated after the following update's deadline too: they count in a later update. */
-  later: ReadonlySet<string>;
   /** The official rating from each update on, oldest first; empty before an import brings the ratings history. */
   history: HistoryEntry[];
   /** Why the prediction differs from the official state, largest effect first. Null without official rounds. */
@@ -287,13 +287,11 @@ export function buildModel(
   const predict = (keys: ReadonlySet<string>, deadline = nextUpdate.deadline) =>
     predictRating(rounds, { currentRating, deadline, leaveOut: keys });
   const prediction = predict(leaveOut);
-  const later = new Set(
-    rounds
-      .filter((round, i) => prediction.rounds[i]!.status === 'after-deadline' && compareDates(round.date, followingUpdate.deadline) > 0)
-      .map((round) => round.id),
-  );
   const rows = rounds
-    .map((round, i) => ({ round, result: prediction.rounds[i]! }))
+    .map((round, i) => {
+      const result = prediction.rounds[i]!;
+      return { round, result, later: result.status === 'after-deadline' && compareDates(round.date, followingUpdate.deadline) > 0 };
+    })
     .sort((a, b) => (a.round.date < b.round.date ? 1 : a.round.date > b.round.date ? -1 : 0));
 
   const explanation = explainChange(rounds, prediction, currentRating);
@@ -312,7 +310,6 @@ export function buildModel(
     nextUpdate,
     followingUpdate,
     following: followingPrediction(rounds, prediction, followingUpdate, (deadline) => predict(leaveOut, deadline)),
-    later,
     history: historyOf(stored, player),
     changes,
     difference: explanation?.difference ?? null,

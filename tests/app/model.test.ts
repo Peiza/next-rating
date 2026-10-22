@@ -301,10 +301,12 @@ describe('the following update', () => {
     expect(december.followingUpdate).toEqual({ update: '2027-01-12', deadline: '2027-01-10' });
   });
 
+  const later = ({ rows }: ReturnType<typeof model>) => rows.filter((row) => row.later).map(({ round }) => round.id);
+
   it('has no prediction of its own when no round waits for it', () => {
-    const { following, later } = model([manual('m1', '2026-10-05')]);
-    expect(following).toBeNull();
-    expect(later.size).toBe(0);
+    const counted = model([manual('m1', '2026-10-05')]);
+    expect(counted.following).toBeNull();
+    expect(later(counted)).toEqual([]);
   });
 
   it('counts the rounds after the next deadline, with the change vs the next prediction', () => {
@@ -323,10 +325,12 @@ describe('the following update', () => {
   it('leaves rounds after its own deadline for a later update', () => {
     const both = model([manual('m1', '2026-10-20'), manual('m2', '2026-11-20', 700)]);
     expect(both.following).toEqual(model([manual('m1', '2026-10-20')]).following);
-    expect(both.later).toEqual(new Set(['m:m2']));
+    expect(later(both)).toEqual(['m:m2']);
     const onlyLater = model([manual('m2', '2026-11-20')]);
     expect(onlyLater.following).toBeNull();
-    expect(onlyLater.later).toEqual(new Set(['m:m2']));
+    expect(later(onlyLater)).toEqual(['m:m2']);
+    // A round that waits for the following update is not later than it.
+    expect(both.rows.find(({ round }) => round.id === 'm:m1')).toMatchObject({ result: { status: 'after-deadline' }, later: false });
   });
 
   it('keeps left-out events out', () => {

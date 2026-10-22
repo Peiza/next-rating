@@ -17,7 +17,7 @@ import { disclosure, el, present, svg, type Child, type Disclosure } from '../do
 import { formatDate, formatDayMonth, formatMonth, formatRating } from '../format';
 import { historyUrl } from './pdga';
 import { periodControls, periodId, periodLabel } from './period';
-import { roundLabel, tierNote } from './round-text';
+import { roundLabel, statusKey, tierNote } from './round-text';
 import { segmented, type Segment } from './segmented';
 
 /*
@@ -291,9 +291,9 @@ function eventAndRound({ eventName, roundLabel: label }: ChartPoint['row']['roun
  * line is too long.
  */
 function detailParts(point: ChartPoint): (Node | string)[] {
-  const { round, result } = point.row;
+  const { round } = point.row;
   const event = eventAndRound(round);
-  const status = [t(`round.status.${result.status}`), tierNote(round), t(KINDS[point.kind])].filter(Boolean).join(' · ');
+  const status = [t(statusKey(point.row)), tierNote(round), t(KINDS[point.kind])].filter(Boolean).join(' · ');
   return present([
     el('strong', {}, formatRating(point.rating)),
     el('span', {}, ` · ${formatDate(point.date)}`),
@@ -304,9 +304,9 @@ function detailParts(point: ChartPoint): (Node | string)[] {
 
 /** The tooltip's lines: the event and round (or the kind, for a manual round without a name), the date, then the rating and status. */
 function tipText(point: ChartPoint): string[] {
-  const { round, result } = point.row;
+  const { round } = point.row;
   const event = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)].filter(Boolean).join(' · ');
-  return [event || t(KINDS[point.kind]), formatDate(point.date), `${formatRating(point.rating)} · ${t(`round.status.${result.status}`)}`];
+  return [event || t(KINDS[point.kind]), formatDate(point.date), `${formatRating(point.rating)} · ${t(statusKey(point.row))}`];
 }
 
 /** The lowest and highest official rating the steps show. */
@@ -625,9 +625,9 @@ function table(chart: ChartData, state: Disclosure | undefined): HTMLElement {
         'tbody',
         {},
         ...[...chart.points].reverse().map((point) => {
-          const { round, result } = point.row;
+          const { round } = point.row;
           const name = [round.eventName, round.roundLabel && roundLabel(round.roundLabel), tierNote(round)];
-          const status = [t(`round.status.${result.status}`), t(KINDS[point.kind])];
+          const status = [t(statusKey(point.row)), t(KINDS[point.kind])];
           return el(
             'tr',
             {},

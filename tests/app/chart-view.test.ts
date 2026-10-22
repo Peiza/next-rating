@@ -246,7 +246,7 @@ describe('chart panel', () => {
     expect(detail(root)).toMatch(/^951 · \S+ · Event 1, round 1 · Counted · Official$/);
     key(root, 'End');
     // A manual round names its event as typed, without a round.
-    expect(detail(root)).toMatch(/^990 · \S+ · Planned Open · Counts in the following update · Manual$/);
+    expect(detail(root)).toMatch(/^990 · \S+ · Planned Open · Counts in a later update · Manual$/);
     key(root, 'ArrowRight');
     expect(detail(root)).toMatch(/^990/);
     key(root, 'Home');
@@ -356,7 +356,7 @@ describe('chart panel', () => {
       const lines = [...tip(root).children].map((line) => line.textContent);
       expect(lines).toHaveLength(3);
       expect(lines[0]).toBe('Planned Open');
-      expect(lines[2]).toBe('990 · Counts in the following update');
+      expect(lines[2]).toBe('990 · Counts in a later update');
       // Above the pointer (jsdom gives the tooltip no size), and to its left near the frame's right edge.
       expect(tip(root).style.top).toBe(`${Math.round(y + 5 - 12)}px`);
       Object.defineProperty(tip(root), 'offsetWidth', { get: () => 100 });
@@ -404,7 +404,7 @@ describe('chart panel', () => {
       ...[...row.querySelectorAll('.chart-event > span')].map((span) => span.textContent),
     ]);
     expect(rows).toHaveLength(13);
-    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in the following update · Manual']);
+    expect(rows[0]).toEqual(['990', 'Planned Open', 'Counts in a later update · Manual']);
     expect(rows.at(-1)).toEqual(['700', 'Event 0 · Round 1', 'Dropped · Official']);
     expect(rows.some(([, , status]) => status === 'Counts twice · Official')).toBe(true);
     // The date and the rating keep to one line; the event name wraps.

@@ -560,6 +560,24 @@ a {
   margin: 0.25rem 0 0.5rem;
 }
 
+/* The following update sits right under the next one; it wraps, its figures never split. */
+.next-update:has(+ .following-update) {
+  margin-bottom: 0.25rem;
+}
+
+.following-update {
+  margin: 0 0 0.5rem;
+}
+
+.following-rating,
+.following-change {
+  white-space: nowrap;
+}
+
+.following-change {
+  font-weight: 700;
+}
+
 .predicted {
   margin: 0;
   font-size: 4.5rem;

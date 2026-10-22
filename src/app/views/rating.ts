@@ -19,7 +19,7 @@ import { direction } from './change';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
-import { eventNote, roundLabel, roundWhere, tierNote } from './round-text';
+import { eventNote, roundLabel, roundWhere, statusKey, tierNote } from './round-text';
 import { targetCalculator, type TargetProps } from './target';
 import { chartPanel, chartTeaser, type ChartProps } from './chart';
 import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
@@ -64,16 +64,16 @@ export const ROUNDS_NEXT_ID = 'rounds-next';
 /** Where PDGA publishes when ratings are updated and which events an update counts. */
 const UPDATES_URL = 'https://www.pdga.com/faq/ratings/when-updated';
 
-/** Every status has a symbol and a text label, so it never depends on colour alone. */
-const STATUS: Record<RoundStatus, { symbol: string; label: MessageKey }> = {
-  included: { symbol: '✓', label: 'round.status.included' },
-  doubled: { symbol: '×2', label: 'round.status.doubled' },
-  dropped: { symbol: '↓', label: 'round.status.dropped' },
-  'outside-window': { symbol: '○', label: 'round.status.outside-window' },
-  excluded: { symbol: '⊘', label: 'round.status.excluded' },
-  'left-out': { symbol: '⊖', label: 'round.status.left-out' },
-  'after-deadline': { symbol: '»', label: 'round.status.after-deadline' },
-  dnf: { symbol: '–', label: 'round.status.dnf' },
+/** Every status has a symbol next to its text label (`statusKey`), so it never depends on colour alone. */
+const SYMBOL: Record<RoundStatus, string> = {
+  included: '✓',
+  doubled: '×2',
+  dropped: '↓',
+  'outside-window': '○',
+  excluded: '⊘',
+  'left-out': '⊖',
+  'after-deadline': '»',
+  dnf: '–',
 };
 
 const SOURCE: Record<ListedResult['round']['source'], MessageKey> = {
@@ -108,6 +108,29 @@ function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
       t('rating.nextUpdate', { update: formatDayMonth(update), deadline: formatDayMonth(deadline) }),
     ),
   );
+}
+
+/**
+ * The following update's prediction, when some rounds count there and not
+ * in the next one: "Then the 8 Dec update: 985 ↑ +3, with 2 more rounds
+ * reported by 6 Dec". The change is from the next update's prediction.
+ */
+function followingUpdate({ followingUpdate: { update, deadline }, following }: Model): HTMLElement | false {
+  if (!following) return false;
+  const { rating, change, rounds } = following;
+  const params = { update: formatDayMonth(update), deadline: formatDayMonth(deadline), count: rounds };
+  const nodes: Record<string, Node> = { rating: el('strong', { class: 'following-rating' }, formatRating(rating)) };
+  if (change !== null) {
+    const [dir, arrow] = direction(change);
+    nodes.change = el(
+      'span',
+      { class: `following-change change-${dir}` },
+      el('span', { class: 'change-arrow', 'aria-hidden': 'true' }, arrow),
+      formatChange(change),
+    );
+  }
+  const text = change === null ? t('rating.followingNoChange', params) : t('rating.following', params);
+  return el('p', { id: 'following-update', class: 'following-update' }, ...textWithNodes(text, nodes));
 }
 
 /** Opens the player's ratings details on pdga.com, where the bookmarklet refreshes the data. */
@@ -177,6 +200,7 @@ function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps):
     prediction.change !== null && change(prediction.change),
     official !== null && officialLine(official, model.officialExact, player?.ratingDate ?? null),
     nextUpdate(model.nextUpdate),
+    followingUpdate(model),
     refreshBox(model, now, refresh),
     !favorite &&
       el(
@@ -198,8 +222,8 @@ function roundEvent(round: ListedRound): HTMLElement | false {
   return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
 }
 
-function roundItem({ round, result }: ListedResult, next = false): HTMLElement {
-  const status = STATUS[result.status];
+function roundItem(row: ListedResult, next = false): HTMLElement {
+  const { round, result } = row;
   const details = [
     formatDate(round.date),
     round.holes !== undefined && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
@@ -216,8 +240,8 @@ function roundItem({ round, result }: ListedResult, next = false): HTMLElement {
       el(
         'span',
         { class: 'round-status' },
-        el('span', { class: 'round-symbol', 'aria-hidden': 'true' }, status.symbol),
-        ` ${t(status.label)}`,
+        el('span', { class: 'round-symbol', 'aria-hidden': 'true' }, SYMBOL[result.status]),
+        ` ${t(statusKey(row))}`,
       ),
     ),
     roundEvent(round),
