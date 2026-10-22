@@ -26,7 +26,7 @@ import {
 } from '../parsers';
 import { today } from './format';
 import type { StoredImport } from './import';
-import type { StoredManualRound } from './storage';
+import type { StoredManualRound, StoredPlayer } from './storage';
 
 /*
  * Turns one player's stored import and manual rounds into what the Rating
@@ -273,5 +273,46 @@ export function buildModel(
     stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,
     eventsWithoutRounds,
     unofficialEvents: unofficialEvents(rounds, prediction, predict, leaveOut),
+  };
+}
+
+/** A stored player's model, with the player's manual rounds and left-out events: what the Rating tab shows. */
+export function playerModel(player: StoredPlayer, stored: StoredImport, now: Date): Model {
+  return buildModel(stored, player.pdgaNumber, now, manualToRounds(player.manualRounds), player.leftOut);
+}
+
+/** The Rating tab's prediction in brief, for the players list. */
+export interface ListPrediction {
+  rating: number;
+  /** The change vs the official rating; null without one. */
+  change: number | null;
+  /** No new round counts in the next update, so the rating is the official one. */
+  unchanged: boolean;
+}
+
+/** A player's prediction for the players list; null before an import, or when no rated round counts. */
+export function listPrediction(player: StoredPlayer, now: Date): ListPrediction | null {
+  if (!player.import) return null;
+  const { rating, change, unchanged } = playerModel(player, player.import, now).prediction;
+  return rating === null ? null : { rating, change, unchanged };
+}
+
+export type PredictionCache = (player: StoredPlayer, now: Date) => ListPrediction | null;
+
+/**
+ * `listPrediction`, remembered per player while the player's data and the
+ * day stay the same. The players list shows every stored player on each
+ * render, and storage hands out new objects after every change, so the key is
+ * the content: every import sets a new `at`, and the day decides the update.
+ */
+export function createPredictionCache(): PredictionCache {
+  const cache = new Map<number, { key: string; value: ListPrediction | null }>();
+  return (player, now) => {
+    const key = JSON.stringify([player.import?.at ?? null, player.manualRounds, player.leftOut, today(now)]);
+    const hit = cache.get(player.pdgaNumber);
+    if (hit?.key === key) return hit.value;
+    const value = listPrediction(player, now);
+    cache.set(player.pdgaNumber, { key, value });
+    return value;
   };
 }

@@ -15,6 +15,7 @@ import {
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
+import { direction } from './change';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
@@ -82,11 +83,6 @@ const SOURCE: Record<ListedResult['round']['source'], MessageKey> = {
 };
 
 const DASH = '–';
-
-/** The class suffix and arrow for a change. The arrow and a sign carry it, never colour alone. */
-function direction(value: number): ['up' | 'down' | 'none', string] {
-  return value > 0 ? ['up', '↑'] : value < 0 ? ['down', '↓'] : ['none', '→'];
-}
 
 function change(value: number): HTMLElement {
   const [dir, arrow] = direction(value);

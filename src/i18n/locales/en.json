@@ -32,6 +32,8 @@
   "players.me": "You",
   "players.imported": "Imported {age}",
   "players.notImported": "Not imported yet",
+  "players.prediction": "Predicted rating {rating}",
+  "players.predictionChange": "Predicted rating {rating}, {change} vs official rating",
   "players.details": "Ratings details on pdga.com",
   "players.detailsFor": "Ratings details for {player} on pdga.com",
   "players.edit": "Edit list",

@@ -32,6 +32,8 @@
   "players.me": "Du",
   "players.imported": "Importerad {age}",
   "players.notImported": "Inte importerad ännu",
+  "players.prediction": "Beräknad rating {rating}",
+  "players.predictionChange": "Beräknad rating {rating}, {change} jämfört med officiell rating",
   "players.details": "Ratingdetaljer på pdga.com",
   "players.detailsFor": "Ratingdetaljer för {player} på pdga.com",
   "players.edit": "Redigera listan",

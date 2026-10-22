@@ -1370,6 +1370,7 @@ describe('players panel', () => {
       flash: null,
       order: 'name',
       now: new Date('2026-10-20T10:00:00.000Z'),
+      predictions: new Map(),
       onOrder: vi.fn(),
       onSearch: vi.fn(),
       onSelect: vi.fn(),
@@ -1408,6 +1409,50 @@ describe('players panel', () => {
     expect(view.querySelector('#player-100001 .menu-only')).toBeNull();
     // The top bar's button closes the panel, so it has no Close button of its own.
     expect(view.querySelector('#players-close')).toBeNull();
+  });
+
+  it('shows each prediction with its change at the right, the figures hidden from screen readers', () => {
+    const view = panel({ predictions: new Map([[100001, { rating: 985, change: 7, unchanged: false }]]) });
+    const column = view.querySelector('#player-100001 .player-prediction')!;
+    expect(column.querySelector('.player-rating')!.textContent).toBe('985');
+    const change = column.querySelector('.player-change')!;
+    expect(change.textContent).toBe('↑+7');
+    expect(change.classList.contains('change-up')).toBe(true);
+    expect([...column.querySelectorAll('.player-rating, .player-change')].every((part) => part.getAttribute('aria-hidden') === 'true')).toBe(true);
+    expect(column.querySelector('.visually-hidden')!.textContent).toBe('Predicted rating 985, +7 vs official rating');
+    // The name and import age stay apart from it.
+    expect(view.querySelector('#player-100001 .player-text .player-meta')!.textContent).toBe('Imported 3 days ago');
+  });
+
+  it('shows a drop with a true minus, and no new rounds as no change', () => {
+    const view = panel({
+      predictions: new Map([
+        [100001, { rating: 1012, change: -3, unchanged: false }],
+        [100003, { rating: 950, change: 0, unchanged: true }],
+      ]),
+    });
+    const drop = view.querySelector('#player-100001 .player-change')!;
+    expect(drop.textContent).toBe('↓−3');
+    expect(drop.classList.contains('change-down')).toBe(true);
+    // The unsaved player gets it too.
+    const same = view.querySelector('#player-100003 .player-change')!;
+    expect(same.textContent).toBe('→0');
+    expect(same.classList.contains('change-none')).toBe(true);
+  });
+
+  it('shows the rating alone without an official rating, and nothing without a prediction', () => {
+    const view = panel({ predictions: new Map([[100001, { rating: 960, change: null, unchanged: false }]]) });
+    expect(view.querySelector('#player-100001 .player-rating')!.textContent).toBe('960');
+    expect(view.querySelector('#player-100001 .player-change')).toBeNull();
+    expect(view.querySelector('#player-100001 .visually-hidden')!.textContent).toBe('Predicted rating 960');
+    expect(view.querySelector('#player-100002 .player-prediction')).toBeNull();
+    expect(view.querySelector('#player-100003 .player-prediction')).toBeNull();
+  });
+
+  it('reads the prediction in Swedish', () => {
+    setLanguage('sv');
+    const view = panel({ predictions: new Map([[100001, { rating: 985, change: -2, unchanged: false }]]) });
+    expect(view.querySelector('#player-100001 .visually-hidden')!.textContent).toBe('Beräknad rating 985, −2 jämfört med officiell rating');
   });
 
   it("links each player to its ratings details on pdga.com", () => {

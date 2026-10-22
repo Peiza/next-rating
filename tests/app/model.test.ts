@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
-import { buildModel, manualToRounds, STALE_DAYS } from '../../src/app/model';
-import type { StoredManualRound } from '../../src/app/storage';
+import { buildModel, createPredictionCache, listPrediction, manualToRounds, playerModel, STALE_DAYS } from '../../src/app/model';
+import type { StoredManualRound, StoredPlayer } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
 import { rawDetailsRow, rawEvent, rawEventRow, rawHistoryRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
@@ -315,5 +315,55 @@ describe('ratings history', () => {
     const model = buildModel(stored({ player, details, history }), 100001, NOW);
     expect(model.history.at(-1)).toEqual({ date: '2026-10-13', rating: 953, rounds: null });
     expect(model.history).toHaveLength(3);
+  });
+});
+
+describe('the prediction in the players list', () => {
+  const imported = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] });
+  const manual: StoredManualRound = { id: 'm1', rating: 1000, date: '2026-09-20', eventName: '', holes: null };
+  const player = (extra: Partial<StoredPlayer> = {}): StoredPlayer => ({
+    pdgaNumber: 100001,
+    favorite: true,
+    import: imported,
+    manualRounds: [],
+    leftOut: [],
+    ...extra,
+  });
+
+  it("is the Rating tab's prediction, with the change vs the official rating", () => {
+    expect(listPrediction(player(), NOW)).toEqual({ rating: 959, change: 9, unchanged: false });
+  });
+
+  it('counts manual rounds and leaves out what the user left out, as the Rating tab does', () => {
+    const withManual = player({ manualRounds: [manual] });
+    const model = playerModel(withManual, imported, NOW);
+    expect(listPrediction(withManual, NOW)).toEqual({ rating: model.prediction.rating, change: model.prediction.change, unchanged: false });
+    expect(model.prediction.rating).toBeGreaterThan(959);
+    // Without the unofficial event no new round counts, so it is the official rating.
+    expect(listPrediction(player({ leftOut: ['e:900002'] }), NOW)).toEqual({ rating: 950, change: 0, unchanged: true });
+  });
+
+  it('has no change without an official rating', () => {
+    expect(listPrediction(player({ import: stored({ details }) }), NOW)).toEqual({ rating: 960, change: null, unchanged: false });
+  });
+
+  it('is null before an import and without a rated round or an official rating', () => {
+    expect(listPrediction(player({ import: null }), NOW)).toBeNull();
+    expect(listPrediction(player({ import: stored({ events: [rawEvent({}, [rawEventRow('100001', ['', ''])])] }) }), NOW)).toBeNull();
+    // With only the player header, the official rating stands, as on the Rating tab.
+    expect(listPrediction(player({ import: stored({ player: rawPlayer() }) }), NOW)).toEqual({ rating: 950, change: 0, unchanged: true });
+  });
+
+  it('is remembered while the data and the day stay the same', () => {
+    const predict = createPredictionCache();
+    const first = predict(player(), NOW);
+    // A new object with the same content, as storage hands out after any change.
+    expect(predict(player(), NOW)).toBe(first);
+    const later = predict(player({ manualRounds: [manual] }), NOW);
+    expect(later).not.toBe(first);
+    expect(later!.rating).toBeGreaterThan(959);
+    expect(predict(player({ import: { ...imported, at: '2026-10-02T10:00:00.000Z' } }), NOW)).not.toBe(later);
+    const reimported = predict(player(), NOW);
+    expect(predict(player(), new Date('2026-10-02T10:00:00.000Z'))).not.toBe(reimported);
   });
 });
