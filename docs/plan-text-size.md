@@ -3,6 +3,7 @@
 A text size slider in Settings for the whole app (part 1), then A− / A+
 buttons on How it works that change only that page (part 2, after part 1 is
 merged). Part 1 also puts the Ko-fi link at the bottom of the Rating tab.
+Both are built.
 
 Decisions: 1a (absolute sizes 14–22 px, following the device by default),
 2a (the size as a plain number: CSS pixels are points on iPhone, not on
@@ -78,12 +79,36 @@ Borders, outlines, underlines, strokes, the shadow, the chart's 36 px
 corner button and 18 px icon. Media queries (48rem, 64rem, 40rem high)
 measure in the browser's default size, so breakpoints stay where they are.
 
-## Part 2 (after part 1 is merged): A− / A+ on How it works
-- `AppData.guideTextStep`, -8..+14, default 0. The page's size is
-  clamp(global size + step, 14, 28): this page may go above the 22 px the
-  Settings slider stops at, for reading. A− is disabled at 14, A+ at 28,
-  Reset at 0. The step range reaches 28 from 14 and 14 from 22. The step
-  stays when the global size changes.
-- The `.guide` section gets the size in px; its headings and list padding
-  move to em so they follow. A toolbar at the top, updated in place so
-  scroll and focus stay. Labels from the catalog in English and Swedish.
+## Part 2 (built): A− / A+ on How it works
+- `AppData.guideTextStep`, -8..+14 (`GUIDE_TEXT_STEPS` in storage.ts),
+  default 0. The page's size is clamp(global size + step, 14, 28)
+  (`guideTextSize` in text-size.ts): this page may go above the 22 px the
+  Settings slider stops at, for reading. The global size is the size picked
+  in Settings or the device's. The step range reaches 28 from 14 and 14 from
+  22. The step stays when the global size changes.
+- At step 0 the page has no size of its own and follows the app exactly.
+  Otherwise whole pixels. When the app's own size is outside 14–28 (the larger
+  iPhone accessibility Dynamic Type sizes, a tiny browser default), the range
+  widens to include it, so a tap never takes the page past the app's size
+  the wrong way.
+- A− and A+ step one pixel from the size shown (`nextGuideStep`), not from
+  the step stored, which the range may have cut: 22 + 14 shows 28, and A−
+  then shows 27 (step +5). A button is disabled where it would change
+  nothing (`canStepGuide`), Reset at step 0.
+- The `.guide` section gets the size in px and its own `--display-scale`
+  (`displayScale(size, device size)`), so headings still change by half as
+  much. Its h1 and h2 sizes, h2 margins, paragraph and list spacing and the
+  list padding are in em; with no size of its own, em is rem and the page
+  looks as before.
+- The toolbar under the heading (first on phones): "Text size", the size,
+  A− ("Smaller text"), A+ ("Larger text") and Reset, a group with labels
+  from the catalog in English and Swedish. It keeps the app's size
+  (`font-size: 1rem`), so A+ does not move under the finger. It changes the
+  page in place, so scroll and focus stay; a button that becomes disabled
+  passes focus to the other size button.
+
+## Copy step on the setup page (with part 2)
+The bookmarklet's code box sat about 3rem below its Copy button (an empty
+status line and the field's margin), more at large text. The status line
+now takes no space until it says Copied (`.copy-status:empty`), and 0.5rem
+is left above the code's label.
