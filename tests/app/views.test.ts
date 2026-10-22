@@ -480,6 +480,19 @@ describe('rating view', () => {
       expect(status.textContent).toBe('» Counts in a later update');
     });
 
+    it('on 22 Oct, shows no line for a round after 6 Dec alone, and keeps the line of a round before it', () => {
+      const oct22 = new Date('2026-10-22T10:00:00');
+      const page = (rounds: ReturnType<typeof manual>[]) =>
+        ratingView({ model: buildModel(stored, 100001, oct22, manualToRounds(rounds)), favorite: true, now: oct22, onAddFavorite: vi.fn() });
+      const december = page([manual('2026-12-15')]);
+      expect(december.querySelector('#following-update')).toBeNull();
+      expect(december.querySelector('.round-after-deadline .round-status')!.textContent).toBe('» Counts in a later update');
+      const november = page([manual('2026-11-15')]).querySelector('#following-update')!.textContent;
+      const both = page([manual('2026-11-15'), manual('2026-12-15', 700)]);
+      expect(both.querySelector('#following-update')!.textContent).toBe(november);
+      expect(both.querySelector('#predicted')!.textContent).toBe(december.querySelector('#predicted')!.textContent);
+    });
+
     it('is translated', () => {
       setLanguage('sv');
       const line = view([manual('2026-10-20')]).view.querySelector('#following-update')!;
