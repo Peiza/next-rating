@@ -426,6 +426,41 @@ a {
   outline-offset: -5px;
 }
 
+/* Text size: the label with the value beside it, then a slider as tall as a field for the thumb. */
+
+.range-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+
+.range-value {
+  margin-bottom: 0.375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.range {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  margin: 0;
+  accent-color: var(--accent);
+  touch-action: manipulation;
+}
+
+/* Sized in pixels by the view, so it shows the size while the slider moves. */
+.text-sample {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  line-height: 1.45;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+}
+
 /* Import messages */
 
 .banner {

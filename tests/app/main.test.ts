@@ -342,6 +342,33 @@ describe('app start', () => {
     meta.remove();
   });
 
+  it('applies the text size from Settings when the slider is let go, and keeps it after a reload', async () => {
+    const html = document.documentElement;
+    await start('/next-rating/');
+    expect(html.style.fontSize).toBe('');
+    document.getElementById('tab-settings')!.click();
+    const slider = document.getElementById('text-size') as HTMLInputElement;
+    slider.focus();
+    slider.value = '19';
+    slider.dispatchEvent(new Event('input'));
+    // While it moves, the page keeps its size and the slider is not rebuilt under the finger.
+    expect(html.style.fontSize).toBe('');
+    expect(document.getElementById('text-size')).toBe(slider);
+    slider.dispatchEvent(new Event('change'));
+    expect(html.style.fontSize).toBe('19px');
+    expect(stored().textSize).toBe(19);
+    expect(document.activeElement?.id).toBe('text-size');
+
+    await start('/next-rating/');
+    expect(html.style.fontSize).toBe('19px');
+    document.getElementById('tab-settings')!.click();
+    expect((document.getElementById('text-size') as HTMLInputElement).value).toBe('19');
+    document.getElementById('text-size-reset')!.click();
+    expect(html.style.fontSize).toBe('');
+    expect(stored().textSize).toBeNull();
+    expect(document.activeElement?.id).toBe('text-size');
+  });
+
   it('applies the date format from Settings and keeps it after a reload', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(

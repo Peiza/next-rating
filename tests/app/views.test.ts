@@ -142,6 +142,8 @@ describe('settings view', () => {
     language: null,
     preferred: ['sv-SE'],
     theme: null,
+    textSize: null,
+    deviceTextSize: 17,
     dateOrder: null,
     today: '2026-10-21',
     openWith: 'me',
@@ -149,6 +151,7 @@ describe('settings view', () => {
     bookmarklet: BOOKMARKLET_VERSION,
     onLanguage: () => {},
     onTheme: () => {},
+    onTextSize: () => {},
     onDateOrder: () => {},
     onOpenWith: () => {},
     onOpenSetup: () => {},
@@ -177,6 +180,51 @@ describe('settings view', () => {
     view.querySelector<HTMLInputElement>('#theme-device')!.click();
     expect(onTheme).toHaveBeenLastCalledWith(null);
     view.remove();
+  });
+
+  it('offers text sizes from 14 to 22 px in whole pixels, following the device by default', () => {
+    const view = settingsView({ ...props, deviceTextSize: 15 });
+    const slider = view.querySelector<HTMLInputElement>('#text-size')!;
+    expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Text size');
+    expect([slider.type, slider.min, slider.max, slider.step, slider.value]).toEqual(['range', '14', '22', '1', '15']);
+    expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatic (15)');
+    expect(slider.getAttribute('aria-valuetext')).toBe('Automatic (15)');
+    expect(view.querySelector('#text-size-hint')!.textContent).toBe('The whole app changes when you let go.');
+    expect(view.querySelector<HTMLElement>('#text-size-sample')!.style.fontSize).toBe('15px');
+    expect(view.querySelector<HTMLButtonElement>('#text-size-reset')!.disabled).toBe(true);
+
+    const picked = settingsView({ ...props, textSize: 20 });
+    expect(picked.querySelector<HTMLInputElement>('#text-size')!.value).toBe('20');
+    expect(picked.querySelector('#text-size-value')!.textContent).toBe('20');
+    expect(picked.querySelector<HTMLButtonElement>('#text-size-reset')!.disabled).toBe(false);
+  });
+
+  it('shows the size while the slider moves, and changes it when let go', () => {
+    const onTextSize = vi.fn();
+    const view = settingsView({ ...props, onTextSize });
+    const slider = view.querySelector<HTMLInputElement>('#text-size')!;
+    slider.value = '21';
+    slider.dispatchEvent(new Event('input'));
+    expect(onTextSize).not.toHaveBeenCalled();
+    expect(view.querySelector('#text-size-value')!.textContent).toBe('21');
+    expect(slider.getAttribute('aria-valuetext')).toBe('21');
+    expect(view.querySelector<HTMLElement>('#text-size-sample')!.style.fontSize).toBe('21px');
+    slider.dispatchEvent(new Event('change'));
+    expect(onTextSize).toHaveBeenLastCalledWith(21);
+  });
+
+  it('goes back to the device size', () => {
+    const onTextSize = vi.fn();
+    settingsView({ ...props, textSize: 19, onTextSize }).querySelector<HTMLButtonElement>('#text-size-reset')!.click();
+    expect(onTextSize).toHaveBeenLastCalledWith(null);
+  });
+
+  it('names the text size in Swedish', () => {
+    setLanguage('sv');
+    const view = settingsView(props);
+    expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Textstorlek');
+    expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatiskt (17)');
+    expect(view.querySelector('#text-size-reset')!.textContent).toBe('Använd enhetens storlek');
   });
 
   it('opens with you by default, or with the last viewed player', () => {
@@ -1750,11 +1798,14 @@ describe('how it works', () => {
       language: null,
       preferred: ['en'],
       theme: null,
+      textSize: null,
+      deviceTextSize: 17,
       dateOrder: null,
       today: '2026-10-21',
       persistent: true,
       bookmarklet: null,
       onLanguage: vi.fn(),
+      onTextSize: vi.fn(),
       onDateOrder: vi.fn(),
       openWith: 'me',
       onTheme: vi.fn(),

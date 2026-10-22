@@ -1,8 +1,9 @@
 import type { PlainDate } from '../../engine';
 import { languages, resolveLanguage, t, type MessageKey } from '../../i18n';
 import { el } from '../dom';
-import { formatDate } from '../format';
-import { DATE_ORDERS, type DateOrder, type OpenWith, type Theme } from '../storage';
+import { formatCount, formatDate } from '../format';
+import { DATE_ORDERS, TEXT_SIZES, type DateOrder, type OpenWith, type Theme } from '../storage';
+import { sliderValue } from '../text-size';
 import { segmented, type Segment } from './segmented';
 import { bookmarkletStatus } from './setup';
 import { supportLink } from './support';
@@ -14,6 +15,10 @@ export interface SettingsProps {
   preferred: readonly string[];
   /** The theme override; null follows the device. */
   theme: Theme | null;
+  /** The text size override in CSS pixels; null follows the device. */
+  textSize: number | null;
+  /** The device's text size, which the slider shows while it follows the device. */
+  deviceTextSize: number;
   /** The date format override; null follows the language and the device's region. */
   dateOrder: DateOrder | null;
   /** Today, which each date format option shows as its example. */
@@ -25,6 +30,7 @@ export interface SettingsProps {
   bookmarklet: string | null;
   onLanguage: (language: string | null) => void;
   onTheme: (theme: Theme | null) => void;
+  onTextSize: (textSize: number | null) => void;
   onDateOrder: (order: DateOrder | null) => void;
   onOpenWith: (openWith: OpenWith) => void;
   onOpenSetup: () => void;
@@ -108,9 +114,65 @@ function datePicker(dateOrder: DateOrder | null, today: PlainDate, onDateOrder: 
   );
 }
 
+export const TEXT_SIZE_ID = 'text-size';
+
+/**
+ * A slider in whole pixels. While it moves, only its value and the sample
+ * line change, so the page does not shift under the finger; the whole app
+ * changes when it is let go (or with each arrow key step).
+ */
+function textSizePicker(textSize: number | null, deviceTextSize: number, onTextSize: (textSize: number | null) => void) {
+  const [min, max] = TEXT_SIZES;
+  const valueText = (size: number, automatic: boolean) =>
+    automatic ? t('settings.textSizeAuto', { size: formatCount(size) }) : formatCount(size);
+  const start = sliderValue(textSize, deviceTextSize);
+  const value = el('output', { id: `${TEXT_SIZE_ID}-value`, for: TEXT_SIZE_ID, class: 'range-value' }, valueText(start, textSize === null));
+  const sample = el('p', { id: `${TEXT_SIZE_ID}-sample`, class: 'text-sample' }, t('settings.textSizeSample'));
+  const hintId = `${TEXT_SIZE_ID}-hint`;
+  const slider = el('input', {
+    id: TEXT_SIZE_ID,
+    class: 'range',
+    type: 'range',
+    min,
+    max,
+    step: 1,
+    value: start,
+    'aria-valuetext': valueText(start, textSize === null),
+    'aria-describedby': hintId,
+    oninput: () => show(Number(slider.value), false),
+    onchange: () => onTextSize(Number(slider.value)),
+  });
+  // CSSOM, which the CSP allows (dom.ts sets no style attribute).
+  const show = (size: number, automatic: boolean) => {
+    value.textContent = valueText(size, automatic);
+    slider.setAttribute('aria-valuetext', value.textContent);
+    sample.style.fontSize = `${size}px`;
+  };
+  show(start, textSize === null);
+  return el(
+    'div',
+    { class: 'field' },
+    el('div', { class: 'range-head' }, el('label', { for: TEXT_SIZE_ID, class: 'label' }, t('settings.textSize')), value),
+    slider,
+    el('p', { id: hintId, class: 'hint hint-tight' }, t('settings.textSizeHint')),
+    sample,
+    el(
+      'button',
+      {
+        id: `${TEXT_SIZE_ID}-reset`,
+        class: 'button button-small',
+        type: 'button',
+        disabled: textSize === null,
+        onclick: () => onTextSize(null),
+      },
+      t('settings.textSizeReset'),
+    ),
+  );
+}
+
 export function settingsView(props: SettingsProps): HTMLElement {
-  const { language, preferred, theme, dateOrder, today, openWith, persistent, bookmarklet } = props;
-  const { onLanguage, onTheme, onDateOrder, onOpenWith, onOpenSetup, onOpenGuide } = props;
+  const { language, preferred, theme, textSize, deviceTextSize, dateOrder, today, openWith, persistent, bookmarklet } = props;
+  const { onLanguage, onTheme, onTextSize, onDateOrder, onOpenWith, onOpenSetup, onOpenGuide } = props;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -120,6 +182,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     languagePicker(language, preferred, onLanguage),
     datePicker(dateOrder, today, onDateOrder),
     segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),
+    textSizePicker(textSize, deviceTextSize, onTextSize),
     segmented('settings.openWith', 'open-with', OPEN_WITH_OPTIONS, openWith, onOpenWith),
     el('h2', {}, t('settings.bookmarklet')),
     bookmarkletStatus(bookmarklet),
