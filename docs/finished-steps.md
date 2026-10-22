@@ -1030,3 +1030,7 @@ Built in this order:
 - How it works text size: A− / A+ and Reset, 14–32 px on that page on top
   of Body text size, and the bookmarklet's code box closer to its Copy
   button (docs/plan-text-size.md, part 2) (done)
+- Large text polish: How it works up to 32 px, Reset beside the Settings
+  slider, the target answer as one figure with quiet details, and rating
+  figures that never wrap (docs/plan-text-size.md, polish after part 2)
+  (done)

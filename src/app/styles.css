@@ -652,6 +652,7 @@ a {
   font-weight: 800;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .change {
@@ -1342,6 +1343,7 @@ a {
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .top8-found,
@@ -1395,6 +1397,7 @@ a {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap;
 }
 
 .rounds {
@@ -1430,13 +1433,21 @@ a {
   gap: 1rem;
 }
 
+/*
+ * The rating keeps its width and one line (body's overflow-wrap: anywhere
+ * would let the flex row squeeze "1024" into "10/24"); a long status wraps
+ * beside it instead.
+ */
 .round-rating {
+  flex: none;
   font-size: calc(1.4rem * var(--display-scale, 1));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .round-status {
+  min-width: 0;
   font-weight: 700;
   text-align: right;
 }
@@ -1625,6 +1636,7 @@ a {
 
 .leaving-rating {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .leaving-meta {

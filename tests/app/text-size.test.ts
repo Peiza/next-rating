@@ -60,6 +60,29 @@ describe('text size', () => {
     expect(large).toHaveLength(9);
     for (const value of large) expect(value).toContain('var(--display-scale, 1)');
   });
+
+  it('keeps every rating and change figure on one line', () => {
+    // The innermost rule blocks, so a rule inside @media is read on its own.
+    const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => ({
+      selectors: match[1]!.split(',').map((selector) => selector.trim()),
+      body: match[2]!,
+    }));
+    const figures = [
+      '.predicted',
+      '.following-rating',
+      '.following-change',
+      '.round-rating',
+      '.top8-rating',
+      '.top8-figure dd',
+      '.player-prediction',
+      '.leaving-rating',
+      '.target-answer > .target-figure',
+    ];
+    for (const figure of figures) {
+      const nowrap = rules.some(({ selectors, body }) => selectors.includes(figure) && /white-space:\s*nowrap/.test(body));
+      expect(nowrap, figure).toBe(true);
+    }
+  });
 });
 
 describe('How it works text size', () => {

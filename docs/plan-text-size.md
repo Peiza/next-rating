@@ -134,3 +134,12 @@ is left above the code's label.
   leave the window, their ratings in normal weight. Out of reach has no
   figure: "Out of reach in 3 rounds." is the bold line, then "Even 3 rounds
   rated 1150 give 991 at the 10 Nov update." Errors stay bold.
+- Rating figures never wrap: body's `overflow-wrap: anywhere` let the
+  Rounds card's flex row squeeze a rating into "10/24" beside a long status
+  ("Counts in a later update") at 22 px. `.round-rating` now keeps its width
+  (`flex: none`) and one line, and the status wraps beside it. Every rating
+  and change figure has `white-space: nowrap`: the prediction, the following
+  update's rating and change, round ratings (also manual rounds), Top 8 rows
+  and figures, the players list, the target figure and the rounds that
+  leave the window; the text around them wraps. A stylesheet test checks
+  the list.

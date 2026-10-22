@@ -560,6 +560,9 @@ describe('rating view', () => {
       expect(page.querySelector('#following-update')).toBeNull();
       const status = page.querySelector('.round-after-deadline .round-status')!;
       expect(status.textContent).toBe('» Counts in a later update');
+      // The rating is an element of its own beside the status, which styles.css keeps on one line while the status wraps.
+      const rating = status.previousElementSibling!;
+      expect([rating.className, rating.textContent]).toEqual(['round-rating', '1000']);
     });
 
     it('on 22 Oct, shows no line for a round after 6 Dec alone, and keeps the line of a round before it', () => {
