@@ -8,7 +8,7 @@ import { readPages } from './handoff';
 import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
-import { buildModel, manualToRounds, type Model } from './model';
+import { playerModel, type Model } from './model';
 import {
   addFavorite,
   addManualRound,
@@ -835,7 +835,7 @@ function currentView(): HTMLElement {
 
 /** The model of a player with an import, for the Rating view and the full-screen chart. */
 function modelOf(player: StoredPlayer, now: Date): Model {
-  return buildModel(player.import!, player.pdgaNumber, now, manualToRounds(player.manualRounds), player.leftOut);
+  return playerModel(player, player.import!, now);
 }
 
 function chartProps(player: StoredPlayer, model: Model, now: Date): ChartProps {
