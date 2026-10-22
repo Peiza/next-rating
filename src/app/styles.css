@@ -1967,19 +1967,57 @@ a {
   margin: 1rem 0 1.5rem;
 }
 
-/* How it works */
+/*
+ * How it works. A− / A+ set the page's own size on .guide (views/guide.ts),
+ * so its headings and spacing are in em to follow it; with no size of its
+ * own, em is rem and the page looks as before.
+ */
+
+.guide h1 {
+  font-size: calc(1.75em * var(--display-scale, 1));
+}
+
+.guide h2 {
+  font-size: calc(1.3em * var(--display-scale, 1));
+  /* 1.75 and 0.75 of the page's size, as h2 has in rem elsewhere. */
+  margin: calc(1.75em / (1.3 * var(--display-scale, 1))) 0 calc(0.75em / (1.3 * var(--display-scale, 1)));
+}
+
+/* The toolbar keeps the app's size, so A+ does not move under the finger. */
+.guide-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.guide-tools-label {
+  font-weight: 700;
+}
+
+.guide-tools-value {
+  margin-right: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 .guide-section h2 {
   scroll-margin-top: 1rem;
 }
 
+.guide-section p {
+  margin-bottom: 1em;
+}
+
 .guide-list {
-  margin: 0 0 1rem;
-  padding-left: 1.25rem;
+  margin: 0 0 1em;
+  padding-left: 1.25em;
 }
 
 .guide-list li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.5em;
 }
 
 .notice-inline {

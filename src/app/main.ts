@@ -737,7 +737,16 @@ function tabBar(): HTMLElement {
 
 function currentView(): HTMLElement {
   const data = store.get();
-  if (overlay?.view === 'guide') return guideView({ onBack: closeOverlay });
+  if (overlay?.view === 'guide') {
+    return guideView({
+      baseTextSize: data.textSize ?? deviceTextSize,
+      deviceTextSize,
+      textStep: data.guideTextStep,
+      // The view changes its size in place, so nothing is drawn again.
+      onTextStep: (guideTextStep) => store.update({ guideTextStep }),
+      onBack: closeOverlay,
+    });
+  }
   if (overlay?.view === 'setup') {
     return setupView({
       bookmarklet,

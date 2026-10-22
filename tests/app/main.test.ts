@@ -372,6 +372,30 @@ describe('app start', () => {
     expect(document.activeElement?.id).toBe('text-size');
   });
 
+  it('stores the How it works text step without drawing the page again, on top of the Settings size', async () => {
+    await start('/next-rating/');
+    document.getElementById('tab-settings')!.click();
+    document.getElementById('open-guide')!.click();
+    const page = document.querySelector<HTMLElement>('.guide')!;
+    document.getElementById('guide-text-larger')!.click();
+    document.getElementById('guide-text-larger')!.click();
+    // jsdom's root size, the device size here, is 16 px; the rest of the app keeps it.
+    expect(page.style.fontSize).toBe('18px');
+    expect(document.querySelector('.guide')).toBe(page);
+    expect(document.documentElement.style.fontSize).toBe('');
+    expect(stored().guideTextStep).toBe(2);
+
+    await start('/next-rating/');
+    document.getElementById('tab-settings')!.click();
+    const slider = document.getElementById('text-size') as HTMLInputElement;
+    slider.value = '20';
+    slider.dispatchEvent(new Event('change'));
+    document.getElementById('open-guide')!.click();
+    // The step stays when the Settings size changes.
+    expect(document.querySelector<HTMLElement>('.guide')!.style.fontSize).toBe('22px');
+    expect(document.getElementById('guide-text-value')!.textContent).toBe('22');
+  });
+
   it('applies the date format from Settings and keeps it after a reload', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     localStorage.setItem(

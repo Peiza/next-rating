@@ -1,4 +1,4 @@
-import { TEXT_SIZES } from './storage';
+import { GUIDE_TEXT_STEPS, TEXT_SIZES } from './storage';
 
 /*
  * The text size. Settings can fix it in CSS pixels on <html>; otherwise the
@@ -34,4 +34,43 @@ export function textScale(textSize: number | null, deviceSize: number): number {
  */
 export function displayScale(textSize: number | null, deviceSize: number): number {
   return textSize === null || !(deviceSize > 0) ? 1 : (textSize + deviceSize) / (2 * textSize);
+}
+
+/*
+ * How it works: A− / A+ add a step to the app's text size (`base`, the size
+ * picked in Settings or the device's), for that page only. It may go above
+ * the 22 px Settings stops at, for reading.
+ */
+
+/** The sizes How it works offers, in CSS pixels. */
+export const GUIDE_TEXT_SIZES = [14, 28] as const;
+
+/** 14 to 28 px, widened to include the app's size, so a tap never takes the page past it the wrong way. */
+function guideRange(base: number): readonly [number, number] {
+  const [min, max] = GUIDE_TEXT_SIZES;
+  return [Math.min(min, base), Math.max(max, base)];
+}
+
+function clamp(value: number, [min, max]: readonly [number, number]): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/** The page's size: the app's size at step 0, otherwise whole pixels within the range. */
+export function guideTextSize(base: number, step: number): number {
+  return step === 0 ? base : clamp(Math.round(base) + step, guideRange(base));
+}
+
+/**
+ * The step after A− (delta -1) or A+ (+1): one pixel from the size shown,
+ * not from the step stored, which the range may have cut (22 + 14 shows 28,
+ * and A− shows 27).
+ */
+export function nextGuideStep(base: number, step: number, delta: number): number {
+  const size = clamp(Math.round(guideTextSize(base, step)) + delta, guideRange(base));
+  return clamp(size - Math.round(base), GUIDE_TEXT_STEPS);
+}
+
+/** Whether A− or A+ changes the size shown; at a limit its button is disabled. */
+export function canStepGuide(base: number, step: number, delta: number): boolean {
+  return guideTextSize(base, nextGuideStep(base, step, delta)) !== guideTextSize(base, step);
 }
