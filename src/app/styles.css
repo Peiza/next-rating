@@ -1989,3 +1989,16 @@ a {
   font-weight: 700;
   cursor: pointer;
 }
+
+/*
+ * The Ko-fi line (views/support.ts): the same space in every view, closer to
+ * what follows it (the unofficial notice, or Back) than to what is above.
+ * Last, so it wins over that element's own top margin.
+ */
+.support {
+  margin: 1.75rem 0 1rem;
+}
+
+.view > .support + * {
+  margin-top: 1rem;
+}
