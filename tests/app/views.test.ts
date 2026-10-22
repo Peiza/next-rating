@@ -1362,14 +1362,50 @@ describe('bookmarklet setup', () => {
   });
 
   it.each([
-    ['iphone', 'Safari on iPhone', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its address.', 'Try it on pdga.com.']],
-    ['android', 'Android browsers', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
-    ['computer', 'Desktop browsers', ['Copy the bookmarklet.', 'Add a bookmark with the code as its URL.', 'Try it on pdga.com.']],
+    [
+      'iphone',
+      'Safari on iPhone',
+      [
+        'Copy the bookmarklet.',
+        'Bookmark this page.',
+        "Paste the code into the bookmark's address, not into Safari's address bar.",
+        'Try it on pdga.com.',
+      ],
+    ],
+    [
+      'android',
+      'Android browsers',
+      [
+        'Copy the bookmarklet.',
+        'Bookmark this page.',
+        "Paste the code into the bookmark's URL field, not into the browser's address bar.",
+        'Try it on pdga.com.',
+      ],
+    ],
+    [
+      'computer',
+      'Desktop browsers',
+      ['Copy the bookmarklet.', "Paste the code into a new bookmark's URL field, not into the address bar.", 'Try it on pdga.com.'],
+    ],
   ] as const)('shows numbered steps for %s only', (platform, title, steps) => {
     const view = setupView({ ...setupProps(CODE), platform });
     expect([...view.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual([title]);
     expect([...view.querySelectorAll('#setup-steps .step-title')].map((step) => step.textContent)).toEqual(steps);
     expect(view.querySelector<HTMLInputElement>(`#platform-${platform}`)!.checked).toBe(true);
+  });
+
+  it.each([
+    ['iphone', 2, 'Tap the address bar only to show the book icon', 'Klistra in koden i bokmärkets adress, inte i Safaris adressfält.'],
+    ['android', 2, 'Replace everything in its URL field with the code', 'Klistra in koden i bokmärkets fält för webbadress (URL), inte i webbläsarens adressfält.'],
+    ['computer', 1, 'paste the code into its URL field', 'Klistra in koden i ett nytt bokmärkes fält för webbadress (URL), inte i adressfältet.'],
+  ] as const)('says first on %s where to paste the code, and not into the address bar', (platform, index, how, swedish) => {
+    const paste = setupView({ ...setupProps(CODE), platform }).querySelectorAll('#setup-steps > .step')[index]!;
+    expect(paste.firstElementChild!.className).toBe('step-title');
+    expect(paste.firstElementChild!.textContent).toMatch(/^Paste the code into .*, not into .*address bar\.$/);
+    expect(paste.textContent).toContain(how);
+    setLanguage('sv');
+    const sv = setupView({ ...setupProps(CODE), platform }).querySelectorAll('#setup-steps > .step')[index]!;
+    expect(sv.querySelector('.step-title')!.textContent).toBe(swedish);
   });
 
   it('runs the bookmarklet on Android from the address bar', () => {
