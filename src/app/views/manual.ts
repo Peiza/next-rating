@@ -92,7 +92,8 @@ export function readManualRound(draft: ManualDraft, today: PlainDate): ManualRea
   const holes = draft.holes.trim() === '' ? null : readWhole(draft.holes, RANGES.holes);
   if (holes === null && draft.holes.trim() !== '') return { field: 'holes', error: 'manual.holesInvalid' };
   const eventName = draft.eventName.trim().replace(/\s+/g, ' ').slice(0, MAX_EVENT_NAME);
-  return { round: { rating, date, eventName, holes } };
+  // A typed round, also an edited example, is an ordinary manual round.
+  return { round: { rating, date, eventName, holes, example: false } };
 }
 
 export interface ManualProps {

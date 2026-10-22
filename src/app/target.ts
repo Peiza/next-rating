@@ -54,7 +54,9 @@ export type TargetRead = { query: TargetQuery } | { field: TargetField; error: M
  * latest is a year ahead, as for a manual round.
  */
 export function targetDates(model: Model, today: PlainDate): TargetDates {
-  const min = model.rounds.map((round) => round.date).reduce((a, b) => (compareDates(a, b) >= 0 ? a : b), today);
+  const min = withoutExamples(model.rounds)
+    .map((round) => round.date)
+    .reduce((a, b) => (compareDates(a, b) >= 0 ? a : b), today);
   return { min, max: latestManualDate(today) };
 }
 
@@ -105,10 +107,19 @@ export interface TargetAnswer {
   leaving: ListedRound[];
 }
 
-/** Runs the engine's search on exactly the rounds the prediction uses, manual rounds included. */
+/**
+ * The rounds without the example rounds added under the answer, so adding
+ * them leaves the answer as it was instead of turning it into "already reached".
+ */
+export function withoutExamples(rounds: readonly ListedRound[]): ListedRound[] {
+  return rounds.filter((round) => !round.example);
+}
+
+/** Runs the engine's search on the rounds the prediction uses, manual rounds included and example rounds not. */
 export function calculateTarget(model: Model, query: TargetQuery): TargetAnswer {
   const { update, missed } = targetUpdate(query.date, model.nextUpdate);
-  const result = targetAverage(model.rounds, query.target, {
+  const rounds = withoutExamples(model.rounds);
+  const result = targetAverage(rounds, query.target, {
     count: query.count,
     date: query.date,
     deadline: update.deadline,
@@ -116,7 +127,7 @@ export function calculateTarget(model: Model, query: TargetQuery): TargetAnswer 
     currentRating: model.player?.currentRating ?? null,
   });
   const ids = new Set(result.leaving);
-  const leaving = model.rounds
+  const leaving = rounds
     .filter((round) => ids.has(round.id))
     .sort((a, b) => compareDates(a.date, b.date));
   return { query, update, missed, result, leaving };

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { StoredImport } from '../../src/app/import';
 import { predictRating } from '../../src/engine';
-import { buildModel, createPredictionCache, listPrediction, manualToRounds, playerModel, STALE_DAYS } from '../../src/app/model';
+import {
+  buildModel,
+  createPredictionCache,
+  listPrediction,
+  manualToRounds,
+  playerModel,
+  STALE_DAYS,
+  withManualRounds,
+} from '../../src/app/model';
 import type { StoredManualRound, StoredPlayer } from '../../src/app/storage';
 import type { ListedRound } from '../../src/parsers';
 import { rawDetailsRow, rawEvent, rawEventRow, rawHistoryRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
@@ -253,6 +261,7 @@ describe('manualToRounds', () => {
     date,
     eventName,
     holes,
+    example: false,
   });
 
   it('groups rounds with the same event name and date into one event, apart from imported events', () => {
@@ -290,7 +299,7 @@ describe('manualToRounds', () => {
 describe('the following update', () => {
   // On 1 Oct 2026 the next update is 13 Oct (deadline 11 Oct), the following one 10 Nov (deadline 8 Nov).
   const imported = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] });
-  const manual = (id: string, date: string, rating = 1000): StoredManualRound => ({ id, rating, date, eventName: '', holes: null });
+  const manual = (id: string, date: string, rating = 1000): StoredManualRound => ({ id, rating, date, eventName: '', holes: null, example: false });
   const model = (rounds: StoredManualRound[], data = imported, leftOut: string[] = []) =>
     buildModel(data, 100001, NOW, manualToRounds(rounds), leftOut);
 
@@ -407,7 +416,7 @@ describe('ratings history', () => {
 
 describe('the prediction in the players list', () => {
   const imported = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] });
-  const manual: StoredManualRound = { id: 'm1', rating: 1000, date: '2026-09-20', eventName: '', holes: null };
+  const manual: StoredManualRound = { id: 'm1', rating: 1000, date: '2026-09-20', eventName: '', holes: null, example: false };
   const player = (extra: Partial<StoredPlayer> = {}): StoredPlayer => ({
     pdgaNumber: 100001,
     favorite: true,
@@ -415,6 +424,15 @@ describe('the prediction in the players list', () => {
     manualRounds: [],
     leftOut: [],
     ...extra,
+  });
+
+  it('marks example rounds, and gives the engine input for other manual rounds in the same order', () => {
+    const rounds = [manual, { ...manual, id: 'm2', date: '2026-09-21', example: true }, { ...manual, id: 'm3', date: '2026-09-21' }];
+    const model = playerModel(player({ manualRounds: rounds }), imported, NOW);
+    expect(withManualRounds(model, rounds)).toEqual(model.rounds);
+    expect(model.rounds.filter((round) => round.example).map((round) => round.id)).toEqual(['m:m2']);
+    const other = playerModel(player({ manualRounds: [rounds[2]!] }), imported, NOW);
+    expect(withManualRounds(model, [rounds[2]!])).toEqual(other.rounds);
   });
 
   it("is the Rating tab's prediction, with the change vs the official rating", () => {

@@ -22,8 +22,8 @@ function draft(extra: Partial<ManualDraft> = {}): ManualDraft {
 }
 
 const ROUNDS: StoredManualRound[] = [
-  { id: 'm1', rating: 950, date: '2026-10-10', eventName: 'Club night', holes: 9 },
-  { id: 'm2', rating: 985, date: '2026-10-16', eventName: '', holes: null },
+  { id: 'm1', rating: 950, date: '2026-10-10', eventName: 'Club night', holes: 9, example: false },
+  { id: 'm2', rating: 985, date: '2026-10-16', eventName: '', holes: null, example: false },
 ];
 
 function props(extra: Partial<ManualProps> = {}): ManualProps {
@@ -74,13 +74,13 @@ describe('latestManualDate', () => {
 describe('readManualRound', () => {
   it('reads a rating with the defaults', () => {
     expect(readManualRound(draft({ rating: ' 985 ' }), TODAY)).toEqual({
-      round: { rating: 985, date: TODAY, eventName: '', holes: null },
+      round: { rating: 985, date: TODAY, eventName: '', holes: null, example: false },
     });
   });
 
   it('tidies the event name and reads holes', () => {
     const read = readManualRound(draft({ rating: '950', eventName: '  Club   night ', holes: '9' }), TODAY);
-    expect(read).toEqual({ round: { rating: 950, date: TODAY, eventName: 'Club night', holes: 9 } });
+    expect(read).toEqual({ round: { rating: 950, date: TODAY, eventName: 'Club night', holes: 9, example: false } });
   });
 
   it('accepts a date up to a year ahead, for a round at an upcoming event', () => {
@@ -158,7 +158,7 @@ describe('manual entry view', () => {
     type(view, 'manual-rating', '985');
     type(view, 'manual-date', '2026-11-01');
     submit(view);
-    expect(onAdd).toHaveBeenCalledWith({ rating: 985, date: '2026-11-01', eventName: '', holes: null });
+    expect(onAdd).toHaveBeenCalledWith({ rating: 985, date: '2026-11-01', eventName: '', holes: null, example: false });
   });
 
   it('marks a field that is not valid and says why', () => {
@@ -273,7 +273,7 @@ describe('manual entry view', () => {
 
     type(view, 'manual-rating', '960');
     submit(view);
-    expect(onSave).toHaveBeenCalledWith('m1', { rating: 960, date: '2026-10-10', eventName: 'Club night', holes: 9 });
+    expect(onSave).toHaveBeenCalledWith('m1', { rating: 960, date: '2026-10-10', eventName: 'Club night', holes: 9, example: false });
     buttons[0]!.click();
     expect(onCancelEdit).toHaveBeenCalled();
   });

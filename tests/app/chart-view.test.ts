@@ -27,10 +27,10 @@ const stored: StoredImport = {
   // An unofficial event after the deadline: it counts in the following update.
   events: [rawEvent({ eventId: '900013', date: '12-Oct-2026' })],
 };
-const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null }]);
+const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null, example: false }]);
 // The official rating equals the prediction here. In `differs` it is older, and a manual round before the deadline moves the prediction.
 const model = buildModel(stored, 100001, NOW, own);
-const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null }]);
+const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null, example: false }]);
 const differs = buildModel({ ...stored, player: rawPlayer({ currentRating: '950' }) }, 100001, NOW, [...own, ...early]);
 const moved = String(differs.prediction.rating);
 

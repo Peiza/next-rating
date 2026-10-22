@@ -276,7 +276,7 @@ describe('migration from v1', () => {
 });
 
 describe('manual rounds', () => {
-  const round = { id: 'm1', rating: 985, date: '2026-10-16', eventName: 'Club night', holes: 9 };
+  const round = { id: 'm1', rating: 985, date: '2026-10-16', eventName: 'Club night', holes: 9, example: false };
 
   it('load as none for players stored before they existed', () => {
     const { manualRounds, ...old } = player(100001);
@@ -285,20 +285,31 @@ describe('manual rounds', () => {
   });
 
   it('keep valid rounds, also ones dated ahead, and drop bad ones one at a time', () => {
-    const later = { ...round, id: 'm2', date: '2027-06-01', eventName: '', holes: null };
+    const later = { ...round, id: 'm2', date: '2027-06-01', eventName: '', holes: null, example: false };
     const bad = [
       { ...round, id: 'x1' },
       { ...round, id: 'm3', rating: 2001 },
       { ...round, id: 'm4', rating: 9.5 },
       { ...round, id: 'm5', date: '2026-02-30' },
       { ...round, id: 'm6', eventName: 'x'.repeat(MAX_EVENT_NAME + 1) },
-      { ...round, id: 'm7', holes: 0 },
+      { ...round, id: 'm7', holes: 0, example: false },
       { ...round, id: 'm8', holes: undefined },
       { ...round, id: 'm1', rating: 900 },
       'm9',
     ];
     const stored = validateData({ players: [player(100001, { manualRounds: [round, ...bad, later] as never })] });
     expect(stored.players[0]!.manualRounds).toEqual([round, later]);
+  });
+
+  it('keep the example flag, and load rounds stored before it as ordinary ones', () => {
+    const { example: _example, ...old } = round;
+    const rounds = [old, { ...round, id: 'm2', example: true }, { ...round, id: 'm3', example: 'yes' }];
+    const stored = validateData({ players: [player(100001, { manualRounds: rounds as never })] });
+    expect(stored.players[0]!.manualRounds.map(({ id, example }) => [id, example])).toEqual([
+      ['m1', false],
+      ['m2', true],
+      ['m3', false],
+    ]);
   });
 
   it(`keep at most ${MAX_MANUAL_ROUNDS} per player`, () => {

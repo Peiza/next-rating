@@ -673,7 +673,7 @@ describe('app start', () => {
     document.querySelector('#manual-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
 
     const [round] = stored().players[0].manualRounds;
-    expect(round).toMatchObject({ id: 'm1', rating: 1010, eventName: '', holes: null });
+    expect(round).toMatchObject({ id: 'm1', rating: 1010, eventName: '', holes: null, example: false });
     expect(document.getElementById('manual-status')!.textContent).toBe('Added 1010.');
     expect(document.activeElement).toBe(rating());
     expect(rating().value).toBe('');
@@ -713,8 +713,8 @@ describe('app start', () => {
   it('edits a manual round from the Rounds card in place, and ends the edit when the round goes', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const rounds = [
-      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null },
-      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9 },
+      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null, example: false },
+      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9, example: false },
     ];
     localStorage.setItem(
       STORAGE_KEY,
@@ -1083,7 +1083,7 @@ describe('app start', () => {
             pdgaNumber: 100001,
             favorite: true,
             import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] },
-            manualRounds: [{ id: 'm1', rating: 1111, date, eventName: '', holes: null }],
+            manualRounds: [{ id: 'm1', rating: 1111, date, eventName: '', holes: null, example: false }],
           },
         ],
       }),
