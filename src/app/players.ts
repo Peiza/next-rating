@@ -134,6 +134,18 @@ export function addManualRound(data: AppData, pdgaNumber: number, round: ManualR
   return { data: replacePlayer(saved, { ...player, manualRounds }), error: null, savedFavorite: !existing.favorite };
 }
 
+/**
+ * Replaces a manual round's values, keeping its id and its place, so the
+ * list order and the rounds of one day stay as they were. Does nothing when
+ * the player or the round is gone.
+ */
+export function updateManualRound(data: AppData, pdgaNumber: number, id: string, round: ManualRoundInput): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  if (!player?.manualRounds.some((other) => other.id === id)) return data;
+  const manualRounds = player.manualRounds.map((other) => (other.id === id ? { id, ...round } : other));
+  return replacePlayer(data, { ...player, manualRounds });
+}
+
 export function removeManualRound(data: AppData, pdgaNumber: number, id: string): AppData {
   const player = findPlayer(data, pdgaNumber);
   if (!player) return data;

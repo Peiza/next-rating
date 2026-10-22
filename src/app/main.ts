@@ -22,6 +22,7 @@ import {
   routeImport,
   setLeftOut,
   setMe,
+  updateManualRound,
   type ManualRoundInput,
   type Routed,
 } from './players';
@@ -54,10 +55,13 @@ import { chartData } from './chart';
 import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
 import {
+  draftOf,
   emptyDraft,
+  manualEditId,
   MANUAL_ADD_ID,
   MANUAL_CLEAR_CANCEL_ID,
   MANUAL_CLEAR_ID,
+  MANUAL_EDIT_TITLE_ID,
   MANUAL_RATING_ID,
   MANUAL_TOGGLE_ID,
   MANUAL_UNDO_ID,
@@ -80,7 +84,7 @@ import {
 import { cardToggleId } from './views/card';
 import { CHART_FULL_TITLE_ID, chartFullView, setChartTextScale, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
-import { ROUNDS_NEXT_ID, ratingView } from './views/rating';
+import { roundEditId, ROUNDS_NEXT_ID, ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
 import { DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
@@ -147,6 +151,12 @@ let confirmClear = false;
  * it lasts through re-renders until the next change to the manual rounds.
  */
 let manualUndo: { round: StoredManualRound; index: number } | null = null;
+/**
+ * The manual round the Add a round form edits, with the draft typed before
+ * the edit (which the form gets back when the edit ends) and the Edit button
+ * that opened it. Null while the form adds rounds.
+ */
+let manualEdit: { id: string; addDraft: ManualDraft; opener: string } | null = null;
 /** Target calculator: what has been typed (filled in when first shown) and the last calculation. */
 let targetDraft: TargetDraft | null = null;
 let targetQuery: TargetQuery | null = null;
@@ -437,6 +447,7 @@ function toggleCard(name: CardName): void {
   if (name === 'manual') {
     confirmClear = false;
     manualUndo = null;
+    endEdit();
     // A form opened on a later day starts on that day.
     if (open && manualDraft.rating === '' && manualDraft.eventName === '') manualDraft = emptyDraft(today());
   }
@@ -459,11 +470,58 @@ function addManual(round: ManualRoundInput): void {
   render(MANUAL_RATING_ID);
 }
 
+/**
+ * Opens a manual round in the Add a round form, opening the card when it is
+ * closed. Focus goes to the form's heading, which scrolls it into view
+ * without opening a keyboard.
+ */
+function editManual(id: string, opener: string): void {
+  const round = findPlayer(store.get(), selected)?.manualRounds.find((one) => one.id === id);
+  if (!round) return;
+  manualEdit = { id, addDraft: manualEdit?.addDraft ?? manualDraft, opener };
+  manualDraft = draftOf(round);
+  manualUndo = null;
+  confirmClear = false;
+  const { cards } = store.get();
+  if (!cards.manual) store.update({ cards: { ...cards, manual: true } });
+  render(MANUAL_EDIT_TITLE_ID);
+}
+
+/** Leaves edit mode, giving the form back what was typed before the edit. */
+function endEdit(): void {
+  if (manualEdit) manualDraft = manualEdit.addDraft;
+  manualEdit = null;
+}
+
+/** Saves the edited round in its place; focus goes to its Edit button in the card's list. */
+function saveManual(id: string, round: ManualRoundInput): void {
+  if (selected === null) return;
+  const data = store.get();
+  const next = updateManualRound(data, selected, id, round);
+  endEdit();
+  if (next === data) {
+    manualFlash = { kind: 'edit-gone' };
+    render(MANUAL_TOGGLE_ID);
+    return;
+  }
+  store.update(next);
+  manualFlash = { kind: 'saved', rating: round.rating };
+  render(manualEditId(id));
+}
+
+/** Leaves edit mode unsaved; focus goes back to the Edit button that opened it. */
+function cancelEdit(): void {
+  const opener = manualEdit?.opener;
+  endEdit();
+  render(opener ?? MANUAL_TOGGLE_ID);
+}
+
 /** Deletes at once, without asking: the status line offers Undo instead, which gets focus. */
 function deleteManual(id: string): void {
   const rounds = findPlayer(store.get(), selected)?.manualRounds ?? [];
   const index = rounds.findIndex((round) => round.id === id);
   if (selected === null || index < 0) return;
+  if (manualEdit?.id === id) endEdit();
   store.update(removeManualRound(store.get(), selected, id));
   manualUndo = { round: rounds[index]!, index };
   render(MANUAL_UNDO_ID);
@@ -492,6 +550,7 @@ function askClearManual(ask: boolean): void {
 function clearManual(): void {
   if (selected === null) return;
   store.update(clearManualRounds(store.get(), selected));
+  endEdit();
   confirmClear = false;
   manualUndo = null;
   manualFlash = { kind: 'cleared' };
@@ -786,11 +845,18 @@ function currentView(): HTMLElement {
     manualPlayer = selected;
     refreshOpen = null;
     roundsExpanded = false;
+    manualEdit = null;
     manualDraft = emptyDraft(today());
     confirmClear = false;
     manualUndo = null;
     targetDraft = null;
     targetQuery = null;
+  }
+  // The edited round is gone, as after Delete all in another tab: the edit ends unsaved.
+  const editing = manualEdit && player?.manualRounds.find((round) => round.id === manualEdit!.id);
+  if (manualEdit && !editing) {
+    endEdit();
+    manualFlash = { kind: 'edit-gone' };
   }
   if (player?.import) {
     const now = new Date();
@@ -803,6 +869,7 @@ function currentView(): HTMLElement {
       onToggleCard: toggleCard,
       onGuide: openGuide,
       onLeaveOut: leaveOut,
+      onEditManual: (id) => editManual(id, roundEditId(id)),
       rounds: {
         expanded: roundsExpanded,
         onExpand: () => {
@@ -838,12 +905,16 @@ function currentView(): HTMLElement {
         flash: manualFlash,
         confirmClear,
         undo: manualUndo && { rating: manualUndo.round.rating, date: manualUndo.round.date },
+        editing: editing || null,
         player: playerLabel(player),
         today: today(now),
         onDraft: (field, value) => {
           manualDraft = { ...manualDraft, [field]: value };
         },
         onAdd: addManual,
+        onEdit: (id) => editManual(id, manualEditId(id)),
+        onSave: saveManual,
+        onCancelEdit: cancelEdit,
         onDelete: deleteManual,
         onUndo: undoDelete,
         onAskClear: askClearManual,

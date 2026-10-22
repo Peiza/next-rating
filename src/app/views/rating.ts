@@ -44,6 +44,8 @@ export interface RatingProps {
   onLeaveOut?: (key: string, leftOut: boolean) => void;
   /** Whether the Rounds card shows every round, and the button that does. Without it, every round shows. */
   rounds?: RoundsList;
+  /** Opens a manual round in the Add a round card's form, by its stored id. Without it, manual rounds are not editable here. */
+  onEditManual?: (id: string) => void;
   /** Opens How it works at a section, from a card's explanation. Without it, the explanations have no link. */
   onGuide?: (section: GuideSection) => void;
   /** False for the unsaved player, which gets an Add to favorites button. */
@@ -217,7 +219,34 @@ function roundEvent(round: ListedRound): HTMLElement | false {
   return el('p', { class: 'round-event' }, name, round.eventName && label ? ', ' : '', label);
 }
 
-function roundItem(row: ListedResult, next = false): HTMLElement {
+/** The Edit button of a manual round in the Rounds card. */
+export function roundEditId(id: string): string {
+  return `round-edit-${id}`;
+}
+
+/**
+ * A manual round's Edit button. The whole row takes the tap, so the button
+ * has no handler of its own: its click, also from Enter or Space, reaches the row.
+ */
+function editButton(round: ListedRound): HTMLElement {
+  return el(
+    'button',
+    {
+      id: roundEditId(manualIdOf(round)),
+      class: 'button button-small round-edit',
+      type: 'button',
+      'aria-label': t('rounds.editLabel', { rating: formatRating(round.rating!), date: formatDate(round.date) }),
+    },
+    t('manual.edit'),
+  );
+}
+
+/** The stored id of a manual round, which the model prefixes with "m:". */
+function manualIdOf(round: ListedRound): string {
+  return round.id.slice(2);
+}
+
+function roundItem(row: ListedResult, next = false, onEdit?: (id: string) => void): HTMLElement {
   const { round, result } = row;
   const details = [
     formatDate(round.date),
@@ -225,9 +254,16 @@ function roundItem(row: ListedResult, next = false): HTMLElement {
     t(SOURCE[round.source]),
     tierNote(round),
   ].filter(Boolean);
+  const editable = onEdit !== undefined && round.source === 'manual';
+  const className = `round round-${result.status}${editable ? ' round-editable' : ''}`;
+  const props = {
+    class: className,
+    ...(next && { id: ROUNDS_NEXT_ID, tabindex: -1 }),
+    ...(editable && { onclick: () => onEdit(manualIdOf(round)) }),
+  };
   return el(
     'li',
-    next ? { id: ROUNDS_NEXT_ID, class: `round round-${result.status}`, tabindex: -1 } : { class: `round round-${result.status}` },
+    props,
     el(
       'div',
       { class: 'round-main' },
@@ -241,6 +277,7 @@ function roundItem(row: ListedResult, next = false): HTMLElement {
     ),
     roundEvent(round),
     el('p', { class: 'round-meta' }, details.join(' · ')),
+    editable && editButton(round),
   );
 }
 
@@ -510,21 +547,21 @@ export function shownRounds(rows: readonly ListedResult[]): number {
 }
 
 /** The rounds, newest first: those shown, then a button that shows the rest. */
-function roundList(rows: readonly ListedResult[], list: RoundsList | undefined): Child[] {
+function roundList(rows: readonly ListedResult[], list: RoundsList | undefined, onEdit: RatingProps['onEditManual']): Child[] {
   if (rows.length === 0) return [];
   const shown = list ? shownRounds(rows) : rows.length;
   const hidden = rows.length - shown;
   if (list?.expanded || hidden === 0) {
-    return [el('ol', { class: 'rounds' }, ...rows.map((row, i) => roundItem(row, hidden > 0 && i === shown)))];
+    return [el('ol', { class: 'rounds' }, ...rows.map((row, i) => roundItem(row, hidden > 0 && i === shown, onEdit)))];
   }
   return [
-    el('ol', { class: 'rounds' }, ...rows.slice(0, shown).map((row) => roundItem(row))),
+    el('ol', { class: 'rounds' }, ...rows.slice(0, shown).map((row) => roundItem(row, false, onEdit))),
     el('button', { id: ROUNDS_MORE_ID, class: 'button button-small rounds-more', type: 'button', onclick: list!.onExpand }, t('rounds.more', { count: hidden })),
   ];
 }
 
 /** The rounds, after the unofficial events to choose from and the events that have no rated round for the player yet. */
-function roundsBody(model: Model, { onLeaveOut, onGuide, rounds }: RatingProps): Child[] {
+function roundsBody(model: Model, { onLeaveOut, onGuide, rounds, onEditManual }: RatingProps): Child[] {
   return [
     eventChoices(model, onLeaveOut, onGuide),
     model.eventsWithoutRounds.length > 0 &&
@@ -538,7 +575,7 @@ function roundsBody(model: Model, { onLeaveOut, onGuide, rounds }: RatingProps):
             .join(', '),
         }),
       ),
-    ...roundList(model.rows, rounds),
+    ...roundList(model.rows, rounds, onEditManual),
   ];
 }
 

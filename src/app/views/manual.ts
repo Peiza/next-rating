@@ -10,8 +10,9 @@ import { MAX_EVENT_NAME, MAX_FAVORITES, MAX_MANUAL_ROUNDS, type StoredManualRoun
 /*
  * Quick manual entry, the content of the "Add a round" card on the Rating
  * tab: a form built for one hand, with the rating first and the Add button
- * last, near the thumb. Below it, the player's manual rounds with a delete
- * button each.
+ * last, near the thumb. Below it, the player's manual rounds with an edit
+ * and a delete button each. Editing fills the same form with the round, with
+ * Save and Cancel in place of Add.
  */
 
 /** The card's header button (cardToggleId('manual')). */
@@ -21,6 +22,15 @@ export const MANUAL_ADD_ID = 'manual-add';
 export const MANUAL_CLEAR_ID = 'manual-clear';
 export const MANUAL_CLEAR_CANCEL_ID = 'manual-clear-cancel';
 export const MANUAL_UNDO_ID = 'manual-undo';
+/** The form's heading while it edits a round, which gets focus so the form scrolls into view without a keyboard. */
+export const MANUAL_EDIT_TITLE_ID = 'manual-edit-title';
+export const MANUAL_SAVE_ID = 'manual-save';
+export const MANUAL_EDIT_CANCEL_ID = 'manual-edit-cancel';
+
+/** The Edit button of a round in the card's list. */
+export function manualEditId(id: string): string {
+  return `manual-edit-${id}`;
+}
 
 const PANEL_ID = 'manual-panel';
 const DATE_ID = 'manual-date';
@@ -41,12 +51,22 @@ export type ManualField = keyof ManualDraft;
 /** What the form says after the last action. */
 export type ManualFlash =
   | { kind: 'added'; rating: number; savedFavorite: boolean }
-  | { kind: 'restored'; rating: number }
-  | { kind: 'cleared' | 'favorites-full' | 'rounds-full' }
+  | { kind: 'restored' | 'saved'; rating: number }
+  | { kind: 'cleared' | 'favorites-full' | 'rounds-full' | 'edit-gone' }
   | null;
 
 export function emptyDraft(today: PlainDate): ManualDraft {
   return { rating: '', date: today, eventName: '', holes: '' };
+}
+
+/** A stored round as the form shows it, for editing. */
+export function draftOf(round: StoredManualRound): ManualDraft {
+  return {
+    rating: String(round.rating),
+    date: round.date,
+    eventName: round.eventName,
+    holes: round.holes === null ? '' : String(round.holes),
+  };
 }
 
 /** The latest date a manual round can have: one year after today, for a round at an upcoming event. */
@@ -83,11 +103,16 @@ export interface ManualProps {
   confirmClear: boolean;
   /** The round just deleted, which Undo puts back. A single delete does not ask first. */
   undo: { rating: number; date: PlainDate } | null;
+  /** The round the form edits, as stored before the edit; null while the form adds rounds. */
+  editing: StoredManualRound | null;
   /** The player's label, for the message when adding a round saves the player as a favorite. */
   player: string;
   today: PlainDate;
   onDraft: (field: ManualField, value: string) => void;
   onAdd: (round: ManualRoundInput) => void;
+  onEdit: (id: string) => void;
+  onSave: (id: string, round: ManualRoundInput) => void;
+  onCancelEdit: () => void;
   onDelete: (id: string) => void;
   onUndo: () => void;
   onAskClear: (ask: boolean) => void;
@@ -109,6 +134,10 @@ function flashText(flash: NonNullable<ManualFlash>, player: string): string {
     }
     case 'restored':
       return t('manual.restored', { rating: formatRating(flash.rating) });
+    case 'saved':
+      return t('manual.saved', { rating: formatRating(flash.rating) });
+    case 'edit-gone':
+      return t('manual.editGone');
     case 'cleared':
       return t('manual.cleared');
     case 'favorites-full':
@@ -150,7 +179,7 @@ function undoButton(undo: NonNullable<ManualProps['undo']>, onUndo: () => void):
 }
 
 function entryForm(props: ManualProps): HTMLFormElement {
-  const { draft, today } = props;
+  const { draft, today, editing } = props;
   const input = (name: ManualField, attrs: Record<string, string | number | boolean>) =>
     el('input', {
       id: FIELD_IDS[name],
@@ -200,24 +229,36 @@ function entryForm(props: ManualProps): HTMLFormElement {
       inputs[read.field].focus();
       return;
     }
-    props.onAdd(read.round);
+    if (editing) props.onSave(editing.id, read.round);
+    else props.onAdd(read.round);
   };
+  const buttons = editing
+    ? el(
+        'div',
+        { class: 'row' },
+        el('button', { id: MANUAL_EDIT_CANCEL_ID, class: 'button', type: 'button', onclick: props.onCancelEdit }, t('manual.cancel')),
+        el('button', { id: MANUAL_SAVE_ID, class: 'button button-primary grow', type: 'submit' }, t('manual.save')),
+      )
+    : el('button', { id: MANUAL_ADD_ID, class: 'button button-primary button-block', type: 'submit' }, t('manual.add'));
   return el(
     'form',
     { id: PANEL_ID, class: 'manual-form', novalidate: true, onsubmit: submit },
+    editing &&
+      el('h3', { id: MANUAL_EDIT_TITLE_ID, class: 'manual-edit-title', tabindex: -1 }, t('manual.editTitle', { rating: formatRating(editing.rating) })),
     field(MANUAL_RATING_ID, 'manual.rating', inputs.rating),
     field(DATE_ID, 'manual.date', inputs.date, 'manual.dateHint'),
     more,
-    el('button', { id: MANUAL_ADD_ID, class: 'button button-primary button-block', type: 'submit' }, t('manual.add')),
+    buttons,
     el('div', { class: 'status-row' }, status, undo && undoButton(undo, props.onUndo)),
   );
 }
 
-function roundText(round: StoredManualRound): string {
+function roundText(round: StoredManualRound, editing: boolean): string {
   return [
     formatDate(round.date),
     round.eventName,
     round.holes !== null && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
+    editing ? t('manual.editing') : '',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -231,26 +272,43 @@ function newestFirst(rounds: readonly StoredManualRound[]): StoredManualRound[] 
     .map(({ round }) => round);
 }
 
-function roundItem(round: StoredManualRound, onDelete: (id: string) => void): HTMLElement {
+function roundItem(round: StoredManualRound, props: ManualProps): HTMLElement {
+  const editing = props.editing?.id === round.id;
+  const params = { rating: formatRating(round.rating), date: formatDate(round.date) };
   return el(
     'li',
-    { class: 'manual-round' },
+    { class: editing ? 'manual-round manual-round-editing' : 'manual-round' },
     el(
       'div',
       { class: 'manual-round-text' },
       el('span', { class: 'round-rating' }, formatRating(round.rating)),
-      el('p', { class: 'round-meta' }, roundText(round)),
+      el('p', { class: 'round-meta' }, roundText(round, editing)),
     ),
     el(
-      'button',
-      {
-        id: `manual-delete-${round.id}`,
-        class: 'button button-small',
-        type: 'button',
-        'aria-label': t('manual.deleteLabel', { rating: formatRating(round.rating), date: formatDate(round.date) }),
-        onclick: () => onDelete(round.id),
-      },
-      t('manual.delete'),
+      'div',
+      { class: 'manual-round-actions' },
+      el(
+        'button',
+        {
+          id: manualEditId(round.id),
+          class: 'button button-small',
+          type: 'button',
+          'aria-label': t('manual.editLabel', params),
+          onclick: () => props.onEdit(round.id),
+        },
+        t('manual.edit'),
+      ),
+      el(
+        'button',
+        {
+          id: `manual-delete-${round.id}`,
+          class: 'button button-small',
+          type: 'button',
+          'aria-label': t('manual.deleteLabel', params),
+          onclick: () => props.onDelete(round.id),
+        },
+        t('manual.delete'),
+      ),
     ),
   );
 }
@@ -296,7 +354,7 @@ export function manualEntry(props: ManualProps): HTMLElement[] {
             'div',
             { class: 'manual-list' },
             el('h3', {}, t('manual.listTitle')),
-            el('ul', { class: 'manual-rounds' }, ...newestFirst(rounds).map((round) => roundItem(round, props.onDelete))),
+            el('ul', { class: 'manual-rounds' }, ...newestFirst(rounds).map((round) => roundItem(round, props))),
             clearRow(props),
           ),
         ]

@@ -1426,6 +1426,16 @@ a {
   margin: 0;
 }
 
+/* A manual round takes a tap anywhere on it, which opens it in the Add a round card; Edit says so. */
+.round-editable {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.round-edit {
+  margin-top: 0.5rem;
+}
+
 .round-main {
   display: flex;
   align-items: baseline;
@@ -1558,17 +1568,36 @@ a {
   padding: 0;
 }
 
+/* The buttons go under the round when both do not fit beside it, as at large text. */
 .manual-round {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   padding: 0.5rem 0;
   border-bottom: 2px solid var(--border);
 }
 
 .manual-round p {
   margin: 0;
+}
+
+.manual-round-actions {
+  display: flex;
+  flex: none;
+  gap: 0.5rem;
+}
+
+/* The round the form edits. */
+.manual-round-editing .round-meta {
+  font-weight: 700;
+}
+
+.manual-edit-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .confirm-flush {
