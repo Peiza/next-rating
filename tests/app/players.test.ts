@@ -7,8 +7,10 @@ import {
   findPlayer,
   initialSelection,
   playerName,
+  removeExampleRounds,
   removeManualRound,
   removePlayer,
+  replaceExampleRounds,
   restoreManualRound,
   routeImport,
   setLeftOut,
@@ -209,7 +211,7 @@ describe('left-out events', () => {
 });
 
 describe('manual rounds', () => {
-  const round = { rating: 985, date: '2026-10-16', eventName: '', holes: null };
+  const round = { rating: 985, date: '2026-10-16', eventName: '', holes: null, example: false };
   const roundsOf = (next: AppData, pdgaNumber: number) => findPlayer(next, pdgaNumber)!.manualRounds;
 
   it('adds rounds with ids that stay unique after a delete', () => {
@@ -268,7 +270,7 @@ describe('manual rounds', () => {
   it('updates a round in its place, with its id, for one player only', () => {
     const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...round, id, rating: 950 + i }));
     const before = data([player(100001, { manualRounds: rounds }), player(100002, { manualRounds: rounds })]);
-    const edited = { rating: 1001, date: '2026-10-20', eventName: 'Club night', holes: 9 };
+    const edited = { rating: 1001, date: '2026-10-20', eventName: 'Club night', holes: 9, example: false };
     const next = updateManualRound(before, 100001, 'm2', edited);
     expect(roundsOf(next, 100001)).toEqual([rounds[0], { id: 'm2', ...edited }, rounds[2]]);
     expect(roundsOf(next, 100002)).toEqual(rounds);
@@ -278,6 +280,51 @@ describe('manual rounds', () => {
     const before = data([player(100001, { manualRounds: [{ ...round, id: 'm1' }] })]);
     expect(updateManualRound(before, 100001, 'm2', round)).toBe(before);
     expect(updateManualRound(before, 100002, 'm1', round)).toBe(before);
+  });
+
+  it('replaces example rounds instead of adding more, after the ordinary ones with new ids', () => {
+    const ordinary = [{ ...round, id: 'm1' }];
+    const examples = [1010, 990].map((rating) => ({ ...round, rating }));
+    let next = replaceExampleRounds(data([player(100001, { manualRounds: ordinary })]), 100001, examples).data;
+    expect(roundsOf(next, 100001).map(({ id, rating, example }) => [id, rating, example])).toEqual([
+      ['m1', 985, false],
+      ['m2', 1010, true],
+      ['m3', 990, true],
+    ]);
+    next = replaceExampleRounds(next, 100001, [{ ...round, rating: 1001 }]).data;
+    expect(roundsOf(next, 100001).map(({ id, rating, example }) => [id, rating, example])).toEqual([
+      ['m1', 985, false],
+      ['m4', 1001, true],
+    ]);
+  });
+
+  it('removes the example rounds only', () => {
+    const rounds = [
+      { ...round, id: 'm1' },
+      { ...round, id: 'm2', example: true },
+    ];
+    const before = data([player(100001, { manualRounds: rounds })]);
+    expect(roundsOf(removeExampleRounds(before, 100001), 100001)).toEqual([rounds[0]]);
+    const none = data([player(100001, { manualRounds: [rounds[0]!] })]);
+    expect(removeExampleRounds(none, 100001)).toBe(none);
+  });
+
+  it('saves the unsaved player for example rounds, within the limits', () => {
+    const saved = replaceExampleRounds(data([player(100009, { favorite: false })]), 100009, [round]);
+    expect(saved).toMatchObject({ error: null, savedFavorite: true });
+    expect(findPlayer(saved.data, 100009)!.favorite).toBe(true);
+    const favorites = Array.from({ length: MAX_FAVORITES }, (_, i) => player(100001 + i));
+    const full = data([...favorites, player(200000, { favorite: false })]);
+    expect(replaceExampleRounds(full, 200000, [round])).toEqual({ data: full, error: 'favorites-full', savedFavorite: false });
+    // Earlier examples make room, since they are replaced.
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 1}`, example: i >= 197 }));
+    const busy = data([player(100001, { manualRounds: many })]);
+    expect(replaceExampleRounds(busy, 100001, [round, round, round]).error).toBeNull();
+    expect(replaceExampleRounds(busy, 100001, [round, round, round, round])).toEqual({
+      data: busy,
+      error: 'rounds-full',
+      savedFavorite: false,
+    });
   });
 
   it('clears one player only', () => {

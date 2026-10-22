@@ -50,7 +50,17 @@ export function manualToRounds(rounds: readonly StoredManualRound[]): ListedRoun
     eventId: null,
     eventName: round.eventName,
     roundLabel: '',
+    ...(round.example && { example: true }),
   }));
+}
+
+/**
+ * The engine input with another set of manual rounds in place of the
+ * player's: the imported rounds, then the manual ones newest added first,
+ * the order buildModel uses (mergeRounds keeps every manual round, last).
+ */
+export function withManualRounds(model: Model, manual: readonly StoredManualRound[]): ListedRound[] {
+  return [...model.rounds.filter((round) => round.source !== 'manual'), ...manualToRounds(manual).reverse()];
 }
 
 /**

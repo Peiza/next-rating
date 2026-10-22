@@ -35,10 +35,15 @@ function yearOf(date: PlainDate): number {
   return Number(date.slice(0, 4));
 }
 
+/** The rounds the Top 8 can take from: never the example rounds added under the target answer. */
+function topCandidates(model: Model): ListedRound[] {
+  return model.rounds.filter((round) => !round.example);
+}
+
 /** The years the period select offers, newest first. With `own`, manual rounds add their years. */
 export function periodYears(model: Model, period: TopPeriod, today: PlainDate, own = false): number[] {
   const years = new Set([yearOf(today)]);
-  for (const round of model.rounds) if (isTopRound(round, { own })) years.add(yearOf(round.date));
+  for (const round of topCandidates(model)) if (isTopRound(round, { own })) years.add(yearOf(round.date));
   if (period.kind === 'year' && period.year !== null) years.add(period.year);
   return [...years].sort((a, b) => b - a);
 }
@@ -49,7 +54,7 @@ export function periodYears(model: Model, period: TopPeriod, today: PlainDate, o
  * report deadline. The window is exactly the prediction's, so those rounds
  * fall outside it, and a manual round can be its anchor while not being
  * listed. A custom range takes both dates as they are. With `own`, manual
- * rounds count too.
+ * rounds count too, but not the example rounds.
  */
 export function topEight(model: Model, period: TopPeriod, today: PlainDate, own = false): TopEight {
   const currentYear = yearOf(today);
@@ -63,7 +68,8 @@ export function topEight(model: Model, period: TopPeriod, today: PlainDate, own 
         ? { start: period.from, end: period.to }
         : window;
   // Without a window there is no rated round to list.
-  const result = topRounds(range ? model.rounds : [], range?.start ?? today, range?.end ?? today, { own });
-  const hasOwn = model.rounds.some((round) => round.source === 'manual' && isTopRound(round, { own: true }));
+  const candidates = topCandidates(model);
+  const result = topRounds(range ? candidates : [], range?.start ?? today, range?.end ?? today, { own });
+  const hasOwn = candidates.some((round) => round.source === 'manual' && isTopRound(round, { own: true }));
   return { period, own, hasOwn, currentYear, year, years: periodYears(model, period, today, own), window, result };
 }

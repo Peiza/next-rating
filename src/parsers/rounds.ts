@@ -15,6 +15,8 @@ export type ListedRound = RoundInput & {
    * from the profile page. Missing when unknown.
    */
   tier?: string;
+  /** A manual round added as an example under the target answer. */
+  example?: boolean;
 };
 
 /** Groups rounds by pdga.com event id, or by name and date when the id is unknown. */

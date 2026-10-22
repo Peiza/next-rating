@@ -94,6 +94,7 @@ const KINDS: Record<PointKind, MessageKey> = {
   official: 'chart.kind.official',
   unofficial: 'chart.kind.unofficial',
   own: 'chart.kind.own',
+  example: 'chart.kind.example',
 };
 
 /** The x-axis choice, its radios named after `name`: "chart-axis" in the card, "chart-full-axis" full screen. */
@@ -166,7 +167,7 @@ function layoutOf(chart: ChartData, xAxisKind: ChartAxis, width: number, height:
   };
 }
 
-/** A point's shape at (x, y): a circle, a square or a triangle. */
+/** A point's shape at (x, y): a circle, a square or a triangle (manual and example rounds). */
 function shape(kind: PointKind, x: number, y: number): SVGElement {
   if (kind === 'official') return svg('circle', { class: 'chart-shape', cx: x, cy: y, r: 4.5 });
   if (kind === 'unofficial') return svg('rect', { class: 'chart-shape', x: x - 4, y: y - 4, width: 8, height: 8 });

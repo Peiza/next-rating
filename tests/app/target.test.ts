@@ -38,14 +38,25 @@ const DEC_8 = formatDayMonth(DECEMBER.update);
 const ON_TODAY = formatDate(TODAY);
 
 /** A manual 1000 round from November 2024: inside the 24-month window today, outside it from December. */
-const OLD_MANUAL: StoredManualRound = { id: 'm1', rating: 1000, date: '2024-11-15', eventName: 'Autumn Open', holes: null };
+const OLD_MANUAL: StoredManualRound = { id: 'm1', rating: 1000, date: '2024-11-15', eventName: 'Autumn Open', holes: null, example: false };
 
 function draft(extra: Partial<TargetDraft> = {}): TargetDraft {
   return { ...emptyTargetDraft(950, TODAY), ...extra };
 }
 
 function props(extra: Partial<TargetProps> = {}): TargetProps {
-  return { draft: draft(), dates: DATES, answer: null, onDraft: vi.fn(), onCalculate: vi.fn(), ...extra };
+  return {
+    draft: draft(),
+    dates: DATES,
+    answer: null,
+    examples: 0,
+    examplesFlash: null,
+    onDraft: vi.fn(),
+    onCalculate: vi.fn(),
+    onExamples: vi.fn(),
+    onRemoveExamples: vi.fn(),
+    ...extra,
+  };
 }
 
 /** The card's content in one element, as the card shows it. */
@@ -92,7 +103,7 @@ describe('target input', () => {
 
   it('allows dates from today, or the newest stored round when later, to a year ahead', () => {
     expect(targetDates(buildModel(STORED, 100001, NOW), TODAY)).toEqual(DATES);
-    const upcoming: StoredManualRound[] = [{ id: 'm2', rating: 980, date: '2026-11-01', eventName: '', holes: null }];
+    const upcoming: StoredManualRound[] = [{ id: 'm2', rating: 980, date: '2026-11-01', eventName: '', holes: null, example: false }];
     const model = buildModel(STORED, 100001, NOW, manualToRounds([OLD_MANUAL, ...upcoming]));
     expect(targetDates(model, TODAY)).toEqual({ min: '2026-11-01', max: '2027-10-20' });
   });
@@ -164,9 +175,25 @@ describe('calculateTarget', () => {
 
   it('includes manual rounds', () => {
     // (950 + 1000 + 3 × R) / 5 must round to 970, so R ≥ 966.
-    const manual: StoredManualRound[] = [{ id: 'm1', rating: 1000, date: '2026-10-01', eventName: '', holes: null }];
+    const manual: StoredManualRound[] = [{ id: 'm1', rating: 1000, date: '2026-10-01', eventName: '', holes: null, example: false }];
     const model = buildModel(STORED, 100001, NOW, manualToRounds(manual));
     expect(calculateTarget(model, { target: 970, count: 3, date: TODAY }).result.average).toBe(966);
+  });
+
+  it('leaves example rounds out, so adding them keeps the answer and the dates', () => {
+    const examples: StoredManualRound[] = [976, 980, 972].map((rating, i) => ({
+      id: `m${i + 1}`,
+      rating,
+      date: '2026-11-01',
+      eventName: '',
+      holes: null,
+      example: true,
+    }));
+    const model = buildModel(STORED, 100001, NOW, manualToRounds(examples));
+    expect(model.prediction.rating).toBe(970);
+    const query = { target: 970, count: 3, date: TODAY };
+    expect(calculateTarget(model, query)).toEqual(calculateTarget(buildModel(STORED, 100001, NOW), query));
+    expect(targetDates(model, TODAY)).toEqual(DATES);
   });
 
   it('is for the following update on the Monday of update week', () => {
@@ -358,6 +385,55 @@ describe('target calculator view', () => {
       item.querySelector('.leaving-meta')!.textContent,
     ]);
     expect(items).toEqual([['1000', `Autumn Open · ${formatDate('2024-11-15')}`]]);
+  });
+
+  it('offers example rounds under an average needed, or one that keeps the target', () => {
+    const onExamples = vi.fn();
+    const view = calculator(props({ answer: answer({}), onExamples }));
+    const button = view.querySelector<HTMLButtonElement>('#target-examples')!;
+    expect(button.textContent).toBe('Add 3 example rounds');
+    expect(view.querySelector('#target-examples-hint')!.textContent).toBe(
+      'Rounds around 1012, spread like your own, added as manual rounds.',
+    );
+    expect(button.getAttribute('aria-describedby')).toBe('target-examples-hint');
+    expect(button.type).toBe('button');
+    button.click();
+    expect(onExamples).toHaveBeenCalledOnce();
+    const keep = calculator(props({ answer: answer({ without: 1003, reached: true, average: 982 }, { query: { target: 1000, count: 1, date: TODAY } }) }));
+    expect(keep.querySelector('#target-examples')!.textContent).toBe('Add an example round');
+    expect(keep.querySelector('#target-examples-hint')!.textContent).toBe('A round at 982 or a little above, added as a manual round.');
+  });
+
+  it('offers no example rounds without an answer, out of reach, or when any rounds do', () => {
+    for (const none of [null, answer({ average: null, rating: 991 }), answer({ without: 1003, reached: true, average: 0 })]) {
+      expect(calculator(props({ answer: none })).querySelector('#target-examples')).toBeNull();
+    }
+  });
+
+  it('removes example rounds, also without an answer', () => {
+    const onRemoveExamples = vi.fn();
+    expect(calculator(props({ answer: answer({}) })).querySelector('#target-examples-remove')).toBeNull();
+    const view = calculator(props({ examples: 3, onRemoveExamples }));
+    expect(view.querySelector('#target-examples')).toBeNull();
+    const remove = view.querySelector<HTMLButtonElement>('#target-examples-remove')!;
+    expect(remove.textContent).toBe('Remove example rounds');
+    remove.click();
+    expect(onRemoveExamples).toHaveBeenCalledOnce();
+  });
+
+  it('says which rounds it added and what they give, or why not', () => {
+    const status = (examplesFlash: TargetProps['examplesFlash']) =>
+      calculator(props({ answer: answer({}), examples: 3, examplesFlash })).querySelector('#target-examples-status')!;
+    const added = status({ kind: 'added', ratings: [1031, 1004, 1019], update: DECEMBER.update, rating: 1000 });
+    expect(added.getAttribute('role')).toBe('status');
+    expect(added.textContent).toBe(`Added 1031, 1004, 1019. Prediction for ${DEC_8}: 1000.`);
+    expect(added.classList.contains('error')).toBe(false);
+    expect(status({ kind: 'removed' }).textContent).toBe('Example rounds removed.');
+    const failed = status({ kind: 'failed' });
+    expect(failed.textContent).toBe('The example rounds could not reach the target.');
+    expect(failed.classList.contains('error')).toBe(true);
+    expect(status({ kind: 'rounds-full' }).classList.contains('error')).toBe(true);
+    expect(status(null).textContent).toBe('');
   });
 
   it('sits before the statistics on the Rating tab', () => {

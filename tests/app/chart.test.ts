@@ -42,7 +42,7 @@ describe('chartData', () => {
   });
 
   it('ends at a planned round later than today, which shows as your own', () => {
-    const rounds = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: '', holes: null }]);
+    const rounds = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: '', holes: null, example: false }]);
     const chart = chartData(buildModel(stored, 100001, NOW, rounds), RECENT, TODAY);
     expect(chart.to).toBe('2026-12-01');
     expect(chart.points.at(-1)).toMatchObject({ kind: 'own', rating: 990 });

@@ -129,9 +129,48 @@ export function addManualRound(data: AppData, pdgaNumber: number, round: ManualR
   const saved = existing.favorite ? data : addFavorite(data, pdgaNumber);
   if (saved === data && !existing.favorite) return { data, error: 'favorites-full', savedFavorite: false };
   const player = findPlayer(saved, pdgaNumber)!;
-  const highest = Math.max(0, ...player.manualRounds.map(({ id }) => Number(id.slice(1))));
-  const manualRounds = [...player.manualRounds, { id: `m${highest + 1}`, ...round }];
+  const manualRounds = [...player.manualRounds, { id: `m${highestId(player.manualRounds) + 1}`, ...round }];
   return { data: replacePlayer(saved, { ...player, manualRounds }), error: null, savedFavorite: !existing.favorite };
+}
+
+function highestId(rounds: readonly StoredManualRound[]): number {
+  return Math.max(0, ...rounds.map(({ id }) => Number(id.slice(1))));
+}
+
+/**
+ * The manual rounds with the example rounds replaced: the earlier examples
+ * go, the new ones are added last with new ids. Pure, so the rounds can be
+ * tried out before they are stored.
+ */
+export function withExampleRounds(rounds: readonly StoredManualRound[], examples: readonly ManualRoundInput[]): StoredManualRound[] {
+  const highest = highestId(rounds);
+  return [
+    ...rounds.filter((round) => !round.example),
+    ...examples.map((round, i) => ({ id: `m${highest + i + 1}`, ...round, example: true })),
+  ];
+}
+
+/**
+ * Stores example rounds in place of the earlier ones, so another tap never
+ * adds them twice. The unsaved player is saved as a favorite first, as when
+ * adding a manual round.
+ */
+export function replaceExampleRounds(data: AppData, pdgaNumber: number, examples: readonly ManualRoundInput[]): AddedRound {
+  const existing = findPlayer(data, pdgaNumber);
+  if (!existing) return { data, error: null, savedFavorite: false };
+  const kept = existing.manualRounds.filter((round) => !round.example).length;
+  if (kept + examples.length > MAX_MANUAL_ROUNDS) return { data, error: 'rounds-full', savedFavorite: false };
+  const saved = existing.favorite ? data : addFavorite(data, pdgaNumber);
+  if (saved === data && !existing.favorite) return { data, error: 'favorites-full', savedFavorite: false };
+  const player = findPlayer(saved, pdgaNumber)!;
+  const manualRounds = withExampleRounds(player.manualRounds, examples);
+  return { data: replacePlayer(saved, { ...player, manualRounds }), error: null, savedFavorite: !existing.favorite };
+}
+
+export function removeExampleRounds(data: AppData, pdgaNumber: number): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  if (!player?.manualRounds.some((round) => round.example)) return data;
+  return replacePlayer(data, { ...player, manualRounds: player.manualRounds.filter((round) => !round.example) });
 }
 
 /**

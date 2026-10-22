@@ -673,7 +673,7 @@ describe('app start', () => {
     document.querySelector('#manual-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
 
     const [round] = stored().players[0].manualRounds;
-    expect(round).toMatchObject({ id: 'm1', rating: 1010, eventName: '', holes: null });
+    expect(round).toMatchObject({ id: 'm1', rating: 1010, eventName: '', holes: null, example: false });
     expect(document.getElementById('manual-status')!.textContent).toBe('Added 1010.');
     expect(document.activeElement).toBe(rating());
     expect(rating().value).toBe('');
@@ -713,8 +713,8 @@ describe('app start', () => {
   it('edits a manual round from the Rounds card in place, and ends the edit when the round goes', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const rounds = [
-      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null },
-      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9 },
+      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null, example: false },
+      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9, example: false },
     ];
     localStorage.setItem(
       STORAGE_KEY,
@@ -811,6 +811,55 @@ describe('app start', () => {
     expect(toggle().getAttribute('aria-expanded')).toBe('true');
     expect(document.querySelector<HTMLInputElement>('#target-rating')!.value).toBe('1010');
     expect(status().textContent).toBe('');
+  });
+
+  it('adds example rounds under the answer, replaces them on another tap, and removes them from either card', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] } }],
+      }),
+    );
+    await start('/next-rating/');
+    document.getElementById('target-toggle')!.click();
+    document.querySelector('#target-panel')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    const answer = document.getElementById('target-status')!.textContent;
+    const examples = () => stored().players[0].manualRounds as { id: string; rating: number; example: boolean }[];
+    const status = () => document.getElementById('target-examples-status')!.textContent;
+
+    document.getElementById('target-examples')!.click();
+    expect(examples().map(({ id, example }) => [id, example])).toEqual([
+      ['m1', true],
+      ['m2', true],
+      ['m3', true],
+    ]);
+    const ratings = examples().map(({ rating }) => rating).join(', ');
+    expect(status()).toMatch(new RegExp(`^Added ${ratings}\\. Prediction for .+: \\d+\\.$`));
+    expect(Number(predicted())).toBeGreaterThanOrEqual(960);
+    expect(document.activeElement?.id).toBe('target-examples');
+    // The answer leaves the examples out, so it stays as it was.
+    expect(document.getElementById('target-status')!.textContent).toBe(answer);
+    expect([...document.querySelectorAll('#rounds .round-meta')].filter((meta) => meta.textContent!.includes('Example'))).toHaveLength(3);
+
+    // Another tap replaces them, with the same ratings.
+    document.getElementById('target-examples')!.click();
+    expect(examples().map(({ id }) => id)).toEqual(['m4', 'm5', 'm6']);
+    expect(examples().map(({ rating }) => rating).join(', ')).toBe(ratings);
+
+    document.getElementById('target-examples-remove')!.click();
+    expect(examples()).toEqual([]);
+    expect(status()).toBe('Example rounds removed.');
+    expect(document.activeElement?.id).toBe('target-examples');
+    expect(document.getElementById('target-examples-remove')).toBeNull();
+
+    document.getElementById('target-examples')!.click();
+    document.getElementById('manual-toggle')!.click();
+    document.getElementById('manual-examples-remove')!.click();
+    expect(examples()).toEqual([]);
+    expect(document.getElementById('manual-status')!.textContent).toBe('Example rounds removed.');
+    expect(document.activeElement?.id).toBe('manual-toggle');
   });
 
   it('remembers open cards across launches, with only Rounds open on the first', async () => {
@@ -1083,7 +1132,7 @@ describe('app start', () => {
             pdgaNumber: 100001,
             favorite: true,
             import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] },
-            manualRounds: [{ id: 'm1', rating: 1111, date, eventName: '', holes: null }],
+            manualRounds: [{ id: 'm1', rating: 1111, date, eventName: '', holes: null, example: false }],
           },
         ],
       }),

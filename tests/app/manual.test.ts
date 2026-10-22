@@ -22,8 +22,8 @@ function draft(extra: Partial<ManualDraft> = {}): ManualDraft {
 }
 
 const ROUNDS: StoredManualRound[] = [
-  { id: 'm1', rating: 950, date: '2026-10-10', eventName: 'Club night', holes: 9 },
-  { id: 'm2', rating: 985, date: '2026-10-16', eventName: '', holes: null },
+  { id: 'm1', rating: 950, date: '2026-10-10', eventName: 'Club night', holes: 9, example: false },
+  { id: 'm2', rating: 985, date: '2026-10-16', eventName: '', holes: null, example: false },
 ];
 
 function props(extra: Partial<ManualProps> = {}): ManualProps {
@@ -45,6 +45,7 @@ function props(extra: Partial<ManualProps> = {}): ManualProps {
     onUndo: vi.fn(),
     onAskClear: vi.fn(),
     onClear: vi.fn(),
+    onRemoveExamples: vi.fn(),
     ...extra,
   };
 }
@@ -74,13 +75,13 @@ describe('latestManualDate', () => {
 describe('readManualRound', () => {
   it('reads a rating with the defaults', () => {
     expect(readManualRound(draft({ rating: ' 985 ' }), TODAY)).toEqual({
-      round: { rating: 985, date: TODAY, eventName: '', holes: null },
+      round: { rating: 985, date: TODAY, eventName: '', holes: null, example: false },
     });
   });
 
   it('tidies the event name and reads holes', () => {
     const read = readManualRound(draft({ rating: '950', eventName: '  Club   night ', holes: '9' }), TODAY);
-    expect(read).toEqual({ round: { rating: 950, date: TODAY, eventName: 'Club night', holes: 9 } });
+    expect(read).toEqual({ round: { rating: 950, date: TODAY, eventName: 'Club night', holes: 9, example: false } });
   });
 
   it('accepts a date up to a year ahead, for a round at an upcoming event', () => {
@@ -158,7 +159,7 @@ describe('manual entry view', () => {
     type(view, 'manual-rating', '985');
     type(view, 'manual-date', '2026-11-01');
     submit(view);
-    expect(onAdd).toHaveBeenCalledWith({ rating: 985, date: '2026-11-01', eventName: '', holes: null });
+    expect(onAdd).toHaveBeenCalledWith({ rating: 985, date: '2026-11-01', eventName: '', holes: null, example: false });
   });
 
   it('marks a field that is not valid and says why', () => {
@@ -273,7 +274,7 @@ describe('manual entry view', () => {
 
     type(view, 'manual-rating', '960');
     submit(view);
-    expect(onSave).toHaveBeenCalledWith('m1', { rating: 960, date: '2026-10-10', eventName: 'Club night', holes: 9 });
+    expect(onSave).toHaveBeenCalledWith('m1', { rating: 960, date: '2026-10-10', eventName: 'Club night', holes: 9, example: false });
     buttons[0]!.click();
     expect(onCancelEdit).toHaveBeenCalled();
   });
@@ -317,6 +318,34 @@ describe('manual entry view', () => {
 
     // Without the handler, as in a view that cannot edit, no row offers it.
     expect(ratingPage(props({ rounds: ROUNDS })).querySelector('.round-editable')).toBeNull();
+  });
+
+  it('marks example rounds as "Example" in its list and in the Rounds card, where a tap still edits them', () => {
+    const rounds = [ROUNDS[0]!, { ...ROUNDS[1]!, example: true }];
+    const list = entry(props({ rounds }));
+    expect(list.querySelector('#manual-edit-m2')!.closest('li')!.querySelector('.round-meta')!.textContent).toMatch(/ · Example$/);
+    expect(list.querySelector('#manual-edit-m1')!.closest('li')!.querySelector('.round-meta')!.textContent).not.toContain('Example');
+    const onEditManual = vi.fn();
+    const page = ratingPage(props({ rounds }), false, onEditManual);
+    const row = page.querySelector('#round-edit-m2')!.closest('li')!;
+    expect(row.querySelector('.round-meta')!.textContent).toContain('Example');
+    expect(row.querySelector('.round-meta')!.textContent).not.toContain('Manual');
+    row.click();
+    expect(onEditManual).toHaveBeenCalledWith('m2');
+  });
+
+  it('removes the example rounds beside Delete all, only when there are some', () => {
+    expect(entry(props({ rounds: ROUNDS })).querySelector('#manual-examples-remove')).toBeNull();
+    const onRemoveExamples = vi.fn();
+    const view = entry(props({ rounds: [ROUNDS[0]!, { ...ROUNDS[1]!, example: true }], onRemoveExamples }));
+    const remove = view.querySelector<HTMLButtonElement>('#manual-examples-remove')!;
+    expect(remove.textContent).toBe('Remove example rounds');
+    expect(remove.nextElementSibling!.id).toBe('manual-clear');
+    remove.click();
+    expect(onRemoveExamples).toHaveBeenCalledOnce();
+    expect(entry(props({ flash: { kind: 'examples-removed' } })).querySelector('#manual-status')!.textContent).toBe(
+      'Example rounds removed.',
+    );
   });
 
   it('follows Why it changed on the Rating tab, and its rounds show in the round list', () => {

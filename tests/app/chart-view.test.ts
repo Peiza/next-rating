@@ -27,10 +27,10 @@ const stored: StoredImport = {
   // An unofficial event after the deadline: it counts in the following update.
   events: [rawEvent({ eventId: '900013', date: '12-Oct-2026' })],
 };
-const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null }]);
+const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null, example: false }]);
 // The official rating equals the prediction here. In `differs` it is older, and a manual round before the deadline moves the prediction.
 const model = buildModel(stored, 100001, NOW, own);
-const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null }]);
+const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null, example: false }]);
 const differs = buildModel({ ...stored, player: rawPlayer({ currentRating: '950' }) }, 100001, NOW, [...own, ...early]);
 const moved = String(differs.prediction.rating);
 
@@ -120,6 +120,17 @@ describe('chart panel', () => {
       ['chart-unofficial', 'rect'],
       ['chart-own', 'polygon'],
     ]);
+  });
+
+  it('draws example rounds as triangles too, named "Example" in the legend, the table and the details', () => {
+    const example = manualToRounds([{ id: 'm3', rating: 980, date: '2026-10-05', eventName: '', holes: 18, example: true }]);
+    const root = panel({ kind: 'recent' }, {}, buildModel(stored, 100001, NOW, [...own, ...example]));
+    const point = plot(root).querySelector('.chart-example')!;
+    expect(point.querySelector('.chart-shape')!.tagName).toBe('polygon');
+    const legend = [...root.querySelectorAll('.chart-legend li')].map((item) => item.textContent);
+    expect(legend.slice(0, 4)).toEqual(['Official', 'Unofficial', 'Manual', 'Example']);
+    const row = [...root.querySelectorAll('details.chart-table tbody tr')].find((tr) => tr.querySelector('.chart-number')!.textContent === '980')!;
+    expect(row.querySelector('.chart-round-status')!.textContent).toMatch(/ · Example$/);
   });
 
   it('marks rounds that count twice with a ring and dropped ones with a cross, both hollow when not counted', () => {

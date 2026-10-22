@@ -105,7 +105,7 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
   },
   target: {
     title: 'guide.target.title',
-    body: () => [paragraph('guide.target.how'), paragraph('guide.target.answers')],
+    body: () => [paragraph('guide.target.how'), paragraph('guide.target.answers'), paragraph('guide.target.examples')],
   },
   top8: {
     title: 'guide.top8.title',
