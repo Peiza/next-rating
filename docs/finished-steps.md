@@ -907,6 +907,45 @@ Built as:
   `players.predictionChange` reads "Predicted rating 985, +7 vs official
   rating" instead.
 
+## Following update
+Spec (idea 4 in docs/ideas.md):
+1. When some rounds count only in the following update (unofficial or
+   manual rounds dated after the next update's report deadline), also show
+   the prediction for that update, so both are visible.
+2. Only data that is already stored: no bookmarklet change (it stays 1.3.0,
+   4171 characters) and no fetching. The same prediction model on the same
+   rounds, with the following update's deadline.
+3. Its change is from the next update's prediction, since the following
+   update starts from it. The players list keeps the next update only.
+   Left-out events stay out of both updates.
+
+Built as:
+- `buildModel` in src/app/model.ts adds `followingUpdate`, the month after
+  the next update (`nextRatingUpdate(update, update)`), and `following`
+  (`{ rating, change, rounds }`): `predictRating` with that update's
+  deadline, the same `leaveOut` and `currentRating`. Null when no round is
+  'after-deadline' and dated by the following deadline, since it then
+  equals the next prediction; `change` is null without a next prediction.
+  With an unchanged next update, the following one is the recomputed
+  average of all rounds, as any update with new rounds is.
+- `ListedResult.later` marks rounds dated after the following deadline too;
+  `statusKey` in src/app/views/round-text.ts gives them "Counts in a later
+  update" in the Rounds card and the chart's details, tooltip and table.
+  The engine status stays 'after-deadline'.
+- The Rating tab's summary has `#following-update` under the next update:
+  "Then the 10 Nov update: 985 ↑ +3, with 2 more rounds reported by 8 Nov",
+  the figures in `textWithNodes` spans that never wrap, the change with the
+  arrow and `change-up/down/none` colours (`rating.following`, or
+  `rating.followingNoChange` without a next prediction). Why it changed and
+  the target calculator stay about the next update.
+- With a ratings history, `ChartData.following` is one more step after
+  `next`, when that date is in the period: the predicted path rises at the
+  next update and again at the following one, held to the period's end,
+  with the last value at the right. The last 24 months and the window run
+  on to the following update. The legend and the SVG summary name both
+  predictions. Without a history the chart is as before.
+- How it works says so in the report deadline paragraph.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -974,3 +1013,5 @@ Built in this order:
 - Bookmarklet size: bookmarklet 1.3.0 under 4,200 characters (done)
 - Prediction in the players list: each stored player's predicted rating and
   change, from stored data (done)
+- Following update: the prediction for the update after the next one when
+  some rounds count only there, on the Rating tab and in the chart (done)

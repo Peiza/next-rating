@@ -95,6 +95,8 @@ const DAY_MS = 86_400_000;
 export interface ListedResult {
   round: ListedRound;
   result: RoundResult;
+  /** Dated after the following update's deadline too, so it counts in a later update than that. */
+  later: boolean;
 }
 
 /** One line of "Why it changed": a round and what happened to it. */
@@ -117,6 +119,14 @@ export interface Model {
   prediction: Prediction;
   /** The update the prediction is for; new rounds after its deadline count in the following one. */
   nextUpdate: RatingUpdate;
+  /** The update after the next one. */
+  followingUpdate: RatingUpdate;
+  /**
+   * The prediction for the following update, only when some rounds count
+   * there and not in the next one. Null otherwise, since it is then the
+   * next update's prediction.
+   */
+  following: FollowingPrediction | null;
   /** The official rating from each update on, oldest first; empty before an import brings the ratings history. */
   history: HistoryEntry[];
   /** Why the prediction differs from the official state, largest effect first. Null without official rounds. */
@@ -150,6 +160,36 @@ export interface Model {
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
   /** The unofficial events, newest first. */
   unofficialEvents: UnofficialEvent[];
+}
+
+export interface FollowingPrediction {
+  rating: number;
+  /**
+   * The change vs the next update's prediction, which the following update
+   * starts from; null when the next update has no prediction.
+   */
+  change: number | null;
+  /** The rated rounds that count in the following update and not in the next one. */
+  rounds: number;
+}
+
+/**
+ * The following update's prediction: the same rounds with its deadline, the
+ * same left-out events. Null when no round waits for it.
+ */
+function followingPrediction(
+  rounds: readonly ListedRound[],
+  prediction: Prediction,
+  followingUpdate: RatingUpdate,
+  predict: (deadline: PlainDate) => Prediction,
+): FollowingPrediction | null {
+  const waiting = rounds.filter(
+    (round, i) => prediction.rounds[i]!.status === 'after-deadline' && compareDates(round.date, followingUpdate.deadline) <= 0,
+  ).length;
+  if (waiting === 0) return null;
+  const { rating } = predict(followingUpdate.deadline);
+  if (rating === null) return null;
+  return { rating, change: prediction.rating === null ? null : rating - prediction.rating, rounds: waiting };
 }
 
 /** The official state's unrounded rating, when it rounds to the official rating. */
@@ -240,13 +280,18 @@ export function buildModel(
   const rounds = mergeRounds(official, ...eventRounds.reverse(), [...manualRounds].reverse());
   const currentRating = player?.currentRating ?? null;
   const nextUpdate = nextRatingUpdate(today(now), player?.ratingDate ?? null);
+  // Published on the next update's day, so the one after it is the following month's.
+  const followingUpdate = nextRatingUpdate(nextUpdate.update, nextUpdate.update);
   const unofficialKeys = new Set(rounds.filter((round) => round.source === 'unofficial').map((round) => round.eventKey));
   const leaveOut = new Set(leftOut.filter((key) => unofficialKeys.has(key)));
-  const predict = (keys: ReadonlySet<string>) =>
-    predictRating(rounds, { currentRating, deadline: nextUpdate.deadline, leaveOut: keys });
+  const predict = (keys: ReadonlySet<string>, deadline = nextUpdate.deadline) =>
+    predictRating(rounds, { currentRating, deadline, leaveOut: keys });
   const prediction = predict(leaveOut);
   const rows = rounds
-    .map((round, i) => ({ round, result: prediction.rounds[i]! }))
+    .map((round, i) => {
+      const result = prediction.rounds[i]!;
+      return { round, result, later: result.status === 'after-deadline' && compareDates(round.date, followingUpdate.deadline) > 0 };
+    })
     .sort((a, b) => (a.round.date < b.round.date ? 1 : a.round.date > b.round.date ? -1 : 0));
 
   const explanation = explainChange(rounds, prediction, currentRating);
@@ -263,6 +308,8 @@ export function buildModel(
     rows,
     prediction,
     nextUpdate,
+    followingUpdate,
+    following: followingPrediction(rounds, prediction, followingUpdate, (deadline) => predict(leaveOut, deadline)),
     history: historyOf(stored, player),
     changes,
     difference: explanation?.difference ?? null,

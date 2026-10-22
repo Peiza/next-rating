@@ -86,6 +86,12 @@ export interface ChartData {
   /** The prediction, as the steps' last rise at the next update; null when that date is outside the period. */
   next: { date: PlainDate; rating: number } | null;
   /**
+   * The following update's prediction, as one more step after `next`, when
+   * some rounds count there and not in the next update. Null otherwise, and
+   * without `next` or when that date is outside the period.
+   */
+  following: { date: PlainDate; rating: number } | null;
+  /**
    * Without a ratings history, the official rating, drawn as a line across
    * the band; null when unknown, without a band, or with a history. Both
    * lines are today's values, so they cover only the window they come from.
@@ -271,13 +277,14 @@ export function xScale(chart: ChartData, axis: ChartAxis): XScale {
 
 /**
  * The dates a period covers, both inclusive. With a ratings history, the
- * last 24 months and the window run on to the next update, so the
- * prediction's step shows.
+ * last 24 months and the window run on to the next update, or to the
+ * following one when it has a prediction of its own, so the prediction's
+ * steps show.
  */
 function rangeOf(model: Model, period: ChartPeriod, today: PlainDate, year: number | null): { from: PlainDate; to: PlainDate } {
   if (year !== null) return { from: `${year}-01-01`, to: `${year}-12-31` };
   if (period.kind === 'custom') return { from: period.from, to: period.to };
-  const update = model.history.length > 0 ? model.nextUpdate.update : null;
+  const update = model.history.length > 0 ? (model.following ? model.followingUpdate : model.nextUpdate).update : null;
   const upToUpdate = (date: PlainDate) => (update ? later(date, update) : date);
   const { windowStart, windowEnd } = model.prediction.stats;
   if (period.kind === 'window' && windowStart !== null && windowEnd !== null) return { from: windowStart, to: upToUpdate(windowEnd) };
@@ -327,6 +334,8 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
   const update = model.nextUpdate.update;
   const steps = ratingSteps(model.history, update, from, to);
   const next = steps && model.prediction.rating !== null && inRange(update) ? { date: update, rating: model.prediction.rating } : null;
+  const after = model.followingUpdate.update;
+  const following = next && model.following && inRange(after) ? { date: after, rating: model.following.rating } : null;
   // With a history, the steps replace the lines across the band, also in a period before its first update.
   const lines = band !== null && model.history.length === 0;
   const official = lines ? (model.player?.currentRating ?? null) : null;
@@ -334,7 +343,7 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
   const values = points.map((point) => point.rating);
   // The lines only matter next to rounds; on an empty period there is nothing to compare them with.
   if (values.length > 0) {
-    for (const line of [official, predicted, next?.rating ?? null]) if (line !== null) values.push(line);
+    for (const line of [official, predicted, next?.rating ?? null, following?.rating ?? null]) if (line !== null) values.push(line);
     for (const step of steps ?? []) values.push(step.rating);
   }
 
@@ -350,6 +359,7 @@ export function chartData(model: Model, period: ChartPeriod, today: PlainDate): 
     band,
     steps,
     next,
+    following,
     official,
     predicted,
     same: official !== null && official === predicted,

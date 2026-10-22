@@ -123,7 +123,32 @@ describe('chartData', () => {
 describe('official rating steps', () => {
   // Newest first, as on pdga.com; the next update is 13 Oct.
   const history = [rawHistoryRow('8-Sep-2026', '948', '20'), rawHistoryRow('11-Aug-2026', '945', '18'), rawHistoryRow('9-Jun-2026', '950', '16')];
-  const withHistory = buildModel({ ...stored, history }, 100001, NOW);
+  // Without the event after the deadline, so only the next update has a prediction.
+  const withHistory = buildModel({ ...stored, events: [], history }, 100001, NOW);
+  // With it, the following update on 10 Nov has one too.
+  const both = buildModel({ ...stored, history }, 100001, NOW);
+
+  it('adds a step at the following update when some rounds count only there', () => {
+    expect(withHistory.following).toBeNull();
+    expect(chartData(withHistory, RECENT, TODAY).following).toBeNull();
+    const chart = chartData(both, RECENT, TODAY);
+    expect([chart.from, chart.to]).toEqual(['2024-10-12', '2026-11-10']);
+    expect(chart.next).toEqual({ date: '2026-10-13', rating: both.prediction.rating });
+    expect(chart.following).toEqual({ date: '2026-11-10', rating: both.following!.rating });
+    expect(chart.values).toEqual(expect.arrayContaining([both.prediction.rating, both.following!.rating]));
+    // The last official step still ends at the next update.
+    expect(chart.steps!.at(-1)).toEqual({ from: '2026-09-08', to: '2026-10-13', rating: 948 });
+    expect(chartData(both, { kind: 'window' }, TODAY).to).toBe('2026-11-10');
+  });
+
+  it('leaves the following step out of a period that ends before it, and out of a chart without a history', () => {
+    const chart = chartData(both, { kind: 'custom', from: '2026-08-01', to: '2026-10-31' }, TODAY);
+    expect(chart.next?.date).toBe('2026-10-13');
+    expect(chart.following).toBeNull();
+    const without = chartData(model, RECENT, TODAY);
+    expect(model.following).not.toBeNull();
+    expect([without.to, without.following]).toEqual([TODAY, null]);
+  });
 
   it('steps at each update and rises to the prediction at the next, replacing the lines across the window', () => {
     const chart = chartData(withHistory, RECENT, TODAY);

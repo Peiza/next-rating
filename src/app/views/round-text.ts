@@ -1,7 +1,7 @@
-import { t } from '../../i18n';
+import { t, type MessageKey } from '../../i18n';
 import type { ListedRound } from '../../parsers';
 import { formatDate } from '../format';
-import { isLeague, isXTier } from '../model';
+import { isLeague, isXTier, type ListedResult } from '../model';
 
 /*
  * How a round is named in a list, shared by Why it changed and the target
@@ -27,6 +27,15 @@ export function eventNote(tier: string | undefined): string {
 /** The event note for an unofficial round; official and manual rounds have none. */
 export function tierNote(round: ListedRound): string {
   return round.source === 'unofficial' ? eventNote(round.tier) : '';
+}
+
+/**
+ * The round's status, for the Rounds card and the chart. A round after the
+ * following update's deadline too counts in a later update, not the
+ * following one.
+ */
+export function statusKey({ result, later }: ListedResult): MessageKey {
+  return later ? 'round.status.later' : `round.status.${result.status}`;
 }
 
 /** "Event · Round 2 · date", leaving out the parts a round does not have. */

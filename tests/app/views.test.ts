@@ -434,6 +434,59 @@ describe('rating view', () => {
     expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
   });
 
+  describe('the following update', () => {
+    // On 4 Oct 2026 the next update is 13 Oct (deadline 11 Oct), the following one 10 Nov (deadline 8 Nov).
+    const manual = (date: string, rating = 1000, id = date) => ({ id, rating, date, eventName: '', holes: null });
+    const view = (rounds: ReturnType<typeof manual>[], data = stored) => {
+      const model = buildModel(data, 100001, NOW, manualToRounds(rounds));
+      return { model, view: ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }) };
+    };
+
+    it('shows nothing when no round waits for it', () => {
+      expect(ratingPage().querySelector('#following-update')).toBeNull();
+      expect(view([manual('2026-10-10')]).view.querySelector('#following-update')).toBeNull();
+    });
+
+    it('shows its prediction under the next update, with the change from the next prediction', () => {
+      const { model, view: page } = view([manual('2026-10-20')]);
+      const line = page.querySelector('#following-update')!;
+      expect(line.previousElementSibling!.id).toBe('next-update');
+      const { rating, change } = model.following!;
+      expect(line.textContent).toMatch(new RegExp(`^Then the \\D*10\\D* update: ${rating} ↑\\+${change}, with 1 more round reported by \\D*8\\D*$`));
+      expect(line.querySelector('.following-rating')!.textContent).toBe(String(rating));
+      const shown = line.querySelector('.following-change')!;
+      expect(shown.className).toBe('following-change change-up');
+      expect(shown.querySelector('.change-arrow')!.getAttribute('aria-hidden')).toBe('true');
+      // The next update's prediction stays as it was.
+      expect(page.querySelector('#predicted')!.textContent).toBe('962');
+    });
+
+    it('counts the rounds and marks a fall', () => {
+      const line = view([manual('2026-10-20', 800), manual('2026-10-21', 800)]).view.querySelector('#following-update')!;
+      expect(line.textContent).toMatch(/: \d+ ↓−\d+, with 2 more rounds reported by /);
+      expect(line.querySelector('.following-change')!.classList.contains('change-down')).toBe(true);
+    });
+
+    it('shows the rating alone without a next prediction', () => {
+      const line = view([manual('2026-10-20')], { at: stored.at, events: [] }).view.querySelector('#following-update')!;
+      expect(line.textContent).toMatch(/^Then the \D*10\D* update: 1000, with 1 more round reported by \D*8\D*$/);
+      expect(line.querySelector('.following-change')).toBeNull();
+    });
+
+    it('marks a round after its deadline as counting in a later update', () => {
+      const { view: page } = view([manual('2026-11-20')]);
+      expect(page.querySelector('#following-update')).toBeNull();
+      const status = page.querySelector('.round-after-deadline .round-status')!;
+      expect(status.textContent).toBe('» Counts in a later update');
+    });
+
+    it('is translated', () => {
+      setLanguage('sv');
+      const line = view([manual('2026-10-20')]).view.querySelector('#following-update')!;
+      expect(line.textContent).toMatch(/^Därpå uppdateringen \D*10\D*: \d+ ↑\+\d+, med 1 runda till rapporterad senast \D*8\D*$/);
+    });
+  });
+
   it('marks an official round PDGA did not evaluate inside its window as not counted by PDGA', () => {
     const xTier = rawDetailsRow({ eventId: '900005', tier: 'XA', date: '1-Jul-2026', rating: '1050', evaluated: 'No', included: 'No' });
     const model = buildModel({ ...stored, details: [...stored.details!, xTier] }, 100001, NOW);
@@ -1318,6 +1371,12 @@ describe('bookmarklet setup', () => {
     ]) {
       expect(text).toContain(part);
     }
+  });
+
+  it('says the Rating tab and the chart also show the following update', () => {
+    const text = guideView({ onBack: vi.fn() }).querySelector('#guide-rounds')!.parentElement!.textContent!;
+    expect(text).toContain('count in the following update, and the round list says so. The Rating tab then also shows the prediction for that update');
+    expect(text).toContain('the chart adds it as one more step');
   });
 
   it('keeps the PDGA term X-tier in Swedish and explains it once', () => {
