@@ -41,6 +41,7 @@ import {
   type Theme,
 } from './storage';
 import { applyUpdate, registerServiceWorker } from './pwa';
+import { PHONE_TEXT_SIZE, textScale } from './text-size';
 import {
   calculateTarget,
   emptyTargetDraft,
@@ -77,11 +78,11 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { cardToggleId } from './views/card';
-import { CHART_FULL_TITLE_ID, chartFullView, type ChartProps } from './views/chart';
+import { CHART_FULL_TITLE_ID, chartFullView, setChartTextScale, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { ROUNDS_NEXT_ID, ratingView } from './views/rating';
 import { TARGET_STATUS_ID } from './views/target';
-import { DATE_FORMAT_ID, openWithId, settingsView, themeId } from './views/settings';
+import { DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startTabId, startView, type StartTab } from './views/start';
 
@@ -211,6 +212,25 @@ function setTheme(theme: Theme | null): void {
   store.update({ theme });
   applyTheme();
   render(themeId(theme));
+}
+
+/** The root's text size as the device sets it (styles.css), read without the Settings size. */
+let deviceTextSize = PHONE_TEXT_SIZE;
+
+/** Follows the device unless Settings fixes a size: an inline size on <html> wins over every rule in styles.css. */
+function applyTextSize(): void {
+  const { textSize } = store.get();
+  const html = document.documentElement;
+  html.style.fontSize = '';
+  deviceTextSize = parseFloat(getComputedStyle(html).fontSize) || PHONE_TEXT_SIZE;
+  if (textSize !== null) html.style.fontSize = `${textSize}px`;
+  setChartTextScale(textScale(textSize, deviceTextSize));
+}
+
+function setTextSize(textSize: number | null): void {
+  store.update({ textSize });
+  applyTextSize();
+  render(TEXT_SIZE_ID);
 }
 
 /**
@@ -731,12 +751,15 @@ function currentView(): HTMLElement {
       language: data.language,
       preferred: preferredLanguages(),
       theme: data.theme,
+      textSize: data.textSize,
+      deviceTextSize,
       dateOrder: data.dateOrder,
       today: today(),
       persistent: store.persistent,
       bookmarklet: data.bookmarklet,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
+      onTextSize: setTextSize,
       onDateOrder: setDateOrderOverride,
       openWith: data.openWith,
       onOpenWith: setOpenWith,
@@ -987,6 +1010,7 @@ window.addEventListener('storage', (event) => {
   const data = store.reload();
   if (!findPlayer(data, selected)) selected = initialSelection(data);
   applyTheme();
+  applyTextSize();
   applyLanguage();
   applyDateOrder();
   render();
@@ -1028,6 +1052,7 @@ overlay = restored.overlay && { view: restored.overlay, opener: `tab-${tab}` };
 
 const payload = takeFragment();
 applyTheme();
+applyTextSize();
 applyLanguage();
 applyDateOrder();
 render();

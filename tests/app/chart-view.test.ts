@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chartData, type ChartPeriod } from '../../src/app/chart';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
-import { chartFullView, chartPanel, chartTeaser, type ChartProps } from '../../src/app/views/chart';
+import { chartFullView, chartPanel, chartTeaser, setChartTextScale, type ChartProps } from '../../src/app/views/chart';
 import { setLanguage } from '../../src/i18n';
 import { rawDetailsRow, rawEvent, rawHistoryRow, rawPlayer } from '../handoff/raw';
 
@@ -335,6 +335,36 @@ describe('chart panel', () => {
       resize(0);
       expect(observers[0]!.disconnected).toBe(true);
     } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('grows its text, margins and marks with a larger text size, at the same size on the screen', () => {
+    let observe: ResizeObserverCallback = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          observe = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    setChartTextScale(1.25);
+    try {
+      const svg = plot(panel());
+      const resize = (width: number) =>
+        observe([{ contentRect: { width, height: 0 } } as unknown as ResizeObserverEntry], {} as ResizeObserver);
+      // Drawn in units 1.25 times smaller than the pixels it is shown at.
+      resize(600);
+      expect(svg.getAttribute('viewBox')).toBe('0 0 480 256');
+      expect([svg.getAttribute('width'), svg.getAttribute('height')]).toEqual(['600', '320']);
+      resize(330);
+      expect(svg.getAttribute('viewBox')).toBe('0 0 264 176');
+      expect([svg.getAttribute('width'), svg.getAttribute('height')]).toEqual(['330', '220']);
+    } finally {
+      setChartTextScale(1);
       vi.unstubAllGlobals();
     }
   });

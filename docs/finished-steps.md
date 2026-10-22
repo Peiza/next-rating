@@ -1010,7 +1010,8 @@ Built in this order:
   table, date fields, the full-screen hint, controls and round strip, and
   manual rounds (docs/plan-iphone-testing.md) (done)
 - Ko-fi link: a plain link at the bottom of Settings, at the end of How it
-  works and in the README, opened in the same tab (done)
+  works and in the README, opened in the same tab (done); the bottom of the
+  Rating tab got the same link with the text size step
 - Polish from computer and Android testing: the chart controls, full-screen
   controls only where there is height, remembered scroll positions and a
   shorter Rounds card (docs/plan-computer-android-polish.md) (done)
@@ -1022,3 +1023,6 @@ Built in this order:
   change, from stored data (done)
 - Following update: the prediction for the update after the next one when
   some rounds count only there, on the Rating tab and in the chart (done)
+- Text size: a slider in Settings, layouts that stay whole at large text,
+  the chart growing with the text, and the Ko-fi link on the Rating tab
+  (docs/plan-text-size.md, part 1) (done)

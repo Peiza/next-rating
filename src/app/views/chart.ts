@@ -77,6 +77,19 @@ const TAP_RADIUS = 24;
 export const HOVER_DELAY = 100;
 const TIP_OFFSET = 12;
 
+/**
+ * How much larger than the device's size Settings makes the text
+ * (text-size.ts). The chart is drawn in units this much smaller than the
+ * pixels it is shown at, so its text, margins and marks grow with the text;
+ * the sizes above are in those units, apart from the pixels on the screen
+ * that TAP_RADIUS and TIP_OFFSET measure.
+ */
+let textScale = 1;
+
+export function setChartTextScale(scale: number): void {
+  textScale = scale > 0 ? scale : 1;
+}
+
 const KINDS: Record<PointKind, MessageKey> = {
   official: 'chart.kind.official',
   unofficial: 'chart.kind.unofficial',
@@ -541,8 +554,8 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
     const layout = layoutOf(chart, axis, width, height);
     placed = chart.points.map((point, i) => ({ point, x: layout.point(i), y: layout.y(point.rating) }));
     drawing.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    drawing.setAttribute('width', String(width));
-    drawing.setAttribute('height', String(height));
+    drawing.setAttribute('width', String(Math.round(width * textScale)));
+    drawing.setAttribute('height', String(Math.round(height * textScale)));
     drawing.replaceChildren(
       ...present([
         chart.band &&
@@ -578,8 +591,11 @@ export function plot(chart: ChartData, { plotId, detailId, full, axis = 'time', 
       if (!frame.isConnected) return observer.disconnect();
       const measured = Math.floor(entry!.contentRect.width);
       if (measured === 0) return;
-      const width = Math.max(MIN_SIZE.width, measured);
-      const height = full ? Math.max(MIN_SIZE.height, Math.floor(entry!.contentRect.height)) : cardHeight(width);
+      // In the card, as high on the screen as at the device's text size, so the page keeps its height.
+      const width = Math.max(MIN_SIZE.width, Math.floor(measured / textScale));
+      const height = full
+        ? Math.max(MIN_SIZE.height, Math.floor(entry!.contentRect.height / textScale))
+        : Math.round(cardHeight(width * textScale) / textScale);
       if (width !== size.width || height !== size.height) draw(width, height);
     });
     observer.observe(frame);

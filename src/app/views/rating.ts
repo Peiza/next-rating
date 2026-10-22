@@ -20,6 +20,7 @@ import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
 import { eventNote, roundLabel, roundWhere, statusKey, tierNote } from './round-text';
+import { supportLink } from './support';
 import { targetCalculator, type TargetProps } from './target';
 import { chartPanel, chartTeaser, type ChartProps } from './chart';
 import { GMS_URL, top8Panel, top8Teaser, type Top8Props } from './top8';
@@ -630,6 +631,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     ]),
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
       section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props)),
+    supportLink(),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );
 }

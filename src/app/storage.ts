@@ -22,6 +22,9 @@ export type Theme = (typeof THEMES)[number];
 export const DATE_ORDERS = ['year', 'day', 'month'] as const;
 export type DateOrder = (typeof DATE_ORDERS)[number];
 
+/** The text sizes Settings offers, in CSS pixels; around the 17 px a phone shows by default. */
+export const TEXT_SIZES = [14, 22] as const;
+
 /** How the players panel orders favorites after "me": by name, or newest import first. */
 export const PLAYER_ORDERS = ['name', 'updated'] as const;
 export type PlayerOrder = (typeof PLAYER_ORDERS)[number];
@@ -110,6 +113,8 @@ export interface AppData {
   theme: Theme | null;
   /** The date format picked in Settings; null follows the app's language and the device's region. */
   dateOrder: DateOrder | null;
+  /** The text size picked in Settings, in CSS pixels; null follows the device. */
+  textSize: number | null;
   /** The order picked in the players panel. */
   playerOrder: PlayerOrder;
   /** Which Rating tab cards are open, the same for every player. */
@@ -140,6 +145,7 @@ export const EMPTY_DATA: AppData = {
   language: null,
   theme: null,
   dateOrder: null,
+  textSize: null,
   playerOrder: 'name',
   cards: DEFAULT_CARDS,
   top8Period: DEFAULT_TOP_PERIOD,
@@ -288,6 +294,7 @@ export function validateData(value: unknown): AppData {
     language: typeof language === 'string' && LANGUAGE_CODE.test(language) ? language : null,
     theme: THEMES.find((name) => name === theme) ?? null,
     dateOrder: DATE_ORDERS.find((name) => name === fields.dateOrder) ?? null,
+    textSize: wholeIn(fields.textSize, TEXT_SIZES) ? fields.textSize : null,
     playerOrder: PLAYER_ORDERS.find((name) => name === playerOrder) ?? 'name',
     cards: validateCards(fields.cards),
     top8Period: validateTopPeriod(fields.top8Period),
