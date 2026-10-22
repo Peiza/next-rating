@@ -878,6 +878,35 @@ Built as:
 - `setup.trouble.address` gives `{length}` (`formatCount`, grouped as on the
   device) and `{end}` (";void 0").
 
+## Prediction in the players list
+Spec (idea 1 in docs/ideas.md):
+1. Each stored player in the players panel, favorites and the unsaved
+   player, shows the predicted rating with the change under it at the right
+   of the button, so the whole group shows at a glance.
+2. Only data that is already stored: no bookmarklet change (it stays 1.3.0,
+   4171 characters) and no fetching. It counts manual rounds and left-out
+   events as the Rating tab does.
+3. No import, or no prediction (no rated round and no official rating): no
+   figures, as before. No new round that counts: the official rating with
+   "→ 0". No official rating yet: the rating without a change line.
+
+Built as:
+- `playerModel` in src/app/model.ts gives a stored player's model, for the
+  Rating tab, the full-screen chart and the list alike. `listPrediction`
+  takes `{ rating, change, unchanged }` from it.
+- `createPredictionCache` remembers each player's result while the content
+  stays the same: `import.at`, the manual rounds, the left-out keys and the
+  day. Storage hands out new objects after every change, so the key is the
+  content, not the object.
+- `playersPanel` takes `predictions` by PDGA number. `.player-select` is a
+  two-column grid: `.player-text` (name and import age, wrapping) and
+  `.player-prediction` (tabular figures, never wrapping). The arrow and sign
+  carry the change, with the Rating tab's `change-up/down/none` colours;
+  `direction` moved to src/app/views/change.ts for both views.
+- The figures are `aria-hidden`; a visually hidden `players.prediction` or
+  `players.predictionChange` reads "Predicted rating 985, +7 vs official
+  rating" instead.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -942,3 +971,6 @@ Built in this order:
 - Rating history line: the official rating after each update as steps in
   the chart, bookmarklet 1.2.0 with the history page, and 24-hour times
   with Year first and Day first (docs/plan-rating-history.md) (done)
+- Bookmarklet size: bookmarklet 1.3.0 under 4,200 characters (done)
+- Prediction in the players list: each stored player's predicted rating and
+  change, from stored data (done)

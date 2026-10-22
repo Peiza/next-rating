@@ -3,9 +3,8 @@
 None of these is planned. Don't build any of them until it is moved into the
 Process list in CLAUDE.md.
 
-1. Prediction in the players list: each saved player's predicted rating and
-   change arrow next to their name, from stored data, so the whole group
-   shows at a glance.
+1. Built: the prediction in the players list (Prediction in the players list
+   in docs/finished-steps.md). The number stays so the others keep theirs.
 2. Share the prediction: a Share button that opens the phone's share menu
    (Web Share API) with a choice of text and link (the default), text only,
    or link only, remembered with the settings. The text is short, for
