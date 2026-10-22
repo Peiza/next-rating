@@ -1,14 +1,18 @@
-# Plan: edit manual rounds and the sloped arrow
+# Plan: edit manual rounds, the sloped arrow and example rounds
 
-Part A of three pull requests: A edits manual rounds and slopes the
-following update's arrow, B adds example rounds under the target answer, C
-lets the chart be dragged through history with a long-press for the value.
-Each starts after the previous one is merged. Part A is built.
+Three pull requests: A edits manual rounds and slopes the following
+update's arrow, B adds example rounds under the target answer, C lets the
+chart be dragged through history with a long-press for the value. Each
+starts after the previous one is merged. Parts A and B are built.
 
 Decisions: 1a (edit from the Rounds card and from the Add a round card's
 list), 2a (after Save, the form adds rounds again and focus goes to the
 round's Edit button), 3a (the sloped arrow only on the following update),
-4a (slopes at 1–2, 3–9 and 10 and more).
+4a (slopes at 1–2, 3–9 and 10 and more), 5a (example rounds all on the
+target date, each an event of its own, as the calculator assumes), 6a (their
+spread is the standard deviation of the window's rounds, 5–30), 7a (an
+edited example becomes an ordinary manual round), 8a (the Top 8 leaves
+examples out, also with manual rounds on).
 
 ## A1. Edit a manual round
 - In the Rounds card, a manual round's row takes a tap anywhere on it, and
@@ -43,3 +47,34 @@ round's Edit button), 3a (the sloped arrow only on the following update),
   both themes.
 - The change line under the predicted rating and the players list keep
   their arrows.
+
+## B. Example rounds under the target answer
+- Under an answer with an average above 0 (needed, or what keeps the
+  target), "Add 3 example rounds" with the hint "Rounds around 1012, spread
+  like your own, added as manual rounds." The status under it says "Added
+  1031, 1004, 1019. Prediction for 8 Dec: 1000." for the answer's update,
+  also when that is the following update. Another tap replaces them; it
+  never stacks.
+- "Remove example rounds" shows in the target card and beside Delete all
+  in the Add a round card while the player has examples, with no confirm
+  and no Undo, since the same tap adds the same rounds again.
+- Examples are manual rounds with a stored `example` flag (old data loads
+  as false). They show "Example" in the Rounds card, the card's list and
+  the chart's legend, details, tooltip and table, with the manual
+  triangle. Editing one saves an ordinary manual round.
+- `calculateTarget` and `targetDates` leave examples out, so adding them
+  keeps the answer and the date field. The Top 8 leaves them out. The
+  prediction, Why it changed, the chart and the players list count them.
+- src/app/examples.ts, pure and without Math.random:
+  - The spread is the window's standard deviation without the examples,
+    rounded, kept within 5–30, and 15 with fewer than 2 rounds.
+  - The offsets are normal quantiles times the spread, symmetric so they
+    sum to 0, ordered high, low, next high and so on.
+  - The average goes up from the one needed, a point at a time and at most
+    60, until the engine, on exactly the rounds the player then has
+    (`withExampleRounds`, `withManualRounds`), reaches the target at the
+    answer's update.
+  - Near 1150 the spread shrinks so no round goes above it.
+- `replaceExampleRounds` saves the unsaved player as a favorite first, as
+  adding a manual round does, and counts the 200-round limit without the
+  examples it replaces.

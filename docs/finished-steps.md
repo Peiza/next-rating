@@ -1041,3 +1041,8 @@ Built in this order:
 - Edit manual rounds from the Rounds card and the Add a round card's list,
   and the following update's arrow sloped and shaded by the size of the
   change (docs/plan-edit-and-arrows.md, part A) (done)
+- Example rounds under the target answer: rounds spread like the player's
+  own that reach the target, stored as manual rounds marked Example,
+  replaced by another tap and removed from the target or the Add a round
+  card, left out of the target calculator and the Top 8
+  (docs/plan-edit-and-arrows.md, part B) (done)
