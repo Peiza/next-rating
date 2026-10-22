@@ -169,8 +169,6 @@ export interface FollowingPrediction {
    * starts from; null when the next update has no prediction.
    */
   change: number | null;
-  /** The rated rounds that count in the following update and not in the next one. */
-  rounds: number;
 }
 
 /**
@@ -183,13 +181,13 @@ function followingPrediction(
   followingUpdate: RatingUpdate,
   predict: (deadline: PlainDate) => Prediction,
 ): FollowingPrediction | null {
-  const waiting = rounds.filter(
+  const waiting = rounds.some(
     (round, i) => prediction.rounds[i]!.status === 'after-deadline' && compareDates(round.date, followingUpdate.deadline) <= 0,
-  ).length;
-  if (waiting === 0) return null;
+  );
+  if (!waiting) return null;
   const { rating } = predict(followingUpdate.deadline);
   if (rating === null) return null;
-  return { rating, change: prediction.rating === null ? null : rating - prediction.rating, rounds: waiting };
+  return { rating, change: prediction.rating === null ? null : rating - prediction.rating };
 }
 
 /** The official state's unrounded rating, when it rounds to the official rating. */

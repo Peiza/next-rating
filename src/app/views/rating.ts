@@ -61,9 +61,6 @@ export const ROUNDS_MORE_ID = 'rounds-more';
 /** The first round "Show more" adds, which gets focus so a screen reader goes on from there. */
 export const ROUNDS_NEXT_ID = 'rounds-next';
 
-/** Where PDGA publishes when ratings are updated and which events an update counts. */
-const UPDATES_URL = 'https://www.pdga.com/faq/ratings/when-updated';
-
 /** Every status has a symbol next to its text label (`statusKey`), so it never depends on colour alone. */
 const SYMBOL: Record<RoundStatus, string> = {
   included: '✓',
@@ -95,30 +92,27 @@ function change(value: number): HTMLElement {
 }
 
 /**
- * When the next update comes and which events it counts, linked to PDGA's
- * page with the rule. The same dates the prediction is made for.
+ * When the next update comes and which events it counts, short enough for
+ * one line on a phone: the same dates the prediction is made for. How it
+ * works links to PDGA's page with the rule.
  */
 function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
   return el(
     'p',
     { id: 'next-update', class: 'next-update' },
-    el(
-      'a',
-      { href: UPDATES_URL, rel: 'noreferrer' },
-      t('rating.nextUpdate', { update: formatDayMonth(update), deadline: formatDayMonth(deadline) }),
-    ),
+    t('rating.nextUpdate', { update: formatDayMonth(update), deadline: formatDayMonth(deadline) }),
   );
 }
 
 /**
  * The following update's prediction, when some rounds count there and not
- * in the next one: "Then the 8 Dec update: 985 ↑ +3, with 2 more rounds
- * reported by 6 Dec". The change is from the next update's prediction.
+ * in the next one: "Then 8 Dec: 985 ↑ +3". The change is from the next
+ * update's prediction; the Rounds card says which rounds wait for it.
  */
-function followingUpdate({ followingUpdate: { update, deadline }, following }: Model): HTMLElement | false {
+function followingUpdate({ followingUpdate: { update }, following }: Model): HTMLElement | false {
   if (!following) return false;
-  const { rating, change, rounds } = following;
-  const params = { update: formatDayMonth(update), deadline: formatDayMonth(deadline), count: rounds };
+  const { rating, change } = following;
+  const params = { update: formatDayMonth(update) };
   const nodes: Record<string, Node> = { rating: el('strong', { class: 'following-rating' }, formatRating(rating)) };
   if (change !== null) {
     const [dir, arrow] = direction(change);

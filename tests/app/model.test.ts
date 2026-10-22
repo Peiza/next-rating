@@ -314,11 +314,7 @@ describe('the following update', () => {
     const next = model([]);
     expect(withLater.prediction.rating).toBe(next.prediction.rating);
     const expected = predictRating(withLater.rounds, { currentRating: 950, deadline: '2026-11-08', leaveOut: withLater.leaveOut });
-    expect(withLater.following).toEqual({
-      rating: expected.rating,
-      change: expected.rating! - withLater.prediction.rating!,
-      rounds: 1,
-    });
+    expect(withLater.following).toEqual({ rating: expected.rating, change: expected.rating! - withLater.prediction.rating! });
     expect(withLater.following!.change).toBeGreaterThan(0);
   });
 
@@ -336,16 +332,44 @@ describe('the following update', () => {
   it('keeps left-out events out', () => {
     const late = rawEvent({ eventId: '900005', name: 'Example Late', date: '20-Oct-2026' });
     const data = { ...imported, events: [rawEvent(), late] };
-    expect(model([], data).following!.rounds).toBe(2);
+    expect(model([], data).following).not.toBeNull();
     expect(model([], data, ['e:900005']).following).toBeNull();
     const withManual = model([manual('m1', '2026-10-20')], data, ['e:900005']);
     expect(withManual.following).toEqual(model([manual('m1', '2026-10-20')]).following);
   });
 
+  describe('on 22 Oct 2026', () => {
+    // The next update is 10 Nov (deadline 8 Nov), the following one 8 Dec (deadline 6 Dec).
+    const oct22 = new Date('2026-10-22T10:00:00');
+    const on = (rounds: StoredManualRound[]) => buildModel(imported, 100001, oct22, manualToRounds(rounds));
+
+    it('counts a round dated up to 6 Dec in the 8 Dec update, and leaves a later one for a later update', () => {
+      const { nextUpdate, followingUpdate } = on([]);
+      expect([nextUpdate, followingUpdate]).toEqual([
+        { update: '2026-11-10', deadline: '2026-11-08' },
+        { update: '2026-12-08', deadline: '2026-12-06' },
+      ]);
+      expect(on([manual('m1', '2026-12-06')]).following).not.toBeNull();
+      for (const date of ['2026-12-07', '2026-12-15']) {
+        const model = on([manual('m1', date)]);
+        expect(model.following).toBeNull();
+        expect(later(model)).toEqual(['m:m1']);
+        expect(model.prediction.rating).toBe(on([]).prediction.rating);
+      }
+    });
+
+    it('keeps the line of a round before 6 Dec when a later round is added, with the same figures', () => {
+      const november = on([manual('m1', '2026-11-15')]);
+      const both = on([manual('m1', '2026-11-15'), manual('m2', '2026-12-15', 700)]);
+      expect(both.following).toEqual(november.following);
+      expect(both.prediction.rating).toBe(november.prediction.rating);
+    });
+  });
+
   it('has no change without a next prediction', () => {
     const { prediction, following } = model([manual('m1', '2026-10-20')], stored());
     expect(prediction.rating).toBeNull();
-    expect(following).toEqual({ rating: 1000, change: null, rounds: 1 });
+    expect(following).toEqual({ rating: 1000, change: null });
   });
 });
 

@@ -922,7 +922,7 @@ Spec (idea 4 in docs/ideas.md):
 Built as:
 - `buildModel` in src/app/model.ts adds `followingUpdate`, the month after
   the next update (`nextRatingUpdate(update, update)`), and `following`
-  (`{ rating, change, rounds }`): `predictRating` with that update's
+  (`{ rating, change }`): `predictRating` with that update's
   deadline, the same `leaveOut` and `currentRating`. Null when no round is
   'after-deadline' and dated by the following deadline, since it then
   equals the next prediction; `change` is null without a next prediction.
@@ -933,11 +933,18 @@ Built as:
   update" in the Rounds card and the chart's details, tooltip and table.
   The engine status stays 'after-deadline'.
 - The Rating tab's summary has `#following-update` under the next update:
-  "Then the 10 Nov update: 985 ↑ +3, with 2 more rounds reported by 8 Nov",
-  the figures in `textWithNodes` spans that never wrap, the change with the
-  arrow and `change-up/down/none` colours (`rating.following`, or
-  `rating.followingNoChange` without a next prediction). Why it changed and
+  "Then 10 Nov: 985 ↑ +3" ("Därefter 10 nov.: 985 ↑ +3"), the figures in
+  `textWithNodes` spans that never wrap, the change with the arrow and
+  `change-up/down/none` colours (`rating.following`, or
+  `rating.followingNoChange` without a next prediction). No round count, so
+  it stays short; the Rounds card says which rounds wait. Why it changed and
   the target calculator stay about the next update.
+- After phone testing, the next update line above it is plain text, short
+  enough for one line on a phone from 360 CSS pixels: "Next update 10 Nov,
+  deadline 8 Nov" ("Uppdateras 10 nov., sista rapportdag 8 nov."). The link
+  to PDGA's rule stays in How it works. A round dated after the following
+  deadline alone shows no following line; one dated up to it keeps the
+  line, also when a later round is added.
 - With a ratings history, `ChartData.following` is one more step after
   `next`, when that date is in the period: the predicted path rises at the
   next update and again at the following one, held to the period's end,

@@ -357,12 +357,13 @@ describe('rating view', () => {
     expect(view.querySelectorAll('#refresh')).toHaveLength(1);
   });
 
-  it('shows the next update and its report deadline, linked to the rule on pdga.com', () => {
+  it('shows the next update and its report deadline briefly, without a link (How it works has it)', () => {
     // On 4 Oct 2026 the next update is Tuesday 13 Oct, for events reported by Sunday 11 Oct.
-    const link = ratingPage().querySelector<HTMLAnchorElement>('#next-update a')!;
-    expect(link.textContent).toMatch(/^Next ratings update: \D*13\D* \(events reported by \D*11\D*\)$/);
-    expect(link.getAttribute('href')).toBe('https://www.pdga.com/faq/ratings/when-updated');
-    expect(link.hasAttribute('target')).toBe(false);
+    const line = ratingPage().querySelector('#next-update')!;
+    expect(line.textContent).toMatch(/^Next update \D*13\D*, deadline \D*11\D*$/);
+    expect(line.querySelector('a')).toBeNull();
+    setLanguage('sv');
+    expect(ratingPage().querySelector('#next-update')!.textContent).toMatch(/^Uppdateras \D*13\D*, sista rapportdag \D*11\D*$/);
   });
 
   it("refreshes from the player's ratings details on pdga.com, in the same tab", () => {
@@ -452,7 +453,7 @@ describe('rating view', () => {
       const line = page.querySelector('#following-update')!;
       expect(line.previousElementSibling!.id).toBe('next-update');
       const { rating, change } = model.following!;
-      expect(line.textContent).toMatch(new RegExp(`^Then the \\D*10\\D* update: ${rating} ↑\\+${change}, with 1 more round reported by \\D*8\\D*$`));
+      expect(line.textContent).toMatch(new RegExp(`^Then \\D*10\\D*: ${rating} ↑\\+${change}$`));
       expect(line.querySelector('.following-rating')!.textContent).toBe(String(rating));
       const shown = line.querySelector('.following-change')!;
       expect(shown.className).toBe('following-change change-up');
@@ -461,15 +462,15 @@ describe('rating view', () => {
       expect(page.querySelector('#predicted')!.textContent).toBe('962');
     });
 
-    it('counts the rounds and marks a fall', () => {
+    it('marks a fall', () => {
       const line = view([manual('2026-10-20', 800), manual('2026-10-21', 800)]).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/: \d+ ↓−\d+, with 2 more rounds reported by /);
+      expect(line.textContent).toMatch(/^Then \D*10\D*: \d+ ↓−\d+$/);
       expect(line.querySelector('.following-change')!.classList.contains('change-down')).toBe(true);
     });
 
     it('shows the rating alone without a next prediction', () => {
       const line = view([manual('2026-10-20')], { at: stored.at, events: [] }).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/^Then the \D*10\D* update: 1000, with 1 more round reported by \D*8\D*$/);
+      expect(line.textContent).toMatch(/^Then \D*10\D*: 1000$/);
       expect(line.querySelector('.following-change')).toBeNull();
     });
 
@@ -480,10 +481,23 @@ describe('rating view', () => {
       expect(status.textContent).toBe('» Counts in a later update');
     });
 
+    it('on 22 Oct, shows no line for a round after 6 Dec alone, and keeps the line of a round before it', () => {
+      const oct22 = new Date('2026-10-22T10:00:00');
+      const page = (rounds: ReturnType<typeof manual>[]) =>
+        ratingView({ model: buildModel(stored, 100001, oct22, manualToRounds(rounds)), favorite: true, now: oct22, onAddFavorite: vi.fn() });
+      const december = page([manual('2026-12-15')]);
+      expect(december.querySelector('#following-update')).toBeNull();
+      expect(december.querySelector('.round-after-deadline .round-status')!.textContent).toBe('» Counts in a later update');
+      const november = page([manual('2026-11-15')]).querySelector('#following-update')!.textContent;
+      const both = page([manual('2026-11-15'), manual('2026-12-15', 700)]);
+      expect(both.querySelector('#following-update')!.textContent).toBe(november);
+      expect(both.querySelector('#predicted')!.textContent).toBe(december.querySelector('#predicted')!.textContent);
+    });
+
     it('is translated', () => {
       setLanguage('sv');
       const line = view([manual('2026-10-20')]).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/^Därpå uppdateringen \D*10\D*: \d+ ↑\+\d+, med 1 runda till rapporterad senast \D*8\D*$/);
+      expect(line.textContent).toMatch(/^Därefter \D*10\D*: \d+ ↑\+\d+$/);
     });
   });
 
