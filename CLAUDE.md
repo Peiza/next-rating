@@ -113,7 +113,10 @@ change, from stored data only, the same model as the Rating tab), and the
 following update (when some rounds count only in the update after the next
 one, its prediction under the next update and as one more step in the
 chart, with the change from the next prediction; the players list keeps the
-next update only).
+next update only), and the text size (a slider in Settings, 14–22 px or
+the device's size, applied when let go; segmented controls, date ranges,
+Top 8 figures and titles stay whole at large text; the chart grows with the
+text; the Ko-fi link at the bottom of the Rating tab too).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -239,9 +242,11 @@ with How it works, X-tier events, the target date, the phone polish, the
 rating chart, the chart follow-up, the chart polish, the first visit
 polish, the polish from phone testing, the fixes from iPhone testing, the
 Ko-fi link, the polish from computer and Android testing, the rating
-history line, the bookmarklet size, the prediction in the players list and
-the following update (docs/finished-steps.md). Nothing else is planned: the
-open items under Architecture are optional and wait until I ask. Commit
+history line, the bookmarklet size, the prediction in the players list,
+the following update and the text size (docs/finished-steps.md). Planned
+next, after the text size is merged: A− / A+ on How it works
+(docs/plan-text-size.md, part 2). Nothing else is planned: the open items
+under Architecture are optional and wait until I ask. Commit
 after each working step. Commit messages and the pull request descriptions
 you suggest have no AI attribution line.
 

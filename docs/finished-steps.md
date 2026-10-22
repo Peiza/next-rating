@@ -1023,3 +1023,6 @@ Built in this order:
   change, from stored data (done)
 - Following update: the prediction for the update after the next one when
   some rounds count only there, on the Rating tab and in the chart (done)
+- Text size: a slider in Settings, layouts that stay whole at large text,
+  the chart growing with the text, and the Ko-fi link on the Rating tab
+  (docs/plan-text-size.md, part 1) (done)
