@@ -1340,6 +1340,15 @@ describe('bookmarklet setup', () => {
     expect(view.querySelector('a[href^="javascript"]')).toBeNull();
   });
 
+  it('keeps the code box close to the Copy button: the status line between them starts empty', () => {
+    const first = setupView(setupProps(CODE)).querySelector('#setup-steps > .step')!;
+    const status = first.querySelector('#copy-bookmarklet')!.nextElementSibling!;
+    expect(status.id).toBe('bookmarklet-code-status');
+    expect(status.classList.contains('copy-status')).toBe(true);
+    expect(status.textContent).toBe('');
+    expect(status.nextElementSibling!.className).toBe('field');
+  });
+
   it.each([
     ['iphone', 'Safari on iPhone', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its address.', 'Try it on pdga.com.']],
     ['android', 'Android browsers', ['Copy the bookmarklet.', 'Bookmark this page.', 'Paste the code as its URL.', 'Try it on pdga.com.']],
