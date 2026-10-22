@@ -22,8 +22,8 @@ function draft(extra: Partial<ManualDraft> = {}): ManualDraft {
 }
 
 const ROUNDS: StoredManualRound[] = [
-  { id: 'm1', rating: 950, date: '2026-10-10', eventName: 'Club night', holes: 9, example: false },
-  { id: 'm2', rating: 985, date: '2026-10-16', eventName: '', holes: null, example: false },
+  { id: 'm1', rating: 950, date: '2026-10-10', eventName: 'Club night', holes: 9, example: false, leftOut: false },
+  { id: 'm2', rating: 985, date: '2026-10-16', eventName: '', holes: null, example: false, leftOut: false },
 ];
 
 function props(extra: Partial<ManualProps> = {}): ManualProps {

@@ -170,7 +170,8 @@ function weigh(
  * manual. PDGA's Included flags are never used: inclusion is recomputed from
  * scratch, since adding rounds can bring back previously dropped ones.
  * Official rounds PDGA left out of the window it evaluated never count
- * (excludedByPdga), and neither do rounds of events the user left out. With
+ * (excludedByPdga), and neither do rounds the user left out, one at a time
+ * or by event. With
  * a deadline, new rounds dated after it wait for the following update. All
  * of these are left out of everything, like DNF rounds.
  *
@@ -188,7 +189,8 @@ export function predictRating(
   const { deadline, leaveOut } = options;
   const later = (round: RoundInput) =>
     !round.dnf && round.source !== 'official' && deadline !== undefined && compareDates(round.date, deadline) > 0;
-  const left = (round: RoundInput) => round.source !== 'official' && leaveOut?.has(round.eventKey) === true;
+  const left = (round: RoundInput) =>
+    round.source !== 'official' && (round.leftOut === true || leaveOut?.has(round.eventKey) === true);
   const excluded = excludedByPdga(rounds);
   const status: RoundStatus[] = rounds.map((round, i) => {
     if (round.dnf) return 'dnf';

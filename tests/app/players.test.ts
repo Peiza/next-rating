@@ -14,6 +14,7 @@ import {
   restoreManualRound,
   routeImport,
   setLeftOut,
+  setManualLeftOut,
   setMe,
   sortFavorites,
   updateManualRound,
@@ -212,6 +213,7 @@ describe('left-out events', () => {
 
 describe('manual rounds', () => {
   const round = { rating: 985, date: '2026-10-16', eventName: '', holes: null, example: false };
+  const stored = { ...round, leftOut: false };
   const roundsOf = (next: AppData, pdgaNumber: number) => findPlayer(next, pdgaNumber)!.manualRounds;
 
   it('adds rounds with ids that stay unique after a delete', () => {
@@ -238,13 +240,13 @@ describe('manual rounds', () => {
     const favorites = Array.from({ length: MAX_FAVORITES }, (_, i) => player(100001 + i));
     const full = data([...favorites, player(200000, { favorite: false })]);
     expect(addManualRound(full, 200000, round)).toEqual({ data: full, error: 'favorites-full', savedFavorite: false });
-    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 1}` }));
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...stored, id: `m${i + 1}` }));
     const busy = data([player(100001, { manualRounds: many })]);
     expect(addManualRound(busy, 100001, round)).toEqual({ data: busy, error: 'rounds-full', savedFavorite: false });
   });
 
   it('restores a deleted round in its old place, with its id', () => {
-    const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...round, id, rating: 950 + i }));
+    const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...stored, id, rating: 950 + i }));
     const before = data([player(100001, { manualRounds: rounds })]);
     const deleted = removeManualRound(before, 100001, 'm2');
     expect(restoreManualRound(deleted, 100001, rounds[1]!, 1)).toEqual(before);
@@ -257,10 +259,10 @@ describe('manual rounds', () => {
   });
 
   it('does not restore over a taken id, into full rounds or for a removed player', () => {
-    const rounds = [{ ...round, id: 'm1' }];
+    const rounds = [{ ...stored, id: 'm1' }];
     const taken = data([player(100001, { manualRounds: rounds })]);
-    expect(restoreManualRound(taken, 100001, { ...round, id: 'm1', rating: 900 }, 0)).toBe(taken);
-    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 2}` }));
+    expect(restoreManualRound(taken, 100001, { ...stored, id: 'm1', rating: 900 }, 0)).toBe(taken);
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...stored, id: `m${i + 2}` }));
     const full = data([player(100001, { manualRounds: many })]);
     expect(restoreManualRound(full, 100001, rounds[0]!, 0)).toBe(full);
     const gone = data([player(100002)]);
@@ -268,22 +270,46 @@ describe('manual rounds', () => {
   });
 
   it('updates a round in its place, with its id, for one player only', () => {
-    const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...round, id, rating: 950 + i }));
+    const rounds = ['m1', 'm2', 'm3'].map((id, i) => ({ ...stored, id, rating: 950 + i }));
     const before = data([player(100001, { manualRounds: rounds }), player(100002, { manualRounds: rounds })]);
     const edited = { rating: 1001, date: '2026-10-20', eventName: 'Club night', holes: 9, example: false };
     const next = updateManualRound(before, 100001, 'm2', edited);
-    expect(roundsOf(next, 100001)).toEqual([rounds[0], { id: 'm2', ...edited }, rounds[2]]);
+    expect(roundsOf(next, 100001)).toEqual([rounds[0], { id: 'm2', ...edited, leftOut: false }, rounds[2]]);
     expect(roundsOf(next, 100002)).toEqual(rounds);
   });
 
+  it('leaves one round out and counts it again, kept through an edit and an undo', () => {
+    const rounds = ['m1', 'm2'].map((id, i) => ({ ...stored, id, rating: 950 + i }));
+    const before = data([player(100001, { manualRounds: rounds }), player(100002, { manualRounds: rounds })]);
+    const off = setManualLeftOut(before, 100001, 'm2', true);
+    expect(roundsOf(off, 100001).map(({ leftOut }) => leftOut)).toEqual([false, true]);
+    expect(roundsOf(off, 100002)).toEqual(rounds);
+    expect(setManualLeftOut(off, 100001, 'm2', true)).toBe(off);
+    expect(setManualLeftOut(off, 100001, 'm9', true)).toBe(off);
+    expect(setManualLeftOut(off, 100003, 'm1', true)).toBe(off);
+    expect(setManualLeftOut(off, 100001, 'm2', false)).toEqual(before);
+
+    const edited = updateManualRound(off, 100001, 'm2', { ...round, rating: 1001 });
+    expect(roundsOf(edited, 100001)[1]).toMatchObject({ rating: 1001, leftOut: true });
+    const offRound = roundsOf(off, 100001)[1]!;
+    expect(restoreManualRound(removeManualRound(off, 100001, 'm2'), 100001, offRound, 1)).toEqual(off);
+  });
+
+  it('stores new and example rounds as counted', () => {
+    const added = addManualRound(data([player(100001)]), 100001, round).data;
+    expect(roundsOf(added, 100001)[0]!.leftOut).toBe(false);
+    const examples = replaceExampleRounds(added, 100001, [{ ...round, rating: 1010 }]).data;
+    expect(roundsOf(examples, 100001).map(({ leftOut }) => leftOut)).toEqual([false, false]);
+  });
+
   it('does not update a round that is gone, or for a removed player', () => {
-    const before = data([player(100001, { manualRounds: [{ ...round, id: 'm1' }] })]);
+    const before = data([player(100001, { manualRounds: [{ ...stored, id: 'm1' }] })]);
     expect(updateManualRound(before, 100001, 'm2', round)).toBe(before);
     expect(updateManualRound(before, 100002, 'm1', round)).toBe(before);
   });
 
   it('replaces example rounds instead of adding more, after the ordinary ones with new ids', () => {
-    const ordinary = [{ ...round, id: 'm1' }];
+    const ordinary = [{ ...stored, id: 'm1' }];
     const examples = [1010, 990].map((rating) => ({ ...round, rating }));
     let next = replaceExampleRounds(data([player(100001, { manualRounds: ordinary })]), 100001, examples).data;
     expect(roundsOf(next, 100001).map(({ id, rating, example }) => [id, rating, example])).toEqual([
@@ -300,8 +326,8 @@ describe('manual rounds', () => {
 
   it('removes the example rounds only', () => {
     const rounds = [
-      { ...round, id: 'm1' },
-      { ...round, id: 'm2', example: true },
+      { ...stored, id: 'm1' },
+      { ...stored, id: 'm2', example: true },
     ];
     const before = data([player(100001, { manualRounds: rounds })]);
     expect(roundsOf(removeExampleRounds(before, 100001), 100001)).toEqual([rounds[0]]);
@@ -317,7 +343,7 @@ describe('manual rounds', () => {
     const full = data([...favorites, player(200000, { favorite: false })]);
     expect(replaceExampleRounds(full, 200000, [round])).toEqual({ data: full, error: 'favorites-full', savedFavorite: false });
     // Earlier examples make room, since they are replaced.
-    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...round, id: `m${i + 1}`, example: i >= 197 }));
+    const many = Array.from({ length: MAX_MANUAL_ROUNDS }, (_, i) => ({ ...stored, id: `m${i + 1}`, example: i >= 197 }));
     const busy = data([player(100001, { manualRounds: many })]);
     expect(replaceExampleRounds(busy, 100001, [round, round, round]).error).toBeNull();
     expect(replaceExampleRounds(busy, 100001, [round, round, round, round])).toEqual({
@@ -328,14 +354,14 @@ describe('manual rounds', () => {
   });
 
   it('clears one player only', () => {
-    const rounds = [{ ...round, id: 'm1' }];
+    const rounds = [{ ...stored, id: 'm1' }];
     const next = clearManualRounds(data([player(100001, { manualRounds: rounds }), player(100002, { manualRounds: rounds })]), 100001);
     expect(roundsOf(next, 100001)).toEqual([]);
     expect(roundsOf(next, 100002)).toEqual(rounds);
   });
 
   it('keeps them when the player is saved as a favorite or gets an import', () => {
-    const rounds = [{ ...round, id: 'm1' }];
+    const rounds = [{ ...stored, id: 'm1' }];
     const saved = addFavorite(data([player(100001, { favorite: false, manualRounds: rounds })]), 100001);
     expect(roundsOf(saved, 100001)).toEqual(rounds);
     const routed = routeImport(saved, { player: rawPlayer(), details: [rawDetailsRow()] }, LATER, null, 100001);

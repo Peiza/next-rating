@@ -25,7 +25,7 @@ const stored: StoredImport = {
 };
 
 function manual(rating: number, date: string): StoredManualRound {
-  return { id: `x${rating}`, rating, date, eventName: '', holes: null, example: false };
+  return { id: `x${rating}`, rating, date, eventName: '', holes: null, example: false, leftOut: false };
 }
 
 const ratingsOf = (top: ReturnType<typeof topEight>) => top.result.rounds.map((round) => round.rating);
@@ -132,5 +132,14 @@ describe('manual rounds', () => {
     expect(top.hasOwn).toBe(false);
     expect(top.years).toEqual([2026, 2025, 2024]);
     expect(periodYears(withExample, THIS_YEAR, TODAY, true)).toEqual([2026, 2025]);
+  });
+
+  it('never counts unticked manual rounds, nor their years', () => {
+    const off = { ...manual(1100, '2024-06-01'), leftOut: true };
+    const withOff = buildModel(stored, 100001, NOW, manualToRounds([off]));
+    const top = topEight(withOff, { kind: 'year', year: 2024 }, TODAY, true);
+    expect(ratingsOf(top)).toEqual([]);
+    expect(top.hasOwn).toBe(false);
+    expect(periodYears(withOff, THIS_YEAR, TODAY, true)).toEqual([2026, 2025]);
   });
 });

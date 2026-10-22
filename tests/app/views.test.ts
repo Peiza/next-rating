@@ -519,7 +519,7 @@ describe('rating view', () => {
 
   describe('the following update', () => {
     // On 4 Oct 2026 the next update is 13 Oct (deadline 11 Oct), the following one 10 Nov (deadline 8 Nov).
-    const manual = (date: string, rating = 1000, id = date) => ({ id, rating, date, eventName: '', holes: null, example: false });
+    const manual = (date: string, rating = 1000, id = date) => ({ id, rating, date, eventName: '', holes: null, example: false, leftOut: false });
     const view = (rounds: ReturnType<typeof manual>[], data = stored) => {
       const model = buildModel(data, 100001, NOW, manualToRounds(rounds));
       return { model, view: ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }) };
@@ -1082,8 +1082,8 @@ describe('top 8 panel', () => {
   it('offers the manual rounds switch only with a manual round, and marks manual rounds when they count', () => {
     expect(page().querySelector('#top8-own')).toBeNull();
     const manual = manualToRounds([
-      { id: 'a', rating: 1060, date: '2026-09-01', eventName: 'Practice league', holes: null, example: false },
-      { id: 'b', rating: 1055, date: '2026-09-02', eventName: '', holes: null, example: false },
+      { id: 'a', rating: 1060, date: '2026-09-01', eventName: 'Practice league', holes: null, example: false, leftOut: false },
+      { id: 'b', rating: 1055, date: '2026-09-02', eventName: '', holes: null, example: false, leftOut: false },
     ]);
     const model = buildModel(stored, 100001, NOW, manual);
     const onOwn = vi.fn();

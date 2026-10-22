@@ -96,6 +96,8 @@ export interface StoredManualRound {
   holes: number | null;
   /** Added with "Add example rounds" under the target answer; the target calculator and the Top 8 leave it out. */
   example: boolean;
+  /** Unticked in the Rounds card: kept, but left out of the prediction and the Top 8. */
+  leftOut: boolean;
 }
 
 export interface StoredPlayer {
@@ -203,8 +205,8 @@ export function validateManualRound(value: unknown): StoredManualRound | null {
   if (!wholeIn(rating, RANGES.rating) || !isPlainDate(date)) return null;
   if (typeof eventName !== 'string' || eventName.length > MAX_EVENT_NAME) return null;
   if (holes !== null && !wholeIn(holes, RANGES.holes)) return null;
-  // Rounds stored before examples existed are ordinary ones.
-  return { id, rating, date, eventName, holes, example: fields.example === true };
+  // Rounds stored before examples or the Count checkbox existed are ordinary ones that count.
+  return { id, rating, date, eventName, holes, example: fields.example === true, leftOut: fields.leftOut === true };
 }
 
 /** Manual rounds one at a time, so a bad one costs only itself. Data saved before they existed has none. */

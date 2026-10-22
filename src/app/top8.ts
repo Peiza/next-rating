@@ -35,9 +35,9 @@ function yearOf(date: PlainDate): number {
   return Number(date.slice(0, 4));
 }
 
-/** The rounds the Top 8 can take from: never the example rounds added under the target answer. */
+/** The rounds the Top 8 can take from: never the example rounds added under the target answer, or a round the user left out. */
 function topCandidates(model: Model): ListedRound[] {
-  return model.rounds.filter((round) => !round.example);
+  return model.rounds.filter((round) => !round.example && !round.leftOut);
 }
 
 /** The years the period select offers, newest first. With `own`, manual rounds add their years. */

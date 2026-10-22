@@ -489,6 +489,30 @@ describe('predictRating', () => {
     });
   });
 
+  describe('rounds the user left out one at a time', () => {
+    it('leaves only that round out, while the rest of its event counts', () => {
+      const official = weekly([950, 960, 940]);
+      const [off, on] = [round(1050, '2026-09-05', { eventKey: 'm', leftOut: true }), round(970, '2026-09-05', { eventKey: 'm' })].map(
+        (input) => ({ ...input, source: 'manual' as const }),
+      );
+      const prediction = predictRating([off!, on!, ...official]);
+      expect(statusOf(prediction, off!)).toBe('left-out');
+      expect(statusOf(prediction, on!)).toBe('included');
+      expect(prediction.rounds[0]!.weight).toBe(0);
+      expect(prediction.exact).toBe(predictRating([on!, ...official]).exact);
+      expect(prediction.stats).toMatchObject({ totalRounds: 4, windowEnd: '2026-09-05' });
+    });
+
+    it('is the anchor of nothing and never applies to official rounds', () => {
+      const official = weekly([950, 960, 940]);
+      const off = { ...round(1050, '2026-09-05', { leftOut: true }), source: 'manual' as const };
+      const flagged = round(1000, '2026-08-30', { leftOut: true });
+      const prediction = predictRating([off, flagged, ...official]);
+      expect(statusOf(prediction, flagged)).toBe('included');
+      expect(prediction.stats.windowEnd).toBe('2026-08-30');
+    });
+  });
+
   describe('validation', () => {
     it('rejects duplicate ids', () => {
       expect(() => predictRating([round(950, '2026-08-27', { id: 'x' }), round(950, '2026-08-20', { id: 'x' })])).toThrow(RangeError);

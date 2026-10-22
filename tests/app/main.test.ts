@@ -749,8 +749,8 @@ describe('app start', () => {
   it('edits a manual round from the Rounds card in place, and ends the edit when the round goes', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const rounds = [
-      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null, example: false },
-      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9, example: false },
+      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null, example: false, leftOut: false },
+      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9, example: false, leftOut: false },
     ];
     localStorage.setItem(
       STORAGE_KEY,
