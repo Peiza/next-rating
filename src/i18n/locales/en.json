@@ -383,7 +383,7 @@
   "guide.rounds.official": "Official rounds come from the player's ratings details on pdga.com. The report deadline does not apply to them.",
   "guide.rounds.unofficial": "Unofficial rounds come from event results that are not rated officially yet. PDGA shows unofficial round ratings there, and they can still change a little when the event becomes official.",
   "guide.rounds.manual": "Manual rounds are the ones you add yourself under Add a round, for example a round you expect to play at an upcoming event. They stay on this device.",
-  "guide.rounds.deadline": "Ratings are updated on the second Tuesday of each month and count events reported by the Sunday before ({rule}). Unofficial and manual rounds from events after that deadline count in the following update, and the round list says so.",
+  "guide.rounds.deadline": "Ratings are updated on the second Tuesday of each month and count events reported by the Sunday before ({rule}). Unofficial and manual rounds from events after that deadline count in the following update, and the round list says so. The Rating tab then also shows the prediction for that update, under the next one, and the chart adds it as one more step.",
   "guide.rounds.ruleLink": "when ratings are updated, on pdga.com",
   "guide.xtier.title": "Events the next update may not count",
   "guide.xtier.choose": "Unofficial rounds count in the prediction by default, but the next update may leave out an event. Under Rounds you can uncheck any unofficial event with one tap, and Why it changed then says what counting it would give. The choice is stored for each player on this device. There are three cases:",

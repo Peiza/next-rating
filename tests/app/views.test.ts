@@ -1373,6 +1373,12 @@ describe('bookmarklet setup', () => {
     }
   });
 
+  it('says the Rating tab and the chart also show the following update', () => {
+    const text = guideView({ onBack: vi.fn() }).querySelector('#guide-rounds')!.parentElement!.textContent!;
+    expect(text).toContain('count in the following update, and the round list says so. The Rating tab then also shows the prediction for that update');
+    expect(text).toContain('the chart adds it as one more step');
+  });
+
   it('keeps the PDGA term X-tier in Swedish and explains it once', () => {
     setLanguage('sv');
     const text = guideView({ onBack: vi.fn() }).querySelector('#guide-xtier')!.parentElement!.textContent!;
