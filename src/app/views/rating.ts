@@ -15,7 +15,7 @@ import {
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
-import { direction } from './change';
+import { direction, slope, slopeArrow } from './change';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
@@ -109,8 +109,9 @@ function nextUpdate({ update, deadline }: Model['nextUpdate']): HTMLElement {
 
 /**
  * The following update's prediction, when some rounds count there and not
- * in the next one: "Then 8 Dec: 985 ↑ +3". The change is from the next
- * update's prediction; the Rounds card says which rounds wait for it.
+ * in the next one: "Then 8 Dec: 985 ↗ +3". The change is from the next
+ * update's prediction; the Rounds card says which rounds wait for it. Its
+ * arrow is steeper and its tone stronger the larger the change.
  */
 function followingUpdate({ followingUpdate: { update }, following }: Model): HTMLElement | false {
   if (!following) return false;
@@ -118,11 +119,11 @@ function followingUpdate({ followingUpdate: { update }, following }: Model): HTM
   const params = { update: formatDayMonth(update) };
   const nodes: Record<string, Node> = { rating: el('strong', { class: 'following-rating' }, formatRating(rating)) };
   if (change !== null) {
-    const [dir, arrow] = direction(change);
+    const [dir] = direction(change);
     nodes.change = el(
       'span',
-      { class: `following-change change-${dir}` },
-      el('span', { class: 'change-arrow', 'aria-hidden': 'true' }, arrow),
+      { class: `following-change change-${dir} change-strength-${slope(change)}` },
+      slopeArrow(change),
       formatChange(change),
     );
   }

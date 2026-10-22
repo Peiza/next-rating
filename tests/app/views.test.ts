@@ -7,6 +7,7 @@ import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { GUIDE_SECTIONS, guideSectionId, guideView, type GuideProps } from '../../src/app/views/guide';
 import { ratingView, shownRounds } from '../../src/app/views/rating';
+import { slope, slopeArrow } from '../../src/app/views/change';
 import type { ListedResult } from '../../src/app/model';
 import type { RoundStatus } from '../../src/engine';
 import { chartData } from '../../src/app/chart';
@@ -534,19 +535,42 @@ describe('rating view', () => {
       const line = page.querySelector('#following-update')!;
       expect(line.previousElementSibling!.id).toBe('next-update');
       const { rating, change } = model.following!;
-      expect(line.textContent).toMatch(new RegExp(`^Then \\D*10\\D*: ${rating} ↑\\+${change}$`));
+      // The arrow is a drawing, so the text holds the sign alone.
+      expect(line.textContent).toMatch(new RegExp(`^Then \\D*10\\D*: ${rating} \\+${change}$`));
       expect(line.querySelector('.following-rating')!.textContent).toBe(String(rating));
       const shown = line.querySelector('.following-change')!;
-      expect(shown.className).toBe('following-change change-up');
-      expect(shown.querySelector('.change-arrow')!.getAttribute('aria-hidden')).toBe('true');
+      expect(shown.className).toBe(`following-change change-up change-strength-${slope(change!)}`);
+      const arrow = shown.querySelector('svg.slope-arrow')!;
+      expect(arrow.getAttribute('aria-hidden')).toBe('true');
+      expect(arrow.classList.contains(`slope-up-${slope(change!)}`)).toBe(true);
       // The next update's prediction stays as it was.
       expect(page.querySelector('#predicted')!.textContent).toBe('962');
     });
 
     it('marks a fall', () => {
       const line = view([manual('2026-10-20', 800), manual('2026-10-21', 800)]).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/^Then \D*10\D*: \d+ ↓−\d+$/);
+      expect(line.textContent).toMatch(/^Then \D*10\D*: \d+ −\d+$/);
       expect(line.querySelector('.following-change')!.classList.contains('change-down')).toBe(true);
+      expect(line.querySelector('svg.slope-arrow')!.getAttribute('class')).toMatch(/^slope-arrow slope-down-[123]$/);
+    });
+
+    it('slopes the arrow by the size of the change: shallow to 2, diagonal to 9, straight from 10', () => {
+      const sizes = [0, 1, 2, 3, 9, 10, 40];
+      expect(sizes.map(slope)).toEqual([0, 1, 1, 2, 2, 3, 3]);
+      expect(sizes.map((size) => slope(-size))).toEqual([0, 1, 1, 2, 2, 3, 3]);
+      const classes = (value: number) => slopeArrow(value).getAttribute('class');
+      expect([0, 2, 5, 12].map(classes)).toEqual(['slope-arrow', 'slope-arrow slope-up-1', 'slope-arrow slope-up-2', 'slope-arrow slope-up-3']);
+      expect([-1, -9, -10].map(classes)).toEqual(['slope-arrow slope-down-1', 'slope-arrow slope-down-2', 'slope-arrow slope-down-3']);
+    });
+
+    it('shows a larger change in a stronger tone', () => {
+      // One round near the prediction moves it a little, three high ones move it more.
+      const small = view([manual('2026-10-20', 975)]).view.querySelector('.following-change')!;
+      const large = view([manual('2026-10-20', 1100), manual('2026-10-21', 1100), manual('2026-10-22', 1100)]).view.querySelector('.following-change')!;
+      const strength = (shown: Element) => Number(/change-strength-(\d)/.exec(shown.className)![1]);
+      expect(strength(small)).toBeGreaterThan(0);
+      expect(strength(small)).toBeLessThan(strength(large));
+      expect(strength(large)).toBe(3);
     });
 
     it('shows the rating alone without a next prediction', () => {
@@ -581,7 +605,7 @@ describe('rating view', () => {
     it('is translated', () => {
       setLanguage('sv');
       const line = view([manual('2026-10-20')]).view.querySelector('#following-update')!;
-      expect(line.textContent).toMatch(/^Därefter \D*10\D*: \d+ ↑\+\d+$/);
+      expect(line.textContent).toMatch(/^Därefter \D*10\D*: \d+ \+\d+$/);
     });
   });
 
