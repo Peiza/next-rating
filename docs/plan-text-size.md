@@ -36,7 +36,8 @@ break words; built with wrapping rows instead of a container query, see 3).
 
 ## 2b. Headings and large numbers change by half as much
 - Every size of 1.25rem or more (h1, h2, the predicted rating, the Top 8
-  figures, round ratings, ratings in the players list) is multiplied by
+  figures, round ratings, ratings in the players list, the target answer's
+  figure) is multiplied by
   `--display-scale`, which main.ts sets on <html> with the size:
   (S + D) / (2 × S) for size S and device size D (`displayScale` in
   text-size.ts). Such a size then changes by half as much as body text: at
@@ -122,3 +123,14 @@ is left above the code's label.
   (`.range-row`): the slider gives way (`flex: 1 1 0; min-width: 0`), the
   button keeps one line (`white-space: nowrap`), so the row never wraps. The
   hint says what Reset does: "Reset goes back to the device's size."
+- Target calculator: every line of the answer was bold (`.status`), so the
+  key result was lost. Now the answer leads with one large figure
+  (`.target-figure`, the only bold): the average needed, or when the target
+  is already reached, the rating it reaches. A sentence in normal weight
+  says what the figure is ("Average round rating needed in your next 3
+  rounds to reach 1000 at the 10 Nov update."), then muted notes: what keeps
+  a reached target, the date and report deadline ("Last round on …, report
+  deadline 8 Nov.", or the missed-deadline sentence) and the rounds that
+  leave the window, their ratings in normal weight. Out of reach has no
+  figure: "Out of reach in 3 rounds." is the bold line, then "Even 3 rounds
+  rated 1150 give 991 at the 10 Nov update." Errors stay bold.

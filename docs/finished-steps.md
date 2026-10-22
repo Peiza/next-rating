@@ -417,7 +417,8 @@ Built as (docs/plan-target-date.md):
   round on … misses the 8 Nov report deadline, so this is for the 8 Dec
   update."), and ends with the rounds that leave the window, oldest first,
   or "No rounds leave the window by …". The hint follows the date field as
-  it changes.
+  it changes. (The large text polish later put the key figure first and the
+  update in a muted note: docs/plan-text-size.md.)
 
 ## Phone polish and Top 8 with manual rounds
 Spec:

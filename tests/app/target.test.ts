@@ -66,12 +66,17 @@ function answer(result: Partial<TargetAnswer['result']>, extra: Partial<TargetAn
   };
 }
 
-/** The first line of an answer for 3 rounds with the last one today, and the last line when no round leaves. */
-const UPDATE_LINE = `With the last round on ${ON_TODAY}, this is for the ${NOV_10} update (report deadline ${NOV_8}).`;
+/** The date note of an answer for 3 rounds with the last one today, and the last note when no round leaves. */
+const UPDATE_LINE = `Last round on ${ON_TODAY}, report deadline ${NOV_8}.`;
 const NONE_LINE = `No rounds leave the window by ${ON_TODAY}.`;
 
 function lines(view: HTMLElement): string[] {
   return [...view.querySelectorAll('#target-status p')].map((p) => p.textContent!);
+}
+
+/** Each line of the answer with its class: the figure, the sentence saying what it is, or a muted note. */
+function parts(view: HTMLElement): [string, string][] {
+  return [...view.querySelectorAll('#target-status p')].map((p) => [p.className, p.textContent!]);
 }
 
 function submit(view: HTMLElement) {
@@ -276,51 +281,78 @@ describe('target calculator view', () => {
     expect(onDraft).toHaveBeenCalledWith('target', '995');
   });
 
-  it('names the update for the date, then the average needed', () => {
+  it('shows the average needed as the figure, then what it is, then the date and deadline', () => {
     const view = calculator(props({ answer: answer({}) }));
-    expect(lines(view)).toEqual([
-      UPDATE_LINE,
-      `Average at least 1012 in the next 3 rounds to reach 1000 at the ${NOV_10} update.`,
-      NONE_LINE,
+    expect(parts(view)).toEqual([
+      ['target-figure', '1012'],
+      ['target-lead', `Average round rating needed in your next 3 rounds to reach 1000 at the ${NOV_10} update.`],
+      ['target-note', UPDATE_LINE],
+      ['target-note', NONE_LINE],
     ]);
     const one = calculator(props({ answer: answer({}, { query: { target: 1000, count: 1, date: TODAY } }) }));
     expect(lines(one)).toEqual([
-      `With the round on ${ON_TODAY}, this is for the ${NOV_10} update (report deadline ${NOV_8}).`,
-      `Rate at least 1012 in the next round to reach 1000 at the ${NOV_10} update.`,
+      '1012',
+      `Round rating needed in your next round to reach 1000 at the ${NOV_10} update.`,
+      `Round on ${ON_TODAY}, report deadline ${NOV_8}.`,
       NONE_LINE,
     ]);
   });
 
-  it('says when it is already reached, and what keeps it', () => {
+  it('shows the rating already reached as the figure, and what keeps it as a note', () => {
     const view = calculator(props({ answer: answer({ without: 1003, reached: true, average: 982 }) }));
-    expect(lines(view)).toEqual([
-      UPDATE_LINE,
-      `Already reached: 1003 at the ${NOV_10} update without new rounds.`,
-      'To stay at 1000 or above after 3 more rounds, average at least 982.',
-      NONE_LINE,
+    expect(parts(view)).toEqual([
+      ['target-figure', '1003'],
+      ['target-lead', `Already reached at the ${NOV_10} update, without new rounds.`],
+      ['target-note', 'To stay at 1000 or above after 3 more rounds, average at least 982.'],
+      ['target-note', UPDATE_LINE],
+      ['target-note', NONE_LINE],
     ]);
     const any = calculator(props({ answer: answer({ without: 1003, reached: true, average: 0 }) }));
     expect(lines(any)[2]).toBe('Any 3 rounds keep it at 1000 or above.');
   });
 
-  it('says when it is out of reach', () => {
+  it('says when it is out of reach, with no figure', () => {
     const view = calculator(props({ answer: answer({ average: null, rating: 991 }) }));
-    expect(lines(view)).toEqual([UPDATE_LINE, 'Out of reach in 3 rounds: even 3 rounds rated 1150 give 991.', NONE_LINE]);
+    expect(parts(view)).toEqual([
+      ['target-strong', 'Out of reach in 3 rounds.'],
+      ['target-lead', `Even 3 rounds rated 1150 give 991 at the ${NOV_10} update.`],
+      ['target-note', UPDATE_LINE],
+      ['target-note', NONE_LINE],
+    ]);
+  });
+
+  it('writes the answer in Swedish', () => {
+    setLanguage('sv');
+    const view = calculator(props({ answer: answer({}) }));
+    expect(lines(view)).toEqual([
+      '1012',
+      `Snitt i rundrating som krävs på dina nästa 3 rundor för att nå 1000 i uppdateringen ${formatDayMonth(NOVEMBER.update)}.`,
+      `Sista rundan ${formatDate(TODAY)}, sista rapportdag ${formatDayMonth(NOVEMBER.deadline)}.`,
+      `Inga rundor hamnar utanför perioden senast ${formatDate(TODAY)}.`,
+    ]);
+    const out = calculator(props({ answer: answer({ average: null, rating: 991 }) }));
+    expect(lines(out).slice(0, 2)).toEqual([
+      'Går inte att nå på 3 rundor.',
+      `Även 3 rundor på 1150 ger 991 i uppdateringen ${formatDayMonth(NOVEMBER.update)}.`,
+    ]);
   });
 
   it('says when the date misses a report deadline', () => {
     const query = { target: 1000, count: 3, date: '2026-11-09' };
     const view = calculator(props({ answer: answer({}, { query, update: DECEMBER, missed: NOVEMBER.deadline }) }));
-    expect(lines(view).slice(0, 2)).toEqual([
-      `A last round on ${formatDate('2026-11-09')} misses the ${NOV_8} report deadline, so this is for the ${DEC_8} update.`,
-      `Average at least 1012 in the next 3 rounds to reach 1000 at the ${DEC_8} update.`,
+    expect(parts(view).slice(1, 3)).toEqual([
+      ['target-lead', `Average round rating needed in your next 3 rounds to reach 1000 at the ${DEC_8} update.`],
+      [
+        'target-note',
+        `A last round on ${formatDate('2026-11-09')} misses the ${NOV_8} report deadline, so this is for the ${DEC_8} update.`,
+      ],
     ]);
   });
 
   it('lists the rounds that leave the window, with their ratings', () => {
     const leaving = manualToRounds([OLD_MANUAL]);
     const view = calculator(props({ answer: answer({}, { leaving }) }));
-    expect(lines(view).at(-2)).toBe(`Rounds that leave the window by ${ON_TODAY}:`);
+    expect(parts(view).at(-2)).toEqual(['target-note', `Rounds that leave the window by ${ON_TODAY}:`]);
     const items = [...view.querySelectorAll('#target-status li')].map((item) => [
       item.querySelector('.leaving-rating')!.textContent,
       item.querySelector('.leaving-meta')!.textContent,

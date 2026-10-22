@@ -56,8 +56,8 @@ describe('text size', () => {
   it('scales every size of 1.25rem or 1.25em or more in styles.css by --display-scale', () => {
     const sizes = [...css.matchAll(/font-size:\s*([^;]+);/g)].map((match) => match[1]!);
     const large = sizes.filter((value) => [...value.matchAll(/([\d.]+)r?em/g)].some((size) => Number(size[1]) >= 1.25));
-    // Six in rem, and How it works' h1 and h2 in em.
-    expect(large).toHaveLength(8);
+    // Seven in rem, and How it works' h1 and h2 in em.
+    expect(large).toHaveLength(9);
     for (const value of large) expect(value).toContain('var(--display-scale, 1)');
   });
 });

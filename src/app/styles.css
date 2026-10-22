@@ -1564,9 +1564,18 @@ a {
   margin: 0;
 }
 
-/* Target calculator: the answer is a few sentences in the status line. */
+/* Target calculator: the answer in the status line, one large figure and a sentence, then muted notes. */
 .target-form > .hint {
   margin-bottom: 1rem;
+}
+
+/* The key figure is the only bold; an error stays bold, as every status line. */
+.target-answer {
+  font-weight: 400;
+}
+
+.target-answer.error {
+  font-weight: 700;
 }
 
 .target-answer > p {
@@ -1575,6 +1584,24 @@ a {
 
 .target-answer > p:last-child {
   margin-bottom: 0;
+}
+
+.target-answer > .target-figure {
+  margin: 0;
+  font-size: calc(2.25rem * var(--display-scale, 1));
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Out of reach has no figure; its first line takes the bold. */
+.target-strong {
+  font-weight: 700;
+}
+
+.target-note {
+  color: var(--text-muted);
 }
 
 /* The rounds that leave the window: rating left, event and date right. */
@@ -1597,7 +1624,6 @@ a {
 }
 
 .leaving-rating {
-  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
