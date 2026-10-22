@@ -113,10 +113,12 @@ change, from stored data only, the same model as the Rating tab), and the
 following update (when some rounds count only in the update after the next
 one, its prediction under the next update and as one more step in the
 chart, with the change from the next prediction; the players list keeps the
-next update only), and the text size (a slider in Settings, 14–22 px or
-the device's size, applied when let go; segmented controls, date ranges,
-Top 8 figures and titles stay whole at large text; the chart grows with the
-text; the Ko-fi link at the bottom of the Rating tab too).
+next update only), and the text size (a "Body text size" slider in
+Settings, 14–22 px or the device's size, applied when let go; headings and
+large numbers change by half as much; segmented controls, date ranges, Top
+8 figures and titles stay whole at large text; the chart grows with the
+text; the Ko-fi link at the bottom of the Rating tab too, with the same
+spacing in every view).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
