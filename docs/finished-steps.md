@@ -796,8 +796,8 @@ Built as (docs/plan-computer-android-polish.md):
   A card chart not yet measured is limited to 200–320px high (CARD_HEIGHT),
   so the page keeps its height when the chart is drawn again.
 - `shownRounds()` in views/rating.ts; `RatingProps.rounds` with `expanded`
-  and `onExpand`, and `roundsExpanded` in main.ts, reset when another player
-  is shown. `#rounds-more` uses `rounds.more.one|other`; the first round it
+  and `onExpand`, and `roundsExpanded` in main.ts, reset when the Rounds
+  card is closed (`toggleCard`) or another player is shown. `#rounds-more` uses `rounds.more.one|other`; the first round it
   adds is `#rounds-next` with `tabindex="-1"` and gets focus.
 - CLAUDE.md "Process": the branch routine at the start of a step, and pull
   requests opened with gh.
