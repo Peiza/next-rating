@@ -63,23 +63,24 @@ describe('text size', () => {
 });
 
 describe('How it works text size', () => {
-  it('offers steps from -8 to +14 and sizes from 14 to 28 px', () => {
-    expect(GUIDE_TEXT_STEPS).toEqual([-8, 14]);
-    expect(GUIDE_TEXT_SIZES).toEqual([14, 28]);
+  it('offers steps from -8 to +18 and sizes from 14 to 32 px', () => {
+    expect(GUIDE_TEXT_STEPS).toEqual([-8, 18]);
+    expect(GUIDE_TEXT_SIZES).toEqual([14, 32]);
   });
 
-  it('shows the app’s size at step 0, and adds the step in whole pixels within 14 to 28', () => {
+  it('shows the app’s size at step 0, and adds the step in whole pixels within 14 to 32', () => {
     expect(guideTextSize(17, 0)).toBe(17);
     expect(guideTextSize(16.8, 0)).toBe(16.8);
     expect(guideTextSize(17, 3)).toBe(20);
     expect(guideTextSize(16.8, 1)).toBe(18);
-    expect(guideTextSize(22, 14)).toBe(28);
-    expect(guideTextSize(14, 14)).toBe(28);
+    expect(guideTextSize(22, 14)).toBe(32);
+    expect(guideTextSize(22, 18)).toBe(32);
+    expect(guideTextSize(14, 18)).toBe(32);
     expect(guideTextSize(22, -8)).toBe(14);
     expect(guideTextSize(15, -8)).toBe(14);
   });
 
-  it('never takes the page past an app size outside 14 to 28 the wrong way', () => {
+  it('never takes the page past an app size outside 14 to 32 the wrong way', () => {
     // A large iPhone accessibility size.
     expect(guideTextSize(33, 0)).toBe(33);
     expect(guideTextSize(33, 3)).toBe(33);
@@ -92,17 +93,18 @@ describe('How it works text size', () => {
     expect(nextGuideStep(17, 0, 1)).toBe(1);
     expect(nextGuideStep(17, 0, -1)).toBe(-1);
     expect(nextGuideStep(16.8, 0, 1)).toBe(1);
-    // 22 + 14 shows 28: A− shows 27, and A+ changes nothing.
-    expect(nextGuideStep(22, 14, -1)).toBe(5);
-    expect(guideTextSize(22, nextGuideStep(22, 14, 1))).toBe(28);
+    // 22 + 18 shows 32: A− shows 31, and A+ changes nothing.
+    expect(nextGuideStep(22, 18, -1)).toBe(9);
+    expect(guideTextSize(22, nextGuideStep(22, 18, 1))).toBe(32);
     // From 23 px (Dynamic Type), the smallest step shows 15.
     expect(nextGuideStep(23, -8, -1)).toBe(-8);
   });
 
   it('disables A− and A+ where they would change nothing', () => {
     expect([canStepGuide(17, 0, -1), canStepGuide(17, 0, 1)]).toEqual([true, true]);
-    expect(canStepGuide(17, 11, 1)).toBe(false);
-    expect(canStepGuide(22, 14, -1)).toBe(true);
+    expect(canStepGuide(17, 11, 1)).toBe(true);
+    expect(canStepGuide(17, 15, 1)).toBe(false);
+    expect(canStepGuide(22, 18, -1)).toBe(true);
     expect(canStepGuide(22, -8, -1)).toBe(false);
     expect(canStepGuide(23, -8, -1)).toBe(false);
     expect(canStepGuide(33, 0, 1)).toBe(false);

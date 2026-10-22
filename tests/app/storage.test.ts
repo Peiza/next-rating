@@ -423,8 +423,8 @@ describe('Rating tab settings', () => {
 
   it('show How it works at the app’s text size unless a step in the range is stored', () => {
     expect(validateData({}).guideTextStep).toBe(0);
-    for (const step of [-8, 0, 3, 14]) expect(validateData({ guideTextStep: step }).guideTextStep).toBe(step);
-    for (const bad of [-9, 15, 1.5, '2', Number.NaN, null, true]) expect(validateData({ guideTextStep: bad }).guideTextStep).toBe(0);
+    for (const step of [-8, 0, 3, 14, 18]) expect(validateData({ guideTextStep: step }).guideTextStep).toBe(step);
+    for (const bad of [-9, 19, 1.5, '2', Number.NaN, null, true]) expect(validateData({ guideTextStep: bad }).guideTextStep).toBe(0);
   });
 
   it('keep the chart table closed unless open is stored', () => {

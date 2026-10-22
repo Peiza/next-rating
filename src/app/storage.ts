@@ -27,9 +27,9 @@ export const TEXT_SIZES = [14, 22] as const;
 
 /**
  * How many pixels How it works adds to the app's text size with A− / A+:
- * enough to reach 28 px from 14 and 14 px from 22 (text-size.ts).
+ * enough to reach 32 px from 14 and 14 px from 22 (text-size.ts).
  */
-export const GUIDE_TEXT_STEPS = [-8, 14] as const;
+export const GUIDE_TEXT_STEPS = [-8, 18] as const;
 
 /** How the players panel orders favorites after "me": by name, or newest import first. */
 export const PLAYER_ORDERS = ['name', 'updated'] as const;

@@ -1882,24 +1882,24 @@ describe('how it works', () => {
     expect(reset.disabled).toBe(true);
   });
 
-  it('stops at 28 and 14 px, moving focus off a button it disables', () => {
+  it('stops at 32 and 14 px, moving focus off a button it disables', () => {
     const onTextStep = vi.fn();
-    const view = document.body.appendChild(guidePage({ textStep: 10, onTextStep }));
+    const view = document.body.appendChild(guidePage({ textStep: 14, onTextStep }));
     const { smaller, larger } = textTools(view);
     larger.focus();
     larger.click();
-    expect(onTextStep).toHaveBeenLastCalledWith(11);
-    expect(view.style.fontSize).toBe('28px');
+    expect(onTextStep).toHaveBeenLastCalledWith(15);
+    expect(view.style.fontSize).toBe('32px');
     expect(larger.disabled).toBe(true);
     expect(document.activeElement).toBe(smaller);
     view.remove();
 
-    // From 22 px, the largest step shows 28, and A− shows 27.
-    const cut = guidePage({ baseTextSize: 22, textStep: 14, onTextStep });
-    expect(cut.style.fontSize).toBe('28px');
+    // From 22 px, the largest step shows 32, and A− shows 31.
+    const cut = guidePage({ baseTextSize: 22, textStep: 18, onTextStep });
+    expect(cut.style.fontSize).toBe('32px');
     textTools(cut).smaller.click();
-    expect(onTextStep).toHaveBeenLastCalledWith(5);
-    expect(cut.style.fontSize).toBe('27px');
+    expect(onTextStep).toHaveBeenLastCalledWith(9);
+    expect(cut.style.fontSize).toBe('31px');
 
     const smallest = guidePage({ baseTextSize: 22, textStep: -8 });
     expect(smallest.style.fontSize).toBe('14px');

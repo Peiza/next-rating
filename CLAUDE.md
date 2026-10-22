@@ -119,7 +119,7 @@ large numbers change by half as much; segmented controls, date ranges, Top
 8 figures and titles stay whole at large text; the chart grows with the
 text; the Ko-fi link at the bottom of the Rating tab too, with the same
 spacing in every view), and the How it works text size (A− / A+ and Reset
-under its heading, 14–28 px on that page only, a stored step on top of
+under its heading, 14–32 px on that page only, a stored step on top of
 Body text size, changed in place; the bookmarklet's code box closer to its
 Copy button).
 

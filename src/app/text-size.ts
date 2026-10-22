@@ -43,9 +43,9 @@ export function displayScale(textSize: number | null, deviceSize: number): numbe
  */
 
 /** The sizes How it works offers, in CSS pixels. */
-export const GUIDE_TEXT_SIZES = [14, 28] as const;
+export const GUIDE_TEXT_SIZES = [14, 32] as const;
 
-/** 14 to 28 px, widened to include the app's size, so a tap never takes the page past it the wrong way. */
+/** 14 to 32 px, widened to include the app's size, so a tap never takes the page past it the wrong way. */
 function guideRange(base: number): readonly [number, number] {
   const [min, max] = GUIDE_TEXT_SIZES;
   return [Math.min(min, base), Math.max(max, base)];
@@ -62,8 +62,8 @@ export function guideTextSize(base: number, step: number): number {
 
 /**
  * The step after A− (delta -1) or A+ (+1): one pixel from the size shown,
- * not from the step stored, which the range may have cut (22 + 14 shows 28,
- * and A− shows 27).
+ * not from the step stored, which the range may have cut (22 + 18 shows 32,
+ * and A− shows 31).
  */
 export function nextGuideStep(base: number, step: number, delta: number): number {
   const size = clamp(Math.round(guideTextSize(base, step)) + delta, guideRange(base));

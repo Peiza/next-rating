@@ -80,20 +80,21 @@ corner button and 18 px icon. Media queries (48rem, 64rem, 40rem high)
 measure in the browser's default size, so breakpoints stay where they are.
 
 ## Part 2 (built): A− / A+ on How it works
-- `AppData.guideTextStep`, -8..+14 (`GUIDE_TEXT_STEPS` in storage.ts),
-  default 0. The page's size is clamp(global size + step, 14, 28)
+- `AppData.guideTextStep`, -8..+18 (`GUIDE_TEXT_STEPS` in storage.ts),
+  default 0. The page's size is clamp(global size + step, 14, 32)
   (`guideTextSize` in text-size.ts): this page may go above the 22 px the
   Settings slider stops at, for reading. The global size is the size picked
-  in Settings or the device's. The step range reaches 28 from 14 and 14 from
-  22. The step stays when the global size changes.
+  in Settings or the device's. The step range reaches 32 from 14 and 14 from
+  22. The step stays when the global size changes. (Built with 28 px and
+  +14 at most, raised to 32 px after phone testing; stored steps stay valid.)
 - At step 0 the page has no size of its own and follows the app exactly.
-  Otherwise whole pixels. When the app's own size is outside 14–28 (the larger
+  Otherwise whole pixels. When the app's own size is outside 14–32 (the larger
   iPhone accessibility Dynamic Type sizes, a tiny browser default), the range
   widens to include it, so a tap never takes the page past the app's size
   the wrong way.
 - A− and A+ step one pixel from the size shown (`nextGuideStep`), not from
-  the step stored, which the range may have cut: 22 + 14 shows 28, and A−
-  then shows 27 (step +5). A button is disabled where it would change
+  the step stored, which the range may have cut: 22 + 18 shows 32, and A−
+  then shows 31 (step +9). A button is disabled where it would change
   nothing (`canStepGuide`), Reset at step 0.
 - The `.guide` section gets the size in px and its own `--display-scale`
   (`displayScale(size, device size)`), so headings still change by half as

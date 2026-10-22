@@ -1026,6 +1026,6 @@ Built in this order:
 - Text size: a slider in Settings, layouts that stay whole at large text,
   the chart growing with the text, and the Ko-fi link on the Rating tab
   (docs/plan-text-size.md, part 1) (done)
-- How it works text size: A− / A+ and Reset, 14–28 px on that page on top
+- How it works text size: A− / A+ and Reset, 14–32 px on that page on top
   of Body text size, and the bookmarklet's code box closer to its Copy
   button (docs/plan-text-size.md, part 2) (done)
