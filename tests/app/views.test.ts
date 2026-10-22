@@ -185,7 +185,7 @@ describe('settings view', () => {
   it('offers text sizes from 14 to 22 px in whole pixels, following the device by default', () => {
     const view = settingsView({ ...props, deviceTextSize: 15 });
     const slider = view.querySelector<HTMLInputElement>('#text-size')!;
-    expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Text size');
+    expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Body text size');
     expect([slider.type, slider.min, slider.max, slider.step, slider.value]).toEqual(['range', '14', '22', '1', '15']);
     expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatic (15)');
     expect(slider.getAttribute('aria-valuetext')).toBe('Automatic (15)');
@@ -222,7 +222,7 @@ describe('settings view', () => {
   it('names the text size in Swedish', () => {
     setLanguage('sv');
     const view = settingsView(props);
-    expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Textstorlek');
+    expect(view.querySelector('label[for="text-size"]')!.textContent).toBe('Brödtextstorlek');
     expect(view.querySelector('#text-size-value')!.textContent).toBe('Automatiskt (17)');
     expect(view.querySelector('#text-size-reset')!.textContent).toBe('Använd enhetens storlek');
   });
@@ -303,6 +303,9 @@ describe('settings view', () => {
     expect(link.parentElement!.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
     expect(link.getAttribute('rel')).toBe('noreferrer');
     expect(link.hasAttribute('target')).toBe(false);
+    // The class gives the line the same spacing as in the other views.
+    expect(link.parentElement!.className).toBe('support');
+    expect(view.querySelectorAll('.support')).toHaveLength(1);
     expect(link.parentElement!.nextElementSibling).toBe(view.lastElementChild);
   });
 });
@@ -361,6 +364,8 @@ describe('rating view', () => {
     expect(link.parentElement!.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
     expect(link.getAttribute('rel')).toBe('noreferrer');
     expect(link.hasAttribute('target')).toBe(false);
+    expect(link.parentElement!.className).toBe('support');
+    expect(view.querySelectorAll('.support')).toHaveLength(1);
     expect(link.parentElement!.nextElementSibling).toBe(view.lastElementChild);
     expect(view.lastElementChild!.className).toBe('notice');
     setLanguage('sv');
@@ -1787,6 +1792,8 @@ describe('how it works', () => {
     const view = guideView({ onBack: vi.fn() });
     const support = view.querySelector(`a[href="${KOFI_URL}"]`)!.parentElement!;
     expect(support.textContent).toBe('Like Next Rating? Buy me a coffee on Ko-fi');
+    expect(support.className).toBe('support');
+    expect(view.querySelectorAll('.support')).toHaveLength(1);
     expect(support.nextElementSibling!.id).toBe('guide-back');
   });
 

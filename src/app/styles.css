@@ -105,6 +105,13 @@ html {
   }
 }
 
+/*
+ * A body text size from Settings is set on <html> (main.ts), with
+ * --display-scale: every size of 1.25rem or more is multiplied by it, so
+ * headings and large numbers change by half as much as body text
+ * (text-size.ts). tests/app/text-size.test.ts checks every such size.
+ */
+
 body {
   margin: 0;
   background: var(--bg);
@@ -124,14 +131,14 @@ body {
 }
 
 h1 {
-  font-size: 1.75rem;
+  font-size: calc(1.75rem * var(--display-scale, 1));
   font-weight: 800;
   line-height: 1.2;
   margin: 0.5rem 0 0.75rem;
 }
 
 h2 {
-  font-size: 1.3rem;
+  font-size: calc(1.3rem * var(--display-scale, 1));
   font-weight: 800;
   line-height: 1.25;
   margin: 1.75rem 0 0.75rem;
@@ -623,7 +630,7 @@ a {
 
 .predicted {
   margin: 0;
-  font-size: 4.5rem;
+  font-size: calc(4.5rem * var(--display-scale, 1));
   font-weight: 800;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
@@ -1313,7 +1320,7 @@ a {
 
 .top8-figure dd {
   margin: 0;
-  font-size: min(1.75rem, 9.5vw);
+  font-size: min(calc(1.75rem * var(--display-scale, 1)), 9.5vw);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -1406,7 +1413,7 @@ a {
 }
 
 .round-rating {
-  font-size: 1.4rem;
+  font-size: calc(1.4rem * var(--display-scale, 1));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -1747,7 +1754,7 @@ a {
 }
 
 .player-rating {
-  font-size: 1.25rem;
+  font-size: calc(1.25rem * var(--display-scale, 1));
   font-weight: 800;
   line-height: 1.2;
 }
@@ -1988,4 +1995,17 @@ a {
   padding: 0.75rem 0;
   font-weight: 700;
   cursor: pointer;
+}
+
+/*
+ * The Ko-fi line (views/support.ts): the same space in every view, closer to
+ * what follows it (the unofficial notice, or Back) than to what is above.
+ * Last, so it wins over that element's own top margin.
+ */
+.support {
+  margin: 1.75rem 0 1rem;
+}
+
+.view > .support + * {
+  margin-top: 1rem;
 }

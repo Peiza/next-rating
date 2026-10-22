@@ -20,6 +20,8 @@ break words; built with wrapping rows instead of a container query, see 3).
   the device size; 1 while following the device).
 
 ## 2. Settings slider
+- Named "Body text size" ("Brödtextstorlek"): headings and large numbers
+  change by half as much (2b).
 - After Theme: the label with the value ("17", or "Automatic (17)" while
   following the device), a range input 14–22 in steps of 1, a hint, a sample
   line and "Use the device's size", disabled while following the device.
@@ -29,6 +31,17 @@ break words; built with wrapping rows instead of a container query, see 3).
 - main.ts `applyTextSize`: reads the device size with the inline size taken
   off, then sets `font-size` in px on <html> (CSSOM, which the CSP allows),
   which wins over all three size rules in styles.css.
+
+## 2b. Headings and large numbers change by half as much
+- Every size of 1.25rem or more (h1, h2, the predicted rating, the Top 8
+  figures, round ratings, ratings in the players list) is multiplied by
+  `--display-scale`, which main.ts sets on <html> with the size:
+  (S + D) / (2 × S) for size S and device size D (`displayScale` in
+  text-size.ts). Such a size then changes by half as much as body text: at
+  22 px on a phone, the predicted rating is 4.5 × 19.5 px instead of 4.5 ×
+  22. While following the device the variable is not set and the factor is 1.
+- Card titles (1.15rem) change like body text, so they never shrink to it.
+- A test checks every size of 1.25rem or more in styles.css.
 
 ## 3. Large text on narrow phones
 Everything is in rem, so at size S a phone W px wide lays out like a
@@ -56,7 +69,9 @@ screen pixels. The device size and the scale are read in `applyTextSize`.
 
 ## 5. Ko-fi on the Rating tab
 `supportLink()` at the bottom of the Rating tab, before the unofficial
-notice, as in Settings. No new text.
+notice, as in Settings. No new text. In every view the line has class
+`support` with one shared spacing: 1.75rem above, 1rem to what follows (the
+notice, or Back on How it works).
 
 ## Not scaled, on purpose
 Borders, outlines, underlines, strokes, the shadow, the chart's 36 px
@@ -64,9 +79,11 @@ corner button and 18 px icon. Media queries (48rem, 64rem, 40rem high)
 measure in the browser's default size, so breakpoints stay where they are.
 
 ## Part 2 (after part 1 is merged): A− / A+ on How it works
-- `AppData.guideTextStep`, -8..+8, default 0. The page's size is
-  clamp(global size + step, 14, 22); A− / A+ are disabled at the limits,
-  Reset at 0. The step stays when the global size changes.
+- `AppData.guideTextStep`, -8..+14, default 0. The page's size is
+  clamp(global size + step, 14, 28): this page may go above the 22 px the
+  Settings slider stops at, for reading. A− is disabled at 14, A+ at 28,
+  Reset at 0. The step range reaches 28 from 14 and 14 from 22. The step
+  stays when the global size changes.
 - The `.guide` section gets the size in px; its headings and list padding
   move to em so they follow. A toolbar at the top, updated in place so
   scroll and focus stay. Labels from the catalog in English and Swedish.

@@ -73,7 +73,7 @@
   "settings.themeDevice": "Device",
   "settings.themeLight": "Light",
   "settings.themeDark": "Dark",
-  "settings.textSize": "Text size",
+  "settings.textSize": "Body text size",
   "settings.textSizeAuto": "Automatic ({size})",
   "settings.textSizeHint": "The whole app changes when you let go.",
   "settings.textSizeSample": "This is how large the text will be.",
