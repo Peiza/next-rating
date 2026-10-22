@@ -79,9 +79,11 @@ corner button and 18 px icon. Media queries (48rem, 64rem, 40rem high)
 measure in the browser's default size, so breakpoints stay where they are.
 
 ## Part 2 (after part 1 is merged): A− / A+ on How it works
-- `AppData.guideTextStep`, -8..+8, default 0. The page's size is
-  clamp(global size + step, 14, 22); A− / A+ are disabled at the limits,
-  Reset at 0. The step stays when the global size changes.
+- `AppData.guideTextStep`, -8..+14, default 0. The page's size is
+  clamp(global size + step, 14, 28): this page may go above the 22 px the
+  Settings slider stops at, for reading. A− is disabled at 14, A+ at 28,
+  Reset at 0. The step range reaches 28 from 14 and 14 from 22. The step
+  stays when the global size changes.
 - The `.guide` section gets the size in px; its headings and list padding
   move to em so they follow. A toolbar at the top, updated in place so
   scroll and focus stay. Labels from the catalog in English and Swedish.
