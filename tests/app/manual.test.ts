@@ -111,12 +111,17 @@ describe('readManualRound', () => {
   });
 });
 
-function ratingPage(manual: ManualProps, open = false, onEditManual?: (id: string) => void): HTMLElement {
+function ratingPage(
+  manual: ManualProps,
+  open = false,
+  onEditManual?: (id: string) => void,
+  onCountManual?: (id: string, counted: boolean) => void,
+): HTMLElement {
   const stored: StoredImport = { at: '2026-10-19T10:00:00.000Z', player: rawPlayer(), details: [rawDetailsRow()], events: [] };
   const now = new Date('2026-10-20T10:00:00.000Z');
   const model = buildModel(stored, 100001, now, manualToRounds(manual.rounds));
   const cards = { ...DEFAULT_CARDS, manual: open };
-  return ratingView({ model, manual, cards, favorite: true, now, onAddFavorite: vi.fn(), onEditManual });
+  return ratingView({ model, manual, cards, favorite: true, now, onAddFavorite: vi.fn(), onEditManual, onCountManual });
 }
 
 describe('manual entry view', () => {
@@ -332,6 +337,44 @@ describe('manual entry view', () => {
     expect(row.querySelector('.round-meta')!.textContent).not.toContain('Manual');
     row.click();
     expect(onEditManual).toHaveBeenCalledWith('m2');
+  });
+
+  it('gives each manual round in the Rounds card a Count checkbox at its start, but not example rounds', () => {
+    const rounds = [ROUNDS[0]!, { ...ROUNDS[1]!, leftOut: true }, { ...ROUNDS[1]!, id: 'm3', example: true }];
+    const onEditManual = vi.fn();
+    const onCountManual = vi.fn();
+    const view = ratingPage(props({ rounds }), false, onEditManual, onCountManual);
+    const boxes = [...view.querySelectorAll<HTMLInputElement>('#rounds input[type="checkbox"]')];
+    expect(boxes.map((box) => [box.id, box.checked])).toEqual([
+      ['round-count-m2', false],
+      ['round-count-m1', true],
+    ]);
+    expect(boxes[1]!.getAttribute('aria-label')).toMatch(/^Count round 950 from /);
+    const row = boxes[0]!.closest('li')!;
+    expect(row.firstElementChild!.matches('label.round-check')).toBe(true);
+    expect(row.matches('.round-countable.round-left-out')).toBe(true);
+    expect(row.querySelector('.round-status')!.textContent).toContain('Left out by you');
+    expect(view.querySelector('#round-edit-m3')!.closest('li')!.querySelector('input')).toBeNull();
+    expect(view.querySelectorAll('#rounds .round-countable')).toHaveLength(2);
+
+    // A tap on the checkbox counts the round, and never opens it for editing.
+    boxes[0]!.click();
+    boxes[0]!.dispatchEvent(new Event('change'));
+    expect(onCountManual).toHaveBeenCalledWith('m2', true);
+    expect(onEditManual).not.toHaveBeenCalled();
+    // A tap elsewhere on the row still edits it.
+    row.querySelector<HTMLElement>('.round-meta')!.click();
+    expect(onEditManual).toHaveBeenCalledWith('m2');
+
+    // Without the handler, no row has a checkbox.
+    expect(ratingPage(props({ rounds }), false, onEditManual).querySelector('.round-check')).toBeNull();
+  });
+
+  it('says "Left out" in its list for an unticked round, which has no checkbox there', () => {
+    const list = entry(props({ rounds: [ROUNDS[0]!, { ...ROUNDS[1]!, leftOut: true }] }));
+    expect(list.querySelector('#manual-edit-m2')!.closest('li')!.querySelector('.round-meta')!.textContent).toMatch(/ · Left out$/);
+    expect(list.querySelector('#manual-edit-m1')!.closest('li')!.querySelector('.round-meta')!.textContent).not.toContain('Left out');
+    expect(list.querySelector('input[type="checkbox"]')).toBeNull();
   });
 
   it('removes the example rounds beside Delete all, only when there are some', () => {

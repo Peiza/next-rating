@@ -1512,6 +1512,40 @@ a {
   margin-top: 0.5rem;
 }
 
+/*
+ * A manual round's Count checkbox at the start of the row, the same box as
+ * the unofficial events' (.check input). Its label is the tap target, 2.75rem
+ * square so it grows with the text size, centred on the rating's line.
+ */
+.round-countable {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.25rem;
+  align-items: start;
+}
+
+.round-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin: -0.5rem 0 0 -0.625rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.round-check input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.round-body {
+  min-width: 0;
+}
+
 .round-main {
   display: flex;
   align-items: baseline;

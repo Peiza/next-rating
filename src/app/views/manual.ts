@@ -265,6 +265,7 @@ function roundText(round: StoredManualRound, editing: boolean): string {
     round.eventName,
     round.holes !== null && round.holes !== 18 ? t('round.holes', { count: round.holes }) : '',
     round.example ? t('round.source.example') : '',
+    round.leftOut ? t('manual.leftOut') : '',
     editing ? t('manual.editing') : '',
   ]
     .filter(Boolean)
