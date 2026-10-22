@@ -46,6 +46,8 @@ export interface RatingProps {
   rounds?: RoundsList;
   /** Opens a manual round in the Add a round card's form, by its stored id. Without it, manual rounds are not editable here. */
   onEditManual?: (id: string) => void;
+  /** Counts a manual round, by its stored id, or leaves it out. Without it, manual rounds have no Count checkbox. */
+  onCountManual?: (id: string, counted: boolean) => void;
   /** Opens How it works at a section, from a card's explanation. Without it, the explanations have no link. */
   onGuide?: (section: GuideSection) => void;
   /** False for the unsaved player, which gets an Add to favorites button. */
@@ -247,7 +249,37 @@ function manualIdOf(round: ListedRound): string {
   return round.id.slice(2);
 }
 
-function roundItem(row: ListedResult, next = false, onEdit?: (id: string) => void): HTMLElement {
+/** The Count checkbox of a manual round in the Rounds card. */
+export function roundCountId(id: string): string {
+  return `round-count-${id}`;
+}
+
+/**
+ * A manual round's Count checkbox, at the start of the row. Its label is the
+ * tap target, at least 44 px at the default text size and larger with it, and
+ * keeps the tap from reaching the row, so it never opens the round for editing.
+ */
+function countCheck(round: ListedRound, onCount: (id: string, counted: boolean) => void): HTMLElement {
+  const id = manualIdOf(round);
+  return el(
+    'label',
+    { class: 'round-check', onclick: (event) => event.stopPropagation() },
+    el('input', {
+      id: roundCountId(id),
+      type: 'checkbox',
+      checked: !round.leftOut,
+      'aria-label': t('rounds.countLabel', { rating: formatRating(round.rating!), date: formatDate(round.date) }),
+      onchange: (change) => onCount(id, (change.target as HTMLInputElement).checked),
+    }),
+  );
+}
+
+interface RowActions {
+  onEdit?: (id: string) => void;
+  onCount?: (id: string, counted: boolean) => void;
+}
+
+function roundItem(row: ListedResult, next: boolean, { onEdit, onCount }: RowActions): HTMLElement {
   const { round, result } = row;
   const details = [
     formatDate(round.date),
@@ -256,15 +288,15 @@ function roundItem(row: ListedResult, next = false, onEdit?: (id: string) => voi
     tierNote(round),
   ].filter(Boolean);
   const editable = onEdit !== undefined && round.source === 'manual';
-  const className = `round round-${result.status}${editable ? ' round-editable' : ''}`;
+  // Example rounds are a what-if under the target answer, replaced or removed there, so they have no checkbox.
+  const countable = onCount !== undefined && round.source === 'manual' && !round.example;
+  const className = `round round-${result.status}${editable ? ' round-editable' : ''}${countable ? ' round-countable' : ''}`;
   const props = {
     class: className,
     ...(next && { id: ROUNDS_NEXT_ID, tabindex: -1 }),
     ...(editable && { onclick: () => onEdit(manualIdOf(round)) }),
   };
-  return el(
-    'li',
-    props,
+  const body = [
     el(
       'div',
       { class: 'round-main' },
@@ -279,7 +311,9 @@ function roundItem(row: ListedResult, next = false, onEdit?: (id: string) => voi
     roundEvent(round),
     el('p', { class: 'round-meta' }, details.join(' · ')),
     editable && editButton(round),
-  );
+  ];
+  if (!countable) return el('li', props, ...body);
+  return el('li', props, countCheck(round, onCount), el('div', { class: 'round-body' }, ...body));
 }
 
 /** The "Why it changed" text for each kind of change. New rounds that do not count say why. */
@@ -548,21 +582,21 @@ export function shownRounds(rows: readonly ListedResult[]): number {
 }
 
 /** The rounds, newest first: those shown, then a button that shows the rest. */
-function roundList(rows: readonly ListedResult[], list: RoundsList | undefined, onEdit: RatingProps['onEditManual']): Child[] {
+function roundList(rows: readonly ListedResult[], list: RoundsList | undefined, actions: RowActions): Child[] {
   if (rows.length === 0) return [];
   const shown = list ? shownRounds(rows) : rows.length;
   const hidden = rows.length - shown;
   if (list?.expanded || hidden === 0) {
-    return [el('ol', { class: 'rounds' }, ...rows.map((row, i) => roundItem(row, hidden > 0 && i === shown, onEdit)))];
+    return [el('ol', { class: 'rounds' }, ...rows.map((row, i) => roundItem(row, hidden > 0 && i === shown, actions)))];
   }
   return [
-    el('ol', { class: 'rounds' }, ...rows.slice(0, shown).map((row) => roundItem(row, false, onEdit))),
+    el('ol', { class: 'rounds' }, ...rows.slice(0, shown).map((row) => roundItem(row, false, actions))),
     el('button', { id: ROUNDS_MORE_ID, class: 'button button-small rounds-more', type: 'button', onclick: list!.onExpand }, t('rounds.more', { count: hidden })),
   ];
 }
 
 /** The rounds, after the unofficial events to choose from and the events that have no rated round for the player yet. */
-function roundsBody(model: Model, { onLeaveOut, onGuide, rounds, onEditManual }: RatingProps): Child[] {
+function roundsBody(model: Model, { onLeaveOut, onGuide, rounds, onEditManual, onCountManual }: RatingProps): Child[] {
   return [
     eventChoices(model, onLeaveOut, onGuide),
     model.eventsWithoutRounds.length > 0 &&
@@ -576,7 +610,7 @@ function roundsBody(model: Model, { onLeaveOut, onGuide, rounds, onEditManual }:
             .join(', '),
         }),
       ),
-    ...roundList(model.rows, rounds, onEditManual),
+    ...roundList(model.rows, rounds, { onEdit: onEditManual, onCount: onCountManual }),
   ];
 }
 

@@ -27,10 +27,10 @@ const stored: StoredImport = {
   // An unofficial event after the deadline: it counts in the following update.
   events: [rawEvent({ eventId: '900013', date: '12-Oct-2026' })],
 };
-const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null, example: false }]);
+const own = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: 'Planned Open', holes: null, example: false, leftOut: false }]);
 // The official rating equals the prediction here. In `differs` it is older, and a manual round before the deadline moves the prediction.
 const model = buildModel(stored, 100001, NOW, own);
-const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null, example: false }]);
+const early = manualToRounds([{ id: 'm2', rating: 1000, date: '2026-10-05', eventName: '', holes: null, example: false, leftOut: false }]);
 const differs = buildModel({ ...stored, player: rawPlayer({ currentRating: '950' }) }, 100001, NOW, [...own, ...early]);
 const moved = String(differs.prediction.rating);
 
@@ -123,7 +123,7 @@ describe('chart panel', () => {
   });
 
   it('draws example rounds as triangles too, named "Example" in the legend, the table and the details', () => {
-    const example = manualToRounds([{ id: 'm3', rating: 980, date: '2026-10-05', eventName: '', holes: 18, example: true }]);
+    const example = manualToRounds([{ id: 'm3', rating: 980, date: '2026-10-05', eventName: '', holes: 18, example: true, leftOut: false }]);
     const root = panel({ kind: 'recent' }, {}, buildModel(stored, 100001, NOW, [...own, ...example]));
     const point = plot(root).querySelector('.chart-example')!;
     expect(point.querySelector('.chart-shape')!.tagName).toBe('polygon');

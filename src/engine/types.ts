@@ -18,6 +18,12 @@ export interface RoundInput {
   dnf?: boolean;
   source: RoundSource;
   /**
+   * The user left this one round out, such as a manual round unticked in the
+   * Rounds card. Like an event in `leaveOut`, but for the round alone; only
+   * rounds that are not official.
+   */
+  leftOut?: boolean;
+  /**
    * PDGA's flags from the ratings details page, on official rounds.
    * predictRating never trusts the Included flag and recomputes; it reads
    * the Evaluated flags only to find the rounds PDGA left out of the window
@@ -41,7 +47,7 @@ export type RoundStatus =
    * (Competition Manual 5.10). It never counts.
    */
   | 'excluded'
-  /** A round of an event the user left out of the prediction, such as an X-tier event that may not count. */
+  /** A round the user left out of the prediction, alone or with its event, such as an X-tier event that may not count. */
   | 'left-out'
   /**
    * A new round dated after the report deadline of the next update: that

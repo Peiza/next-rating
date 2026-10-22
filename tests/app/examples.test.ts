@@ -26,7 +26,7 @@ function stored(ratings: number[]): StoredImport {
 const PLAYER = stored([930, 940, 945, 950, 955, 960, 965, 975]);
 
 function manual(id: string, rating: number, example = false): StoredManualRound {
-  return { id, rating, date: '2026-10-01', eventName: '', holes: null, example };
+  return { id, rating, date: '2026-10-01', eventName: '', holes: null, example, leftOut: false };
 }
 
 function modelOf(data: StoredImport, rounds: readonly StoredManualRound[] = []) {
@@ -73,6 +73,11 @@ describe('exampleSpread', () => {
   it('leaves out the example rounds', () => {
     const examples = [manual('m1', 1100, true), manual('m2', 800, true)];
     expect(exampleSpread(modelOf(stored([940, 960]), examples), examples)).toBe(10);
+  });
+
+  it('leaves out unticked manual rounds', () => {
+    const off = [{ ...manual('m1', 1100), leftOut: true }];
+    expect(exampleSpread(modelOf(stored([940, 960]), off), off)).toBe(10);
   });
 });
 

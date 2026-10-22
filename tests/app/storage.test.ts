@@ -276,7 +276,7 @@ describe('migration from v1', () => {
 });
 
 describe('manual rounds', () => {
-  const round = { id: 'm1', rating: 985, date: '2026-10-16', eventName: 'Club night', holes: 9, example: false };
+  const round = { id: 'm1', rating: 985, date: '2026-10-16', eventName: 'Club night', holes: 9, example: false, leftOut: false };
 
   it('load as none for players stored before they existed', () => {
     const { manualRounds, ...old } = player(100001);
@@ -306,6 +306,17 @@ describe('manual rounds', () => {
     const rounds = [old, { ...round, id: 'm2', example: true }, { ...round, id: 'm3', example: 'yes' }];
     const stored = validateData({ players: [player(100001, { manualRounds: rounds as never })] });
     expect(stored.players[0]!.manualRounds.map(({ id, example }) => [id, example])).toEqual([
+      ['m1', false],
+      ['m2', true],
+      ['m3', false],
+    ]);
+  });
+
+  it('keep whether they count, and load rounds stored before the checkbox as counted', () => {
+    const { leftOut: _leftOut, ...old } = round;
+    const rounds = [old, { ...round, id: 'm2', leftOut: true }, { ...round, id: 'm3', leftOut: 'yes' }];
+    const stored = validateData({ players: [player(100001, { manualRounds: rounds as never })] });
+    expect(stored.players[0]!.manualRounds.map(({ id, leftOut }) => [id, leftOut])).toEqual([
       ['m1', false],
       ['m2', true],
       ['m3', false],

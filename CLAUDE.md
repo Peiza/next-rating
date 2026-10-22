@@ -130,7 +130,11 @@ Cancel) with the following update's arrow sloped and shaded by the size of
 the change, and example rounds under the target answer (rounds spread like
 the player's own that reach the target, stored as manual rounds marked
 Example, replaced by another tap and removed from either card; the target
-calculator and the Top 8 leave them out).
+calculator and the Top 8 leave them out), and manual rounds on and off (a
+Count checkbox at the start of each manual round in the Rounds card, stored
+with the round, never opening the edit; an unticked round is "Left out by
+you" and out of the prediction, chart, Why it changed, following update,
+players list, target calculator and Top 8; example rounds have none).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -260,7 +264,8 @@ history line, the bookmarklet size, the prediction in the players list,
 the following update, the text size, the How it works text size, the
 large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
-target answer) (docs/finished-steps.md). Planned after part B is merged:
+target answer) and manual rounds on and off (docs/finished-steps.md).
+Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait
 until I ask. Commit

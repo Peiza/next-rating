@@ -958,6 +958,42 @@ Built as:
   predictions. Without a history the chart is as before.
 - How it works says so in the report deadline paragraph.
 
+## Manual rounds on and off
+Spec:
+1. Each manual round in the Rounds card has a Count checkbox at the start of
+   its row, ticked by default. An unticked round stays in the list, marked
+   "Left out by you", and is left out of the prediction, the chart's
+   prediction, Why it changed, the following update, the players list, the
+   target calculator and the Top 8.
+2. The choice is stored with the round; rounds stored before it count.
+   Editing a round keeps it, and Undo after Delete brings it back as it was.
+3. A tap on the checkbox never opens the round for editing. Example rounds
+   have no checkbox: they are a what-if under the target answer. The Add a
+   round card's list has no checkbox either, only "Left out" in the round's
+   line.
+
+Built as:
+- `RoundInput.leftOut` in src/engine/types.ts leaves one round out, like an
+  event in `leaveOut`, with the same 'left-out' status, never for an
+  official round. Other rounds of the same event still count, and the
+  double-weight boundary picks among them.
+- `StoredManualRound.leftOut`, read as `=== true` so older data counts;
+  `manualToRounds` passes it on. `ManualRoundInput` leaves it out, so the
+  form and the example rounds never set it: `addManualRound` and
+  `withExampleRounds` store it off, `updateManualRound` keeps the stored
+  value, and `setManualLeftOut` in src/app/players.ts changes it.
+- `buildModel` gives an unticked manual round no Why it changed line (its
+  effect is 0.0 anyway); left-out unofficial rounds keep theirs. The Top 8's
+  `topCandidates` leaves unticked rounds out with the example rounds. The
+  chart draws them hollow with a cross, as other rounds that are left out.
+- `roundItem` in src/app/views/rating.ts puts `label.round-check` with
+  `#round-count-{id}` first in a `.round-countable` row, the rest in
+  `.round-body`. The label stops the click, so the row's edit handler never
+  sees it, and is 2.75rem square, so the tap target grows with Body text
+  size. The box is the event choices' box. `rounds.countLabel` is its
+  aria-label ("Count round 985 from …").
+- How it works says so in the manual rounds paragraph.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1046,3 +1082,6 @@ Built in this order:
   replaced by another tap and removed from the target or the Add a round
   card, left out of the target calculator and the Top 8
   (docs/plan-edit-and-arrows.md, part B) (done)
+- Manual rounds on and off: a Count checkbox on each manual round in the
+  Rounds card, stored with the round, left out of everything that predicts
+  and of the Top 8 (done)

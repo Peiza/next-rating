@@ -51,6 +51,7 @@ export function manualToRounds(rounds: readonly StoredManualRound[]): ListedRoun
     eventName: round.eventName,
     roundLabel: '',
     ...(round.example && { example: true }),
+    ...(round.leftOut && { leftOut: true }),
   }));
 }
 
@@ -304,7 +305,11 @@ export function buildModel(
 
   const explanation = explainChange(rounds, prediction, currentRating);
   const byId = new Map(rounds.map((round) => [round.id, round]));
-  const changes = explanation?.items.map((item) => ({ round: byId.get(item.id)!, item })) ?? null;
+  // A manual round the user unticked is parked, not news, so it gets no line.
+  const changes =
+    explanation?.items
+      .map((item) => ({ round: byId.get(item.id)!, item }))
+      .filter(({ round }) => !(round.source === 'manual' && round.leftOut)) ?? null;
   const detailsDate = today(new Date(stored.detailsAt ?? stored.at));
   const staleDetails = player?.ratingDate != null && compareDates(detailsDate, player.ratingDate) < 0;
 

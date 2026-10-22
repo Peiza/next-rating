@@ -102,8 +102,8 @@ export function setMe(data: AppData, pdgaNumber: number | null): AppData {
   return findPlayer(next, pdgaNumber)?.favorite ? { ...next, me: pdgaNumber } : data;
 }
 
-/** A manual round as typed in, before it gets an id. */
-export type ManualRoundInput = Omit<StoredManualRound, 'id'>;
+/** A manual round as typed in, before it gets an id. Whether it counts is set in the Rounds card, not here. */
+export type ManualRoundInput = Omit<StoredManualRound, 'id' | 'leftOut'>;
 
 export interface AddedRound {
   data: AppData;
@@ -129,7 +129,7 @@ export function addManualRound(data: AppData, pdgaNumber: number, round: ManualR
   const saved = existing.favorite ? data : addFavorite(data, pdgaNumber);
   if (saved === data && !existing.favorite) return { data, error: 'favorites-full', savedFavorite: false };
   const player = findPlayer(saved, pdgaNumber)!;
-  const manualRounds = [...player.manualRounds, { id: `m${highestId(player.manualRounds) + 1}`, ...round }];
+  const manualRounds = [...player.manualRounds, { id: `m${highestId(player.manualRounds) + 1}`, ...round, leftOut: false }];
   return { data: replacePlayer(saved, { ...player, manualRounds }), error: null, savedFavorite: !existing.favorite };
 }
 
@@ -146,7 +146,7 @@ export function withExampleRounds(rounds: readonly StoredManualRound[], examples
   const highest = highestId(rounds);
   return [
     ...rounds.filter((round) => !round.example),
-    ...examples.map((round, i) => ({ id: `m${highest + i + 1}`, ...round, example: true })),
+    ...examples.map((round, i) => ({ id: `m${highest + i + 1}`, ...round, example: true, leftOut: false })),
   ];
 }
 
@@ -174,14 +174,14 @@ export function removeExampleRounds(data: AppData, pdgaNumber: number): AppData 
 }
 
 /**
- * Replaces a manual round's values, keeping its id and its place, so the
- * list order and the rounds of one day stay as they were. Does nothing when
- * the player or the round is gone.
+ * Replaces a manual round's values, keeping its id, its place and whether
+ * it counts, so the list order and the rounds of one day stay as they were.
+ * Does nothing when the player or the round is gone.
  */
 export function updateManualRound(data: AppData, pdgaNumber: number, id: string, round: ManualRoundInput): AppData {
   const player = findPlayer(data, pdgaNumber);
   if (!player?.manualRounds.some((other) => other.id === id)) return data;
-  const manualRounds = player.manualRounds.map((other) => (other.id === id ? { id, ...round } : other));
+  const manualRounds = player.manualRounds.map((other) => (other.id === id ? { id, ...round, leftOut: other.leftOut } : other));
   return replacePlayer(data, { ...player, manualRounds });
 }
 
@@ -220,6 +220,18 @@ export function setLeftOut(data: AppData, pdgaNumber: number, key: string, leftO
   if (leftOut && player.leftOut.length >= MAX_LEFT_OUT) return data;
   const keys = leftOut ? [...player.leftOut, key] : player.leftOut.filter((other) => other !== key);
   return replacePlayer(data, { ...player, leftOut: keys });
+}
+
+/**
+ * Leaves one manual round out of the player's prediction, or counts it
+ * again, keeping the round. Does nothing when the player or the round is gone.
+ */
+export function setManualLeftOut(data: AppData, pdgaNumber: number, id: string, leftOut: boolean): AppData {
+  const player = findPlayer(data, pdgaNumber);
+  const round = player?.manualRounds.find((other) => other.id === id);
+  if (!player || !round || round.leftOut === leftOut) return data;
+  const manualRounds = player.manualRounds.map((other) => (other.id === id ? { ...other, leftOut } : other));
+  return replacePlayer(data, { ...player, manualRounds });
 }
 
 export interface Routed {

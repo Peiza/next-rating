@@ -262,6 +262,7 @@ describe('manualToRounds', () => {
     eventName,
     holes,
     example: false,
+    leftOut: false,
   });
 
   it('groups rounds with the same event name and date into one event, apart from imported events', () => {
@@ -299,7 +300,7 @@ describe('manualToRounds', () => {
 describe('the following update', () => {
   // On 1 Oct 2026 the next update is 13 Oct (deadline 11 Oct), the following one 10 Nov (deadline 8 Nov).
   const imported = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] });
-  const manual = (id: string, date: string, rating = 1000): StoredManualRound => ({ id, rating, date, eventName: '', holes: null, example: false });
+  const manual = (id: string, date: string, rating = 1000): StoredManualRound => ({ id, rating, date, eventName: '', holes: null, example: false, leftOut: false });
   const model = (rounds: StoredManualRound[], data = imported, leftOut: string[] = []) =>
     buildModel(data, 100001, NOW, manualToRounds(rounds), leftOut);
 
@@ -345,6 +346,13 @@ describe('the following update', () => {
     expect(model([], data, ['e:900005']).following).toBeNull();
     const withManual = model([manual('m1', '2026-10-20')], data, ['e:900005']);
     expect(withManual.following).toEqual(model([manual('m1', '2026-10-20')]).following);
+  });
+
+  it('keeps an unticked manual round out', () => {
+    const off = { ...manual('m1', '2026-10-20'), leftOut: true };
+    expect(model([off]).following).toBeNull();
+    const both = model([manual('m1', '2026-10-20'), { ...manual('m2', '2026-10-21', 700), leftOut: true }]);
+    expect(both.following).toEqual(model([manual('m1', '2026-10-20')]).following);
   });
 
   describe('on 22 Oct 2026', () => {
@@ -416,7 +424,7 @@ describe('ratings history', () => {
 
 describe('the prediction in the players list', () => {
   const imported = stored({ player: rawPlayer({ currentRating: '950' }), details, events: [rawEvent()] });
-  const manual: StoredManualRound = { id: 'm1', rating: 1000, date: '2026-09-20', eventName: '', holes: null, example: false };
+  const manual: StoredManualRound = { id: 'm1', rating: 1000, date: '2026-09-20', eventName: '', holes: null, example: false, leftOut: false };
   const player = (extra: Partial<StoredPlayer> = {}): StoredPlayer => ({
     pdgaNumber: 100001,
     favorite: true,
@@ -446,6 +454,14 @@ describe('the prediction in the players list', () => {
     expect(model.prediction.rating).toBeGreaterThan(959);
     // Without the unofficial event no new round counts, so it is the official rating.
     expect(listPrediction(player({ leftOut: ['e:900002'] }), NOW)).toEqual({ rating: 950, change: 0, unchanged: true });
+  });
+
+  it('leaves an unticked manual round out, with no Why it changed line for it', () => {
+    const off = player({ manualRounds: [{ ...manual, leftOut: true }] });
+    const model = playerModel(off, imported, NOW);
+    expect(listPrediction(off, NOW)).toEqual(listPrediction(player(), NOW));
+    expect(model.rows.find(({ round }) => round.id === 'm:m1')!.result.status).toBe('left-out');
+    expect(model.changes!.map(({ round }) => round.id)).toEqual(playerModel(player(), imported, NOW).changes!.map(({ round }) => round.id));
   });
 
   it('has no change without an official rating', () => {

@@ -23,6 +23,7 @@ import {
   restoreManualRound,
   routeImport,
   setLeftOut,
+  setManualLeftOut,
   setMe,
   updateManualRound,
   type ManualRoundInput,
@@ -571,6 +572,13 @@ function leaveOut(key: string, leftOut: boolean): void {
   render();
 }
 
+/** Leaves a manual round out of the shown player's prediction, or counts it again; focus stays on its checkbox. */
+function countManual(id: string, counted: boolean): void {
+  if (selected === null) return;
+  store.update(setManualLeftOut(store.get(), selected, id, !counted));
+  render();
+}
+
 /** Stores the Top 8 period with the settings; focus stays on the control that changed it. */
 function setTop8Period(top8Period: TopPeriod): void {
   store.update({ top8Period });
@@ -934,6 +942,7 @@ function currentView(): HTMLElement {
       onGuide: openGuide,
       onLeaveOut: leaveOut,
       onEditManual: (id) => editManual(id, roundEditId(id)),
+      onCountManual: countManual,
       rounds: {
         expanded: roundsExpanded,
         onExpand: () => {

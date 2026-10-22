@@ -38,7 +38,7 @@ const DEC_8 = formatDayMonth(DECEMBER.update);
 const ON_TODAY = formatDate(TODAY);
 
 /** A manual 1000 round from November 2024: inside the 24-month window today, outside it from December. */
-const OLD_MANUAL: StoredManualRound = { id: 'm1', rating: 1000, date: '2024-11-15', eventName: 'Autumn Open', holes: null, example: false };
+const OLD_MANUAL: StoredManualRound = { id: 'm1', rating: 1000, date: '2024-11-15', eventName: 'Autumn Open', holes: null, example: false, leftOut: false };
 
 function draft(extra: Partial<TargetDraft> = {}): TargetDraft {
   return { ...emptyTargetDraft(950, TODAY), ...extra };
@@ -103,7 +103,7 @@ describe('target input', () => {
 
   it('allows dates from today, or the newest stored round when later, to a year ahead', () => {
     expect(targetDates(buildModel(STORED, 100001, NOW), TODAY)).toEqual(DATES);
-    const upcoming: StoredManualRound[] = [{ id: 'm2', rating: 980, date: '2026-11-01', eventName: '', holes: null, example: false }];
+    const upcoming: StoredManualRound[] = [{ id: 'm2', rating: 980, date: '2026-11-01', eventName: '', holes: null, example: false, leftOut: false }];
     const model = buildModel(STORED, 100001, NOW, manualToRounds([OLD_MANUAL, ...upcoming]));
     expect(targetDates(model, TODAY)).toEqual({ min: '2026-11-01', max: '2027-10-20' });
   });
@@ -175,9 +175,16 @@ describe('calculateTarget', () => {
 
   it('includes manual rounds', () => {
     // (950 + 1000 + 3 × R) / 5 must round to 970, so R ≥ 966.
-    const manual: StoredManualRound[] = [{ id: 'm1', rating: 1000, date: '2026-10-01', eventName: '', holes: null, example: false }];
+    const manual: StoredManualRound[] = [{ id: 'm1', rating: 1000, date: '2026-10-01', eventName: '', holes: null, example: false, leftOut: false }];
     const model = buildModel(STORED, 100001, NOW, manualToRounds(manual));
     expect(calculateTarget(model, { target: 970, count: 3, date: TODAY }).result.average).toBe(966);
+  });
+
+  it('leaves unticked manual rounds out', () => {
+    const off: StoredManualRound[] = [{ id: 'm1', rating: 1000, date: '2026-10-01', eventName: '', holes: null, example: false, leftOut: true }];
+    const query = { target: 970, count: 3, date: TODAY };
+    const model = buildModel(STORED, 100001, NOW, manualToRounds(off));
+    expect(calculateTarget(model, query).result).toEqual(calculateTarget(buildModel(STORED, 100001, NOW), query).result);
   });
 
   it('leaves example rounds out, so adding them keeps the answer and the dates', () => {
@@ -188,6 +195,7 @@ describe('calculateTarget', () => {
       eventName: '',
       holes: null,
       example: true,
+      leftOut: false,
     }));
     const model = buildModel(STORED, 100001, NOW, manualToRounds(examples));
     expect(model.prediction.rating).toBe(970);

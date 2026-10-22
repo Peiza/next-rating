@@ -42,10 +42,16 @@ describe('chartData', () => {
   });
 
   it('ends at a planned round later than today, which shows as your own', () => {
-    const rounds = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: '', holes: null, example: false }]);
+    const rounds = manualToRounds([{ id: 'm1', rating: 990, date: '2026-12-01', eventName: '', holes: null, example: false, leftOut: false }]);
     const chart = chartData(buildModel(stored, 100001, NOW, rounds), RECENT, TODAY);
     expect(chart.to).toBe('2026-12-01');
     expect(chart.points.at(-1)).toMatchObject({ kind: 'own', rating: 990 });
+  });
+
+  it('draws an unticked manual round as left out', () => {
+    const rounds = manualToRounds([{ id: 'm1', rating: 990, date: '2026-10-05', eventName: '', holes: null, example: false, leftOut: true }]);
+    const chart = chartData(buildModel(stored, 100001, NOW, rounds), RECENT, TODAY);
+    expect(chart.points.find((point) => point.kind === 'own')).toMatchObject({ rating: 990, mark: 'ruled-out' });
   });
 
   it('marks rounds that count twice, are dropped or left out', () => {

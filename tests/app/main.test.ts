@@ -749,8 +749,8 @@ describe('app start', () => {
   it('edits a manual round from the Rounds card in place, and ends the edit when the round goes', async () => {
     const at = '2026-10-01T10:00:00.000Z';
     const rounds = [
-      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null, example: false },
-      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9, example: false },
+      { id: 'm1', rating: 950, date: '2026-10-10', eventName: '', holes: null, example: false, leftOut: false },
+      { id: 'm2', rating: 985, date: '2026-10-12', eventName: 'Club night', holes: 9, example: false, leftOut: false },
     ];
     localStorage.setItem(
       STORAGE_KEY,
@@ -803,6 +803,35 @@ describe('app start', () => {
     window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
     expect(document.getElementById('manual-edit-title')).toBeNull();
     expect(document.getElementById('manual-status')!.textContent).toBe('That round was removed, so nothing was saved.');
+  });
+
+  it('leaves a manual round out with its checkbox in the Rounds card, and counts it again', async () => {
+    const at = '2026-10-01T10:00:00.000Z';
+    const rounds = [{ id: 'm1', rating: 1100, date: '2026-10-10', eventName: '', holes: null, example: false, leftOut: false }];
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        me: 100001,
+        players: [{ pdgaNumber: 100001, favorite: true, import: { at, player: rawPlayer(), details: [rawDetailsRow()], events: [] }, manualRounds: rounds }],
+      }),
+    );
+    await start('/next-rating/');
+    const predicted = () => document.getElementById('predicted')!.textContent;
+    const box = () => document.querySelector<HTMLInputElement>('#round-count-m1')!;
+    const counted = predicted();
+    expect(box().checked).toBe(true);
+
+    box().focus();
+    box().click();
+    expect(stored().players[0].manualRounds[0].leftOut).toBe(true);
+    expect(box().checked).toBe(false);
+    expect(document.activeElement?.id).toBe('round-count-m1');
+    expect(predicted()).not.toBe(counted);
+    expect(document.getElementById('manual-edit-title')).toBeNull();
+
+    box().click();
+    expect(stored().players[0].manualRounds[0].leftOut).toBe(false);
+    expect(predicted()).toBe(counted);
   });
 
   it('calculates a target, keeps the answer through a re-render, and starts empty for another player', async () => {
