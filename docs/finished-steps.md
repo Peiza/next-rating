@@ -1021,6 +1021,21 @@ Built as:
 - A test turns the main arrow and the following update's arrow for the
   same values from −15 to 15 and expects the same angle.
 
+## Build date after the version
+Spec: Settings > About shows the build's day after its version, such as
+"Version 1a2b3c4 · 2026-10-26", so it is clear how new the running app is:
+an installed app can keep serving a cached build until Reload.
+
+Built as:
+- `__BUILD_DATE__` is defined in vite.config.ts beside `__BUILD_ID__`: the
+  UTC day of the build, null under Vitest so tests give the same result
+  locally and in CI (Settings then shows the id alone).
+- `versionText` in src/app/views/settings.ts formats the day with
+  `formatDate`, so it follows the app's language, the device's region and
+  the date format in Settings. `settings.versionDate` carries the id and the
+  day; `settings.version` stays for a build without a day. The line is the
+  same quiet hint as before and wraps between words at large text.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1115,3 +1130,4 @@ Built in this order:
 - One arrow angle: the main change, the following update and the players
   list share one arrow, turned linearly with the change (45 degrees at 5,
   straight from 10) (done)
+- Build date after the version in Settings > About (done)

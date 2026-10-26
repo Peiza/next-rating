@@ -37,6 +37,15 @@ export interface SettingsProps {
   onOpenGuide: () => void;
 }
 
+/**
+ * The build id followed by the build's day in the app's date format, so it
+ * is clear how new the running app is: an installed app can keep serving a
+ * cached build until Reload.
+ */
+export function versionText(version: string, date: PlainDate | null): string {
+  return date ? t('settings.versionDate', { version, date: formatDate(date) }) : t('settings.version', { version });
+}
+
 const THEME_OPTIONS: Segment<Theme | null>[] = [
   { value: null, id: 'theme-device', label: 'settings.themeDevice' },
   { value: 'light', id: 'theme-light', label: 'settings.themeLight' },
@@ -199,7 +208,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     el('h2', {}, t('settings.about')),
     el('p', {}, t('app.privacy')),
     el('button', { id: 'open-guide', class: 'button button-block', type: 'button', onclick: onOpenGuide }, t('guide.title')),
-    el('p', { id: 'version', class: 'hint' }, t('settings.version', { version: __BUILD_ID__ })),
+    el('p', { id: 'version', class: 'hint' }, versionText(__BUILD_ID__, __BUILD_DATE__)),
     supportLink(),
     el('p', { class: 'notice' }, t('app.unofficial')),
   );

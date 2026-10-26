@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { el, textWithNodes } from '../../src/app/dom';
-import { formatCount, formatDate } from '../../src/app/format';
+import { formatCount, formatDate, setDateOrder } from '../../src/app/format';
 import type { StoredImport } from '../../src/app/import';
 import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
@@ -13,7 +13,7 @@ import type { RoundStatus } from '../../src/engine';
 import { chartData } from '../../src/app/chart';
 import { topEight, type TopPeriod } from '../../src/app/top8';
 import type { Top8Props } from '../../src/app/views/top8';
-import { settingsView, type SettingsProps } from '../../src/app/views/settings';
+import { settingsView, versionText, type SettingsProps } from '../../src/app/views/settings';
 import { KOFI_URL } from '../../src/app/views/support';
 import { bookmarkletStatus, guessPlatform, isOlderVersion, setupView, type SetupProps } from '../../src/app/views/setup';
 import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
@@ -299,6 +299,20 @@ describe('settings view', () => {
 
   it('shows the build id', () => {
     expect(settingsView(props).querySelector('#version')!.textContent).toBe('Version dev');
+  });
+
+  it('follows the build id with the build date in the app\'s date format', () => {
+    expect(versionText('1a2b3c4', null)).toBe('Version 1a2b3c4');
+    expect(versionText('1a2b3c4', '2026-10-26')).toBe(`Version 1a2b3c4 · ${formatDate('2026-10-26')}`);
+    try {
+      setDateOrder('day');
+      expect(versionText('1a2b3c4', '2026-10-26')).toBe('Version 1a2b3c4 · 26/10/2026');
+      setLanguage('sv');
+      expect(versionText('1a2b3c4', '2026-10-26')).toBe('Version 1a2b3c4 · 26/10/2026');
+    } finally {
+      setDateOrder(null);
+      setLanguage('en');
+    }
   });
 
   it('warns when the browser cannot store data', () => {

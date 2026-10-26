@@ -134,9 +134,10 @@ calculator and the Top 8 leave them out), and manual rounds on and off (a
 Count checkbox at the start of each manual round in the Rounds card, stored
 with the round, never opening the edit; an unticked round is "Left out by
 you" and out of the prediction, chart, Why it changed, following update,
-players list, target calculator and Top 8; example rounds have none), and one arrow angle (the main change, the following update and the
-players list turn the same arrow, linearly: 45 degrees at 5, straight from
-10).
+players list, target calculator and Top 8; example rounds have none), and
+one arrow angle (the main change, the following update and the players list
+turn the same arrow, linearly: 45 degrees at 5, straight from 10), and the
+build date after the version in Settings > About.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -271,7 +272,8 @@ history line, the bookmarklet size, the prediction in the players list,
 the following update, the text size, the How it works text size, the
 large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
-target answer) and manual rounds on and off and one arrow angle (docs/finished-steps.md).
+target answer), manual rounds on and off, one arrow angle and the build
+date after the version (docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait

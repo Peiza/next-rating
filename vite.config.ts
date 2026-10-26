@@ -62,11 +62,22 @@ function buildId(mode: string): string {
   return process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev';
 }
 
+/**
+ * The UTC day the build was made, shown after the build id so it is clear
+ * how new the running app is: an installed PWA can keep serving an older
+ * cached build. null under Vitest, for the same reason as buildId.
+ */
+function buildDate(mode: string): string | null {
+  if (mode === 'test') return null;
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default defineConfig(({ mode }) => ({
   // Relative asset paths, so dist/ works on any static host and under any path.
   base: './',
   define: {
     __BUILD_ID__: JSON.stringify(buildId(mode)),
+    __BUILD_DATE__: JSON.stringify(buildDate(mode)),
   },
   plugins: [contentSecurityPolicy(), bookmarklet(), serviceWorker()],
   build: {
