@@ -41,6 +41,8 @@ export interface SettingsProps {
   onOpenWith: (openWith: OpenWith) => void;
   onOpenSetup: () => void;
   onOpenGuide: () => void;
+  /** Sync between devices, when the build has the Worker. */
+  sync?: HTMLElement | null;
 }
 
 /**
@@ -227,6 +229,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     textSizePicker(textSize, deviceTextSize, onTextSize),
     segmented('settings.openWith', 'open-with', OPEN_WITH_OPTIONS, openWith, onOpenWith),
     apiAvailable && apiSwitch(apiLookup, onApiLookup),
+    props.sync,
     el('h2', {}, t('settings.bookmarklet')),
     bookmarkletStatus(bookmarklet),
     el(

@@ -1148,6 +1148,46 @@ Built as:
   20 a minute), stopping at the first failure; the players list shows a
   name from the lookup's 12-hour cache until the player's first import.
 
+## Sync between devices
+Spec: one favorites list on several devices through the Worker, with no
+accounts. Only PDGA numbers and "me" are sent and stored (the PDGA API
+license forbids keeping PDGA data; PDGA numbers are allowed).
+
+Built as:
+- Worker (worker/src/sync.ts): `POST /v1/sync`, `GET/PUT/DELETE
+  /v1/sync/<token>` on the KV namespace `next-rating-lists` (binding
+  `LISTS`). The token is 24 bytes from `crypto.getRandomValues` as 32
+  base64url characters; the key is `list:` + SHA-256(token) in hex; every
+  write sets a 400-day TTL. `cleanList` keeps whole PDGA numbers in range,
+  each once, at most 200, and `me` only when it is one of them; anything
+  else is dropped. Bodies over 32 KB are a 400. PUT never makes a list, so
+  a deleted list stays deleted. Same CORS rule as the lookup (the
+  preflight allows GET, POST, PUT, DELETE and Content-Type), its own rate
+  limit `SYNC_LIMITER` (30 a minute per IP), no-store answers. Without
+  `LISTS` the routes answer `unavailable not-configured`; /health says
+  whether it is bound.
+- App (src/app/sync.ts): the token and the list last sent or received are
+  kept under `next-rating:sync`, apart from the app's data. `#sync=<token>`
+  is read and removed from the address on open like `#add=`. Join takes the
+  list at once, or asks Merge (the list plus this device's extra
+  favorites, sent back) or Replace (the list wins; extra favorites here are
+  removed with their data) when the device has favorites the list lacks.
+  `applyRemote` keeps imports and manual rounds of players already stored
+  and the unsaved player. Every render calls `changed()`, which sends the
+  whole list 1.2 s after the last change when it differs from the last one
+  sent; pull runs on start, on visibilitychange (at most every 20 s) and on
+  Sync now, takes the server's list when its `updatedAt` is newer, and
+  never while a change of this device waits (that one is sent first). A
+  404 means another device deleted the list: this device stops syncing and
+  keeps its favorites. Stop syncing forgets the token here only; Delete
+  removes the list on the server.
+- Settings (src/app/views/sync.ts): Create sync link; while syncing, the
+  status, Sync now, the link as a QR code (qrcode-generator, drawn as one
+  SVG path, dark on a light square) and as text with Share or copy, Stop
+  syncing on this device, and Delete the synced list after asking. Shown
+  only when the build has the Worker's address. The privacy lines say the
+  favorites' PDGA numbers are stored online when syncing.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event

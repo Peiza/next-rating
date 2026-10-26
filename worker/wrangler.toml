@@ -17,6 +17,17 @@ name = "RATE_LIMITER"
 namespace_id = "1001"
 simple = { limit = 20, period = 60 }
 
+# The synced favorites lists: PDGA numbers only (src/sync.ts).
+[[kv_namespaces]]
+binding = "LISTS"
+id = "af56ba35c3814cc49549ef3920944d53"
+
+# At most 30 sync requests per minute from one IP address.
+[[ratelimits]]
+name = "SYNC_LIMITER"
+namespace_id = "2701"
+simple = { limit = 30, period = 60 }
+
 # No request logs, so no PDGA numbers or data are kept by Cloudflare.
 [observability]
 enabled = false

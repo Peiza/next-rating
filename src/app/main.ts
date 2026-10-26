@@ -9,6 +9,7 @@ import { readPages } from './handoff';
 import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { startVisitCount } from './analytics';
+import { createSyncController, syncLink, takeSyncToken, type JoinChoice } from './sync';
 import { addShared, shareLink, sharedNumbers, shareOffer, takeShared, type ShareOffer } from './share';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
 import { createPredictionCache, playerModel, type ListPrediction, type Model } from './model';
@@ -97,6 +98,18 @@ import { TARGET_EXAMPLES_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID, type ExamplesFl
 import { API_LOOKUP_ID, DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import type { InAppSearch, SearchState } from './views/search';
+import {
+  JOIN_ID,
+  joinView,
+  SYNC_CREATE_ID,
+  SYNC_DELETE_CANCEL_ID,
+  SYNC_DELETE_ID,
+  SYNC_LINK_ID,
+  SYNC_SHARE_ID,
+  SYNC_TITLE_ID,
+  syncSection,
+  type SyncShareStatus,
+} from './views/sync';
 import { OFFER_ID, offerView, SHARE_BUTTON_ID, SHARE_LINK_ID, type ShareStatus } from './views/share';
 import { START_SEARCH_ID, startTabId, startView, type StartTab } from './views/start';
 
@@ -636,6 +649,109 @@ function cancelOffer(): void {
   render(`tab-${tab}`);
 }
 
+/*
+ * Sync between devices, when the build has the Worker: the favorites list
+ * (PDGA numbers and "me" only) through a secret sync link (sync.ts).
+ */
+const sync = API_URL
+  ? createSyncController({
+      url: API_URL,
+      storage: browserStorage(),
+      now: () => Date.now(),
+      getData: () => store.get(),
+      setData: (data) => {
+        store.update(data);
+        if (!findPlayer(store.get(), selected)) setSelected(initialSelection(store.get()));
+        render();
+      },
+      onChange: () => render(),
+    })
+  : null;
+/** A sync link opened on a device with favorites the list lacks, waiting for Merge, Replace or Cancel. */
+let joinChoice: JoinChoice | null = null;
+let syncShare: SyncShareStatus = null;
+let confirmSyncDelete = false;
+
+/** Opens a sync link: joins at once, or asks first when this device has favorites the list lacks. */
+async function joinSync(token: string): Promise<void> {
+  if (!token || !sync) {
+    showBanner({ message: 'sync.invalidLink', tone: 'error' });
+    return;
+  }
+  const choice = await sync.join(token);
+  if (choice) {
+    joinChoice = choice;
+    showBanner(null, JOIN_ID);
+    return;
+  }
+  const status = sync.status();
+  if (status === 'gone') showBanner({ message: 'sync.joinGone', tone: 'error' });
+  else if (status === 'unavailable') showBanner({ message: 'sync.joinFailed', tone: 'error' });
+  else showBanner({ message: 'sync.joined', tone: 'info' });
+}
+
+function finishJoin(mode: 'merge' | 'replace' | null): void {
+  const choice = joinChoice;
+  joinChoice = null;
+  if (!choice || !sync || mode === null) {
+    render(`tab-${tab}`);
+    return;
+  }
+  sync.finishJoin(choice, mode);
+  showBanner({ message: 'sync.joined', tone: 'info' });
+}
+
+/** Shares the sync link like Share list: the share menu on a phone, else the clipboard, else the field shows it selected. */
+async function shareSyncLink(link: string): Promise<void> {
+  const touch = window.matchMedia?.(TOUCH_QUERY).matches ?? false;
+  if (touch && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: t('sync.title'), url: link });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    syncShare = 'copied';
+    render(SYNC_SHARE_ID);
+  } catch {
+    render(SYNC_LINK_ID);
+  }
+}
+
+function syncView(): HTMLElement | null {
+  if (!sync) return null;
+  const state = sync.state();
+  return syncSection({
+    link: state ? syncLink(location.href, state.token) : null,
+    status: sync.status(),
+    lastSynced: sync.lastSynced(),
+    now: new Date(),
+    online: navigator.onLine,
+    share: syncShare,
+    confirmDelete: confirmSyncDelete,
+    onCreate: () => void sync.create().then(() => render(SYNC_TITLE_ID)),
+    onShare: () => void shareSyncLink(syncLink(location.href, sync.state()?.token ?? '')),
+    onSyncNow: () => void sync.syncNow(),
+    onStop: () => {
+      sync.stop();
+      confirmSyncDelete = false;
+      render(SYNC_CREATE_ID);
+    },
+    onAskDelete: (ask) => {
+      confirmSyncDelete = ask;
+      render(ask ? SYNC_DELETE_CANCEL_ID : SYNC_DELETE_ID);
+    },
+    onDelete: () =>
+      void sync.remove().then((deleted) => {
+        confirmSyncDelete = false;
+        render(deleted ? SYNC_CREATE_ID : SYNC_DELETE_ID);
+      }),
+  });
+}
+
 /** Lookups one at a time, this far apart, so a long shared list stays under the Worker's limit per minute. */
 const NAME_LOOKUP_GAP_MS = 3500;
 const nameQueue: number[] = [];
@@ -1148,6 +1264,7 @@ function currentView(): HTMLElement {
       onOpenWith: setOpenWith,
       onOpenSetup: openSetup,
       onOpenGuide: () => openGuide(),
+      sync: syncView(),
     });
   }
   const player = findPlayer(data, selected);
@@ -1398,6 +1515,9 @@ function render(focusId = document.activeElement?.id): void {
         { class: 'main' },
         updateReady && updateNotice(applyUpdate),
         overlay === null && offer && offerView(offer, acceptOffer, cancelOffer),
+        overlay === null &&
+          joinChoice &&
+          joinView(joinChoice, () => finishJoin('merge'), () => finishJoin('replace'), () => finishJoin(null)),
         overlay === null && banner && bannerView(banner, closeBanner, openSetup),
         currentView(),
       ),
@@ -1408,8 +1528,14 @@ function render(focusId = document.activeElement?.id): void {
   addFlash = null;
   manualFlash = null;
   examplesFlash = null;
+  if (tab !== 'settings') {
+    syncShare = null;
+    confirmSyncDelete = false;
+  }
   if (focusId) restoreFocus(focusId);
   lookUpShown();
+  // Any change of the favorites is sent, a moment later.
+  sync?.changed();
 }
 
 window.addEventListener('languagechange', () => {
@@ -1430,9 +1556,11 @@ window.addEventListener('storage', (event) => {
   render();
 });
 
-// Back from another app or tab: show the data age as of now. Nothing is fetched.
+// Back from another app or tab: show the data age as of now, and ask for changes from other devices (at most every 20 seconds).
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') render();
+  if (document.visibilityState !== 'visible') return;
+  render();
+  void sync?.pull();
 });
 
 // A hand-off into a page that is already open only changes the fragment.
@@ -1441,6 +1569,8 @@ window.addEventListener('hashchange', () => {
   if (payload !== null) void receiveHandoff(payload);
   const shared = takeShared();
   if (shared !== null) receiveShared(shared);
+  const token = takeSyncToken();
+  if (token !== null) void joinSync(token);
 });
 
 // The back gesture, or the app going back over a layer it closed.
@@ -1468,6 +1598,7 @@ overlay = restored.overlay && { view: restored.overlay, opener: `tab-${tab}` };
 
 const payload = takeFragment();
 const shared = takeShared();
+const syncToken = takeSyncToken();
 applyTheme();
 applyTextSize();
 applyLanguage();
@@ -1475,6 +1606,8 @@ applyDateOrder();
 render();
 if (payload !== null) void receiveHandoff(payload);
 if (shared !== null) receiveShared(shared);
+if (syncToken !== null) void joinSync(syncToken);
+else void sync?.pull(true);
 startVisitCount(__ANALYTICS_TOKEN__);
 registerServiceWorker(() => {
   updateReady = true;

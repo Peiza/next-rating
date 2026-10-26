@@ -2284,3 +2284,23 @@ a {
 .view > .support + * {
   margin-top: 1rem;
 }
+
+/* Sync between devices (views/sync.ts): buttons one under another, and the QR code on its own light square. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sync .button-block {
+  margin-bottom: 0.5rem;
+}
+
+.sync-qr {
+  display: block;
+  width: 12rem;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem 0 1rem;
+  border-radius: 0.5rem;
+}

@@ -8,6 +8,7 @@
  */
 
 import { mapPlayer, mapSearch, type ApiPlayer, type SearchPlayer } from './player';
+import { parseSyncRoute, sync, type ListStore } from './sync';
 
 export const PDGA_API = 'https://api.pdga.com/services/json';
 
@@ -66,6 +67,10 @@ export interface Env {
   /** Comma-separated origins that may call the Worker, such as https://peiza.github.io. */
   ALLOWED_ORIGINS?: string;
   RATE_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  /** The synced favorites lists (sync.ts): PDGA numbers only. Without it, the sync routes answer `unavailable`. */
+  LISTS?: ListStore;
+  /** Its own limit per IP, so syncing does not use up the lookups. */
+  SYNC_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
 export interface EdgeCache {
@@ -204,15 +209,18 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
       status: 204,
       headers: {
         'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Max-Age': '86400',
         Vary: 'Origin',
       },
     });
   }
+  const url = new URL(request.url);
+  const syncRoute = url.search === '' ? parseSyncRoute(url.pathname) : null;
+  if (syncRoute) return syncList(request, syncRoute, env, deps, origin);
   if (request.method !== 'GET') return error('bad-request', origin);
 
-  const url = new URL(request.url);
   const pdgaNumber = url.search === '' ? parseRoute(url.pathname) : null;
   const search = pdgaNumber === null ? parseSearch(url) : null;
   if (pdgaNumber === null && search === null) return error('bad-request', origin);
@@ -246,6 +254,29 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
   } catch (e) {
     // Upstream text is never forwarded, and nothing is logged.
     if (e instanceof UpstreamError) return error(e.code, origin, e.failure);
+    return error('unavailable', origin);
+  }
+}
+
+/** The sync routes: their own rate limit, never cached, nothing logged. */
+async function syncList(
+  request: Request,
+  route: NonNullable<ReturnType<typeof parseSyncRoute>>,
+  env: Env,
+  deps: Deps,
+  origin: string,
+): Promise<Response> {
+  if (env.SYNC_LIMITER) {
+    const key = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { success } = await env.SYNC_LIMITER.limit({ key });
+    if (!success) return error('rate-limited', origin);
+  }
+  if (!env.LISTS) return error('unavailable', origin, { reason: 'not-configured' });
+  try {
+    const result = await sync(request, route, { lists: env.LISTS, now: deps.now });
+    if ('error' in result) return error(result.error, origin);
+    return respond(JSON.stringify(result.body), result.status, origin, 'no-store');
+  } catch {
     return error('unavailable', origin);
   }
 }
@@ -479,7 +510,8 @@ async function health(request: Request, env: Env, deps: Deps): Promise<Response>
     if (!success) return error('rate-limited', null);
   }
   const report: Record<string, unknown> = {
-    routes: ['/v1/player/:n', '/v1/players'],
+    routes: ['/v1/player/:n', '/v1/players', '/v1/sync'],
+    sync: Boolean(env.LISTS),
     secrets: {
       username: Boolean(env.PDGA_USERNAME),
       password: Boolean(env.PDGA_PASSWORD),
