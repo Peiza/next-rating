@@ -1817,6 +1817,11 @@ a {
   hyphens: auto;
 }
 
+/* The player's name in the heading links to pdga.com, underlined in the heading's own color. */
+.player-link {
+  color: inherit;
+}
+
 .topbar-number {
   display: block;
   color: var(--text-muted);

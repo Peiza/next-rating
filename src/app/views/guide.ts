@@ -2,6 +2,7 @@ import { t, type MessageKey } from '../../i18n';
 import { el, textWithNodes, type Child } from '../dom';
 import { formatCount } from '../format';
 import { canStepGuide, displayScale, guideTextSize, nextGuideStep } from '../text-size';
+import { pdgaNotice } from './pdga';
 import { supportLink } from './support';
 import { GMS_URL } from './top8';
 
@@ -49,7 +50,7 @@ function paragraph(key: MessageKey, nodes: Record<string, Node> = {}): HTMLEleme
 const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> = {
   about: {
     title: 'guide.about.title',
-    body: () => [paragraph('guide.about.text'), el('p', { class: 'notice-inline' }, t('app.unofficial'))],
+    body: () => [paragraph('guide.about.text'), pdgaNotice('notice-inline')],
   },
   data: {
     title: 'guide.data.title',

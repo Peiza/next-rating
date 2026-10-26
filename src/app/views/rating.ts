@@ -18,7 +18,7 @@ import { card, cardIntro } from './card';
 import { direction, slopeArrow, strength } from './change';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
-import { detailsUrl, eventUrl } from './pdga';
+import { detailsUrl, eventUrl, pdgaNotice, playerLink } from './pdga';
 import { eventNote, roundLabel, roundWhere, statusKey, tierNote } from './round-text';
 import { supportLink } from './support';
 import { targetCalculator, type TargetProps } from './target';
@@ -681,9 +681,12 @@ export function ratingView(props: RatingProps): HTMLElement {
     el(
       'h1',
       { id: 'view-title', class: 'wide-only' },
-      model.player?.name
-        ? t('rating.player', { name: model.player.name, number: model.pdgaNumber })
-        : t('rating.playerNumber', { number: model.pdgaNumber }),
+      // The name, or the number without one, links to the player's profile on pdga.com.
+      ...(model.player?.name
+        ? textWithNodes(t('rating.player', { name: '{name}', number: model.pdgaNumber }), {
+            name: playerLink(model.pdgaNumber, model.player.name),
+          })
+        : [playerLink(model.pdgaNumber, t('rating.playerNumber', { number: model.pdgaNumber }))]),
     ),
     summary(props),
     (hasChanges(model) || unchangedText(model) !== null) &&
@@ -705,6 +708,6 @@ export function ratingView(props: RatingProps): HTMLElement {
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
       section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props)),
     supportLink(),
-    el('p', { class: 'notice' }, t('app.unofficial')),
+    pdgaNotice(),
   );
 }

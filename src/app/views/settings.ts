@@ -5,6 +5,7 @@ import { formatCount, formatDate } from '../format';
 import { DATE_ORDERS, TEXT_SIZES, type DateOrder, type OpenWith, type Theme } from '../storage';
 import { sliderValue } from '../text-size';
 import { segmented, type Segment } from './segmented';
+import { pdgaNotice } from './pdga';
 import { bookmarkletStatus } from './setup';
 import { supportLink } from './support';
 
@@ -210,6 +211,6 @@ export function settingsView(props: SettingsProps): HTMLElement {
     el('button', { id: 'open-guide', class: 'button button-block', type: 'button', onclick: onOpenGuide }, t('guide.title')),
     el('p', { id: 'version', class: 'hint' }, versionText(__BUILD_ID__, __BUILD_DATE__)),
     supportLink(),
-    el('p', { class: 'notice' }, t('app.unofficial')),
+    pdgaNotice(),
   );
 }
