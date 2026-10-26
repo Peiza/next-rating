@@ -1154,3 +1154,10 @@ Built in this order:
 - Build date after the version in Settings > About (done)
 - PDGA attribution at the bottom of every view and the player's name
   linked to pdga.com (done)
+- The official rating lookup (docs/plan-pdga-api.md): the Worker in
+  worker/ asks api.pdga.com for one player's rating, its date and the
+  membership; the app shows them under the official line (a notice when
+  PDGA has a newer rating than the import, the membership with when it was
+  checked, one muted line on failure) and confirms the number on the start
+  view, keeps answers at most 12 hours under next-rating:api-cache, and has
+  a Settings switch. Off until NEXT_RATING_API_URL is set (done)

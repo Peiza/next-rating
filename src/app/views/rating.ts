@@ -12,12 +12,14 @@ import {
   formatEffect,
   formatRating,
 } from '../format';
+import type { ApiState } from '../api';
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
 import { direction, slopeArrow, strength } from './change';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
+import { apiSummary } from './official';
 import { detailsUrl, eventUrl, pdgaNotice, playerLink } from './pdga';
 import { eventNote, roundLabel, roundWhere, statusKey, tierNote } from './round-text';
 import { supportLink } from './support';
@@ -50,6 +52,8 @@ export interface RatingProps {
   onCountManual?: (id: string, counted: boolean) => void;
   /** Opens How it works at a section, from a card's explanation. Without it, the explanations have no link. */
   onGuide?: (section: GuideSection) => void;
+  /** The official rating lookup for this player; null or left out when it is off. */
+  api?: ApiState | null;
   /** False for the unsaved player, which gets an Add to favorites button. */
   favorite: boolean;
   /** For the data age and the next update. */
@@ -188,7 +192,7 @@ function officialLine(official: number, exact: number | null, date: PlainDate | 
   );
 }
 
-function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps): HTMLElement {
+function summary({ model, api = null, favorite, now, refresh, onAddFavorite }: RatingProps): HTMLElement {
   const { player, pdgaNumber, prediction } = model;
   const official = player?.currentRating ?? null;
   return el(
@@ -200,6 +204,7 @@ function summary({ model, favorite, now, refresh, onAddFavorite }: RatingProps):
       : el('p', { id: 'predicted', class: 'lead' }, t('rating.none')),
     prediction.change !== null && change(prediction.change),
     official !== null && officialLine(official, model.officialExact, player?.ratingDate ?? null),
+    ...apiSummary(api, player?.ratingDate ?? null),
     nextUpdate(model.nextUpdate),
     followingUpdate(model),
     refreshBox(model, now, refresh),

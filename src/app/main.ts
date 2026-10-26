@@ -1,6 +1,7 @@
 import './styles.css';
 import bookmarklet from 'virtual:bookmarklet';
 import type { PlainDate } from '../engine';
+import { API_URL, createApiCache, lookupPlayer, type ApiState } from './api';
 import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
@@ -90,7 +91,7 @@ import { CHART_FULL_TITLE_ID, chartFullView, setChartTextScale, type ChartProps 
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { roundEditId, ROUNDS_NEXT_ID, ratingView } from './views/rating';
 import { TARGET_EXAMPLES_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID, type ExamplesFlash } from './views/target';
-import { DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
+import { API_LOOKUP_ID, DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import { startTabId, startView, type StartTab } from './views/start';
 
@@ -118,6 +119,15 @@ const ERROR_MESSAGES: Record<HandoffErrorCode, MessageKey> = {
 };
 
 const store = createStore(browserStorage());
+/** The official rating lookup's temporary cache, apart from the app's data; expired entries go at once. */
+const apiCache = createApiCache(browserStorage());
+apiCache.purge();
+/**
+ * The lookups of this page load, by PDGA number: under way, failed, or done
+ * when storage could not keep the answer. A failed one is asked again only
+ * when the player is shown again, so nothing retries in a loop.
+ */
+const apiStates = new Map<number, ApiState>();
 const root = document.getElementById('app')!;
 let tab: Tab = 'rating';
 /** The player the Rating tab shows. A page load starts on "me", or on the player shown last when Settings says so. */
@@ -177,6 +187,53 @@ let roundsExpanded = false;
  * another player starts with them empty.
  */
 let manualPlayer: number | null = selected;
+/** Whether this build has the official rating lookup and Settings leaves it on. */
+function apiOn(): boolean {
+  return API_URL !== '' && store.get().apiLookup;
+}
+
+/** What the views show of a player's lookup: a fresh cached answer first. Null with the lookup off. */
+function apiStateOf(pdgaNumber: number | null): ApiState | null {
+  if (pdgaNumber === null || !apiOn()) return null;
+  const cached = apiCache.get(pdgaNumber);
+  return cached ? { kind: 'ok', player: cached } : (apiStates.get(pdgaNumber) ?? null);
+}
+
+/**
+ * Looks up the player the Rating tab shows, once, when nothing fresh is
+ * known. Offline, nothing is asked and nothing shows. Never polls.
+ */
+function lookUpShown(): void {
+  const pdgaNumber = selected;
+  if (pdgaNumber === null || !apiOn() || tab !== 'rating' || overlay !== null) return;
+  if (apiCache.get(pdgaNumber) || apiStates.has(pdgaNumber) || !navigator.onLine) return;
+  apiStates.set(pdgaNumber, { kind: 'loading' });
+  void lookupPlayer(pdgaNumber, { url: API_URL, enabled: true, online: true }).then((result) => {
+    if (!apiOn()) return;
+    if (result.ok) {
+      apiCache.set(result.player);
+      // Kept here only when storage could not keep it, so the next render does not ask again.
+      if (apiCache.get(pdgaNumber)) apiStates.delete(pdgaNumber);
+      else apiStates.set(pdgaNumber, { kind: 'ok', player: result.player });
+    } else if (result.code === 'off') {
+      apiStates.delete(pdgaNumber);
+    } else {
+      apiStates.set(pdgaNumber, { kind: result.code });
+    }
+    if (selected === pdgaNumber) render();
+  });
+}
+
+/** Turns the lookup on or off; off deletes every kept answer at once. */
+function setApiLookup(apiLookup: boolean): void {
+  store.update({ apiLookup });
+  if (!apiLookup) {
+    apiCache.clear();
+    apiStates.clear();
+  }
+  render(API_LOOKUP_ID);
+}
+
 /** A new version of the app is installed and waits for a reload. */
 let updateReady = false;
 
@@ -425,6 +482,8 @@ function askRemove(pdgaNumber: number | null): void {
 
 function removeFromPanel(pdgaNumber: number): void {
   const data = store.update(removePlayer(store.get(), pdgaNumber));
+  apiCache.delete(pdgaNumber);
+  apiStates.delete(pdgaNumber);
   confirmRemove = null;
   if (selected === pdgaNumber) setSelected(initialSelection(data));
   const anyFavorite = data.players.some((player) => player.favorite);
@@ -900,6 +959,9 @@ function currentView(): HTMLElement {
       dateOrder: data.dateOrder,
       today: today(),
       persistent: store.persistent,
+      apiAvailable: API_URL !== '',
+      apiLookup: data.apiLookup,
+      onApiLookup: setApiLookup,
       bookmarklet: data.bookmarklet,
       onLanguage: setLanguageOverride,
       onTheme: setTheme,
@@ -923,6 +985,8 @@ function currentView(): HTMLElement {
     targetDraft = null;
     targetQuery = null;
     examplesFlash = null;
+    // Shown again: a failed lookup may be asked once more.
+    if (selected !== null && apiStates.get(selected)?.kind !== 'loading') apiStates.delete(selected);
   }
   // The edited round is gone, as after Delete all in another tab: the edit ends unsaved.
   const editing = manualEdit && player?.manualRounds.find((round) => round.id === manualEdit!.id);
@@ -998,6 +1062,7 @@ function currentView(): HTMLElement {
         onClear: clearManual,
         onRemoveExamples: () => removeExamples('manual'),
       },
+      api: apiStateOf(player.pdgaNumber),
       favorite: player.favorite,
       now,
       onAddFavorite: (pdgaNumber) => addToFavorites(pdgaNumber),
@@ -1007,6 +1072,7 @@ function currentView(): HTMLElement {
     pdgaNumber: data.me,
     player: player ? { pdgaNumber: player.pdgaNumber, label: playerLabel(player) } : null,
     flash,
+    api: apiStateOf(player?.pdgaNumber ?? null),
     tab: startTab,
     onTab: (next) => {
       startTab = next;
@@ -1160,6 +1226,7 @@ function render(focusId = document.activeElement?.id): void {
   manualFlash = null;
   examplesFlash = null;
   if (focusId) restoreFocus(focusId);
+  lookUpShown();
 }
 
 window.addEventListener('languagechange', () => {

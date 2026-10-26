@@ -12,7 +12,9 @@ App: https://peiza.github.io/next-rating/
 ## How it works
 
 - Your rounds are read from pdga.com in your own browser, by a bookmarklet.
-  The app has no server: nothing you enter or import leaves your browser.
+  Nothing you enter or import leaves your browser. The one exception is the
+  optional official rating lookup (below): it sends the PDGA number of the
+  player shown, and can be turned off in Settings.
 - The prediction follows the rating rules in the
   [PDGA ratings guide](https://www.pdga.com/ratings/guide): a 12-month window
   (24 months with fewer than 8 rounds), low outliers dropped (each round is
@@ -225,6 +227,72 @@ The app has the same plain link at the bottom of the Rating tab and of
 Settings, and at the end of How it works, opened in the same tab. There is no Ko-fi button, widget or
 script, so nothing from Ko-fi loads in the app.
 
+## The official rating lookup (Worker)
+
+`worker/` is a small Cloudflare Worker that looks up a player's official
+rating, its date and the membership on the official PDGA API
+(`api.pdga.com`), logged in with the owner's PDGA account under the PDGA API
+license. It has one route, `GET /v1/player/<PDGA number>`, answers only the
+app's origin, and returns a trimmed object: number, name, rating, rating
+date, membership and its expiry, and classification. It never reads
+www.pdga.com pages, keeps no database, and caches answers for a few hours
+only (6 hours for a player, 1 hour for "not found"), as the license allows.
+Errors are `{ "error": "<code>" }` with no PDGA text. At most 20 lookups a
+minute come from one IP address, and the Worker keeps no request logs.
+
+The PDGA login is two Cloudflare secrets, `PDGA_USERNAME` and
+`PDGA_PASSWORD`. They are never in this repository, in GitHub or in the app.
+
+Tests: `npm test` runs `tests/worker/` with a fake `api.pdga.com`;
+`npm run typecheck` checks `worker/`. CI never deploys the Worker.
+
+### In the app
+
+While `NEXT_RATING_API_URL` is empty (the default), the app has no lookup
+at all: no switch, no request, and a Content Security Policy that allows
+no other origin. When it is set, the build allows that origin in
+`connect-src`, and the app:
+- looks up the player the Rating tab shows, once, when it has no answer
+  younger than 12 hours, and never while offline, in the background or on
+  a schedule
+- shows the membership and when it was checked under the official rating,
+  and a notice when PDGA has published a newer rating than the imported
+  one: the prediction keeps using the imported rounds, so getting data
+  again updates it
+- confirms the player's name and rating on the start view, the name linked
+  to the profile on pdga.com
+- shows one muted line when the lookup fails, and asks again only when the
+  player is shown again
+- keeps answers in `next-rating:api-cache`, apart from the app's data,
+  deletes them after 12 hours, when the player is removed and when the
+  Settings switch "Look up the official rating online" is turned off
+
+### One-time setup in the Cloudflare dashboard (works on a phone)
+
+1. Sign in at dash.cloudflare.com (a free account is enough).
+2. **Compute (Workers) > Workers & Pages > Create > Import a repository**.
+   Connect GitHub, pick `next-rating`, and set:
+   - Project name: `next-rating-api` (the `name` in `worker/wrangler.toml`)
+   - Root directory: `worker`
+   - Build command: empty. Deploy command: `npx wrangler deploy`
+3. Open the Worker > **Settings > Variables and Secrets > Add**, type
+   **Secret**: `PDGA_USERNAME` with your pdga.com login, then
+   `PDGA_PASSWORD`. Deploy when asked.
+4. Optional: **Settings > Build > Build watch paths**, include `worker/*`,
+   so other pushes to main do not rebuild the Worker.
+5. Copy the Worker's address from its overview, such as
+   `https://next-rating-api.<your-subdomain>.workers.dev`.
+
+6. In GitHub: **Settings > Secrets and variables > Actions > Variables >
+   New repository variable**, name `NEXT_RATING_API_URL`, value the
+   address from step 5. Run the "Build and deploy" workflow again (Actions >
+   Build and deploy > Run workflow), or merge anything, to build the app
+   with it.
+
+Every merge to main that changes `worker/` then deploys it again. To stop it
+at once, open the Worker > Settings > Domains & Routes and turn off the
+workers.dev address, or delete the Worker.
+
 ## Development
 
 Requires Node.js 24 (see `.nvmrc`).
@@ -232,7 +300,7 @@ Requires Node.js 24 (see `.nvmrc`).
 ```sh
 npm ci                # install the pinned dependencies
 npm test              # unit tests
-npm run typecheck     # TypeScript checks for src, tests and scripts
+npm run typecheck     # TypeScript checks for src, tests, scripts and worker
 npm run check:i18n    # lists keys missing from the translation catalogs
 npm run build         # production build in dist/, with the service worker
 npm run icons         # redraws the app icons in public/icons/ (committed)

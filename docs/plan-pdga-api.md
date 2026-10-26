@@ -1,8 +1,23 @@
 # Plan: official rating and membership from the PDGA REST API
 
-**Status: Parked: waiting for PDGA API access and for the owner to email
-dev@pdga.com. Nothing is built, and no API feature goes live before PDGA
-answers.**
+**Status (2026-10-26): being built. The owner decided to go ahead without
+waiting for PDGA's answer on license section 6.c and accepts that risk. PR 1
+is the Worker, PR 2 the app. The app part is off until the owner sets the
+`NEXT_RATING_API_URL` repository variable.**
+
+Changes from the plan below, made while building PR 1:
+- The cache is isolate memory first (at most 500 players, same TTLs), then
+  `caches.default`. The Cache API does nothing on a workers.dev address, so
+  the memory cache is the one that works until the Worker gets a custom
+  domain.
+- The per-IP limit is the Workers rate-limit binding in wrangler.toml (20
+  lookups a minute), since dashboard rate-limit rules need a custom domain.
+- Requests without an allowed `Origin` get 403 `forbidden`, without a call to
+  PDGA.
+- Deploys (question 8): Cloudflare's own Git integration (Workers Builds)
+  deploys `worker/` from main, set up once in the Cloudflare dashboard, so
+  the owner can do it from a phone. GitHub holds no Cloudflare token, and
+  wrangler is not a dependency of this repo.
 
 The email draft is docs/pdga-api-email.md. The background is
 docs/pdga-map-handoff.md.

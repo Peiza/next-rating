@@ -146,6 +146,13 @@ describe('the service worker', () => {
     expect(await worker.request(SCOPE, 'navigate', 'POST')).toBe('not handled');
   });
 
+  it('never handles or caches the official rating lookup', async () => {
+    const worker = runWorker({ 'index.html': 'app' });
+    expect(await worker.request('https://next-rating-api.example.workers.dev/v1/player/1', 'cors')).toBe('not handled');
+    expect(worker.fetched).toEqual([]);
+    expect([...worker.stored.keys()].some((url) => url.includes('workers.dev'))).toBe(false);
+  });
+
   it('takes over only when the app asks', () => {
     const worker = runWorker({});
     worker.listeners.message!({ data: 'other' });

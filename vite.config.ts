@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vitest/config';
+import { apiOrigin, contentSecurityPolicy as policyFor } from './scripts/api-url.ts';
 import { buildBookmarklet, LIVE_APP_URL } from './scripts/bookmarklet.ts';
 import { serviceWorker } from './scripts/service-worker.ts';
 
@@ -15,12 +16,8 @@ const APP_URL = process.env.NEXT_RATING_APP_URL || LIVE_APP_URL;
  * elements, which this policy blocks. `npm run preview` serves the real one.
  * frame-ancestors is ignored in a meta tag, so it is not listed.
  */
-const CONTENT_SECURITY_POLICY = [
-  "default-src 'self'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "object-src 'none'",
-].join('; ');
+const API_ORIGIN = apiOrigin(process.env.NEXT_RATING_API_URL);
+const CONTENT_SECURITY_POLICY = policyFor(API_ORIGIN);
 
 function contentSecurityPolicy(): Plugin {
   return {
@@ -78,6 +75,8 @@ export default defineConfig(({ mode }) => ({
   define: {
     __BUILD_ID__: JSON.stringify(buildId(mode)),
     __BUILD_DATE__: JSON.stringify(buildDate(mode)),
+    // Off under Vitest, so tests never depend on the environment.
+    __API_URL__: JSON.stringify(mode === 'test' ? '' : API_ORIGIN),
   },
   plugins: [contentSecurityPolicy(), bookmarklet(), serviceWorker()],
   build: {

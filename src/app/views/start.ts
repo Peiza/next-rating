@@ -1,5 +1,7 @@
 import { t } from '../../i18n';
+import type { ApiState } from '../api';
 import { el } from '../dom';
+import { apiConfirm } from './official';
 import { detailsLink, nameSearchForm, pdgaNotice, pdgaNumberForm, type PdgaFlash } from './pdga';
 import { segmented, type Segment } from './segmented';
 
@@ -24,6 +26,8 @@ export interface StartProps {
   /** The selected player, when it has no imported data yet. Null before any player is stored. */
   player: { pdgaNumber: number; label: string } | null;
   flash: PdgaFlash;
+  /** The official rating lookup for the selected player, which confirms the number; null or left out when it is off. */
+  api?: ApiState | null;
   /** The first step's tab. */
   tab: StartTab;
   onTab: (tab: StartTab) => void;
@@ -59,6 +63,7 @@ export function startView(props: StartProps): HTMLElement {
     // On phones the top bar shows the heading.
     el('h1', { id: 'view-title', class: 'wide-only' }, player ? player.label : t('app.name')),
     el('p', { class: 'lead' }, player ? t('start.noData') : t('app.tagline')),
+    player && apiConfirm(props.api ?? null, player.pdgaNumber),
     el('h2', {}, t('start.title')),
     el(
       'ol',
