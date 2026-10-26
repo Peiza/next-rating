@@ -17,7 +17,7 @@ export type SearchStatus =
   | { kind: 'invalid' }
   | { kind: 'loading' }
   | { kind: 'ok'; players: SearchPlayer[] }
-  | { kind: 'unavailable'; query: SearchQuery };
+  | { kind: 'unavailable'; query: SearchQuery; detail?: string };
 
 export interface SearchState {
   text: string;
@@ -85,7 +85,8 @@ function statusText(status: SearchStatus): string {
     case 'loading':
       return t('search.searching');
     case 'unavailable':
-      return t('search.unavailable');
+      // The code says why, so a failure can be told apart on the phone.
+      return status.detail ? t('search.unavailableCode', { code: status.detail }) : t('search.unavailable');
     case 'ok':
       if (status.players.length === 0) return t('search.none');
       return status.players.length >= SEARCH_LIMIT

@@ -37,7 +37,9 @@ export type ApiState =
   | { kind: 'not-found' }
   | { kind: 'unavailable' };
 
-export type LookupResult = { ok: true; player: ApiPlayer } | { ok: false; code: 'not-found' | 'unavailable' | 'off' };
+export type LookupResult =
+  | { ok: true; player: ApiPlayer }
+  | { ok: false; code: 'not-found' | 'unavailable' | 'off'; detail?: string };
 
 /** Characters of an answer; a player is about 300. */
 export const MAX_ANSWER = 4096;
@@ -107,13 +109,18 @@ export async function lookupPlayer(pdgaNumber: number, options: LookupOptions): 
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (response.status === 404) return { ok: false, code: 'not-found' };
-    if (!response.ok) return { ok: false, code: 'unavailable' };
+    if (!response.ok) return { ok: false, code: 'unavailable', detail: await failureDetail(response) };
     const text = await response.text();
-    if (text.length > MAX_ANSWER) return { ok: false, code: 'unavailable' };
-    const player = validateApiPlayer(JSON.parse(text), pdgaNumber);
-    return player ? { ok: true, player } : { ok: false, code: 'unavailable' };
-  } catch {
-    return { ok: false, code: 'unavailable' };
+    if (text.length > MAX_ANSWER) return { ok: false, code: 'unavailable', detail: 'too-large' };
+    let player: ApiPlayer | null = null;
+    try {
+      player = validateApiPlayer(JSON.parse(text), pdgaNumber);
+    } catch {
+      // Not JSON: the same as an answer that fails the check.
+    }
+    return player ? { ok: true, player } : { ok: false, code: 'unavailable', detail: 'invalid-answer' };
+  } catch (e) {
+    return { ok: false, code: 'unavailable', detail: fetchFailure(e) };
   }
 }
 
@@ -126,7 +133,8 @@ export interface SearchPlayer extends ApiPlayer {
 
 export type SearchQuery = { pdgaNumber: number } | { firstName: string | null; lastName: string };
 
-export type SearchResult = { ok: true; players: SearchPlayer[] } | { ok: false; code: 'unavailable' | 'off' };
+/** A failed search carries a short code that says why, such as "login-rejected 401", shown with the error. */
+export type SearchResult = { ok: true; players: SearchPlayer[] } | { ok: false; code: 'unavailable' | 'off'; detail?: string };
 
 /** Players the Worker answers a name search with at most. */
 export const SEARCH_LIMIT = 10;
@@ -175,6 +183,30 @@ export function validateSearch(value: unknown): SearchPlayer[] | null {
   return valid;
 }
 
+/**
+ * Why the Worker could not answer, from its error body: the error, its
+ * reason and an HTTP status, such as "unavailable login-rejected 401".
+ * Only fixed words and numbers get through, never other text.
+ */
+export async function failureDetail(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    const fields = text.length <= 400 ? record(JSON.parse(text)) : null;
+    const word = (value: unknown) => (typeof value === 'string' && /^[a-z-]{1,40}$/.test(value) ? value : null);
+    const status = wholeIn(fields?.status, [100, 599]) ? String(fields!.status) : null;
+    const parts = [word(fields?.error), word(fields?.reason), status].filter(Boolean);
+    if (parts.length > 0) return parts.join(' ');
+  } catch {
+    // Not the Worker's JSON: the HTTP status says what there is.
+  }
+  return `http ${response.status}`;
+}
+
+/** "timeout", or "network" when the Worker could not be reached or the browser blocked its answer. */
+function fetchFailure(e: unknown): string {
+  return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'TimeoutError' ? 'timeout' : 'network';
+}
+
 /** Asks the Worker for the players a search finds, once. Never throws; an empty list when PDGA finds no one. */
 export async function searchPlayers(query: SearchQuery, options: LookupOptions): Promise<SearchResult> {
   const { url, enabled, online, fetch: fetchFn = fetch, timeoutMs = LOOKUP_TIMEOUT_MS } = options;
@@ -182,7 +214,8 @@ export async function searchPlayers(query: SearchQuery, options: LookupOptions):
   if ('pdgaNumber' in query) {
     const result = await lookupPlayer(query.pdgaNumber, options);
     if (result.ok) return { ok: true, players: [{ ...result.player, location: null }] };
-    return result.code === 'not-found' ? { ok: true, players: [] } : { ok: false, code: result.code };
+    if (result.code === 'not-found') return { ok: true, players: [] };
+    return result.detail ? { ok: false, code: result.code, detail: result.detail } : { ok: false, code: result.code };
   }
   const params = new URLSearchParams();
   if (query.firstName) params.set('first_name', query.firstName);
@@ -194,13 +227,18 @@ export async function searchPlayers(query: SearchQuery, options: LookupOptions):
       referrerPolicy: 'no-referrer',
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!response.ok) return { ok: false, code: 'unavailable' };
+    if (!response.ok) return { ok: false, code: 'unavailable', detail: await failureDetail(response) };
     const text = await response.text();
-    if (text.length > MAX_SEARCH_ANSWER) return { ok: false, code: 'unavailable' };
-    const players = validateSearch(JSON.parse(text));
-    return players ? { ok: true, players } : { ok: false, code: 'unavailable' };
-  } catch {
-    return { ok: false, code: 'unavailable' };
+    if (text.length > MAX_SEARCH_ANSWER) return { ok: false, code: 'unavailable', detail: 'too-large' };
+    let players: SearchPlayer[] | null = null;
+    try {
+      players = validateSearch(JSON.parse(text));
+    } catch {
+      // Not JSON: the same as an answer that fails the check.
+    }
+    return players ? { ok: true, players } : { ok: false, code: 'unavailable', detail: 'invalid-answer' };
+  } catch (e) {
+    return { ok: false, code: 'unavailable', detail: fetchFailure(e) };
   }
 }
 

@@ -68,6 +68,7 @@
   "search.none": "PDGA hittade ingen spelare. Kontrollera stavningen, eller sök bara på efternamnet.",
   "search.invalid": "Skriv ett förnamn eller efternamn, eller ett PDGA-nummer.",
   "search.unavailable": "Det gick inte att söka just nu.",
+  "search.unavailableCode": "Det gick inte att söka just nu (kod: {code}).",
   "search.onPdga": "Sök på pdga.com i stället",
   "search.results": "Hittade spelare",
   "search.meta": "{number} · {location}",

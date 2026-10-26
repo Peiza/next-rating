@@ -242,15 +242,16 @@ describe('the lookup', () => {
   });
 
   it.each([
-    ['a server error', () => new Response('<h1>Internal error at db-host-7</h1>', { status: 500 })],
-    ['HTML instead of JSON', () => new Response('<html>Just a moment...</html>', { status: 200 })],
-    ['a timeout', () => Promise.reject(new DOMException('timed out', 'TimeoutError')) as unknown as Response],
-    ['a players value that is not a list', () => json({ players: 'db-host-7' })],
-  ])('maps %s to unavailable without upstream text', async (_, answer) => {
+    ['a server error', () => new Response('<h1>Internal error at db-host-7</h1>', { status: 500 }), '{"error":"unavailable","reason":"upstream-status","status":500}'],
+    ['HTML instead of JSON', () => new Response('<html>Just a moment...</html>', { status: 200 }), '{"error":"unavailable","reason":"upstream-not-json","status":200}'],
+    ['a timeout', () => Promise.reject(new DOMException('timed out', 'TimeoutError')) as unknown as Response, '{"error":"unavailable","reason":"upstream-timeout"}'],
+    ['a network failure', () => Promise.reject(new TypeError('db-host-7 refused')) as unknown as Response, '{"error":"unavailable","reason":"upstream-network"}'],
+    ['a players value that is not a list', () => json({ players: 'db-host-7' }), '{"error":"unavailable","reason":"upstream-malformed"}'],
+  ])('maps %s to unavailable with a reason but without upstream text', async (_, answer, body) => {
     const { fetch } = upstream({ login: [LOGIN_OK], players: [answer] });
     const response = await handle(get('/v1/player/99999'), ENV, deps(fetch));
     expect(response.status).toBe(503);
-    expect(await response.text()).toBe('{"error":"unavailable"}');
+    expect(await response.text()).toBe(body);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
 
@@ -258,7 +259,7 @@ describe('the lookup', () => {
     const { fetch } = upstream({ login: [LOGIN_OK], players: [() => json({}, 429)] });
     const response = await handle(get('/v1/player/99999'), ENV, deps(fetch));
     expect(response.status).toBe(429);
-    expect(await response.json()).toEqual({ error: 'rate-limited' });
+    expect(await response.json()).toEqual({ error: 'rate-limited', reason: 'upstream-status', status: 429 });
   });
 
   it('answers rate-limited when the per-IP limit is reached, without calling PDGA', async () => {
@@ -522,7 +523,7 @@ describe('the name search', () => {
     const d = deps(fetch);
     const response = await handle(get('/v1/players?last_name=Player'), ENV, d);
     expect(response.status).toBe(503);
-    expect(await response.text()).toBe('{"error":"unavailable"}');
+    expect(await response.text()).toBe('{"error":"unavailable","reason":"upstream-status","status":500}');
     expect((await handle(get('/v1/players?last_name=Player'), ENV, d)).status).toBe(200);
     expect(calls).toHaveLength(3);
   });
@@ -567,5 +568,84 @@ describe('mapSearch', () => {
   it('treats a players value that is not a list as malformed', () => {
     expect(mapSearch({ players: 'x' }, now, SEARCH_LIMIT)).toBe('malformed');
     expect(mapSearch(null, now, SEARCH_LIMIT)).toBe('malformed');
+  });
+});
+
+describe('the failure reasons', () => {
+  it('says when the secrets are missing', async () => {
+    const { fetch } = upstream({});
+    const response = await handle(get('/v1/players?last_name=Player'), { ALLOWED_ORIGINS: APP }, deps(fetch));
+    expect(await response.json()).toEqual({ error: 'unavailable', reason: 'not-configured' });
+  });
+
+  it('says when PDGA turns the login away, also while the next login waits', async () => {
+    const { fetch, calls } = upstream({ login: [() => json({ error: PASSWORD }, 401)] });
+    const d = deps(fetch);
+    for (let i = 0; i < 2; i++) {
+      const response = await handle(get('/v1/players?last_name=Player'), ENV, d);
+      const text = await response.text();
+      expect(JSON.parse(text)).toEqual({ error: 'unavailable', reason: 'login-rejected', status: 401 });
+      expect(text).not.toContain(PASSWORD);
+    }
+    expect(calls).toHaveLength(1);
+  });
+
+  it('says when the login answer has no session', async () => {
+    const { fetch } = upstream({ login: [() => json({ user: {} })] });
+    const response = await handle(get('/v1/players?last_name=Player'), ENV, deps(fetch));
+    expect(await response.json()).toEqual({ error: 'unavailable', reason: 'login-malformed' });
+  });
+
+  it('says when the account is turned away after a fresh login', async () => {
+    const { fetch } = upstream({ login: [LOGIN_OK, LOGIN_OK], players: [() => json({}, 403), () => json({}, 403)] });
+    const response = await handle(get('/v1/players?last_name=Player'), ENV, deps(fetch));
+    expect(await response.json()).toEqual({ error: 'unavailable', reason: 'session-rejected', status: 403 });
+  });
+});
+
+describe('the health check', () => {
+  const health = (origin: string | null = null) => get('/health', origin);
+
+  it('reports the secrets as booleans, the login and a lookup, without an Origin and without data', async () => {
+    const { fetch, calls } = upstream({ login: [LOGIN_OK], players: [() => json({ players: [apiPlayer({ pdga_number: '1' })] })] });
+    const response = await handle(health(), ENV, deps(fetch));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    const text = await response.text();
+    expect(JSON.parse(text)).toEqual({
+      routes: ['/v1/player/:n', '/v1/players'],
+      secrets: { username: true, password: true },
+      allowedOrigins: [APP, 'http://localhost:5173'],
+      login: 'ok',
+      lookup: 'ok',
+    });
+    for (const secret of [USERNAME, PASSWORD, 'abc123', 'Test Player']) expect(text).not.toContain(secret);
+    expect(calls.map((call) => call.url)).toEqual([`${PDGA_API}/user/login`, `${PDGA_API}/players?pdga_number=1&limit=1`]);
+  });
+
+  it('reports missing secrets and a failed login without calling the lookup', async () => {
+    const missing = upstream({});
+    const report = await (await handle(health(), { ALLOWED_ORIGINS: APP }, deps(missing.fetch))).json();
+    expect(report).toMatchObject({ secrets: { username: false, password: false }, login: { reason: 'not-configured' } });
+    expect(report).not.toHaveProperty('lookup');
+    expect(missing.calls).toEqual([]);
+
+    const rejected = upstream({ login: [() => json({}, 401)] });
+    const failed = await (await handle(health(), ENV, deps(rejected.fetch))).json();
+    expect(failed).toMatchObject({ login: { reason: 'login-rejected', status: 401 } });
+  });
+
+  it('reports a lookup that fails after the login', async () => {
+    const { fetch } = upstream({ login: [LOGIN_OK], players: [() => json({}, 500)] });
+    const report = await (await handle(health(), ENV, deps(fetch))).json();
+    expect(report).toMatchObject({ login: 'ok', lookup: { reason: 'upstream-status', status: 500 } });
+  });
+
+  it('counts against the per-IP limit', async () => {
+    const { fetch, calls } = upstream({});
+    const limit = vi.fn(async () => ({ success: false }));
+    const response = await handle(health(), { ...ENV, RATE_LIMITER: { limit } }, deps(fetch));
+    expect(response.status).toBe(429);
+    expect(calls).toEqual([]);
   });
 });
