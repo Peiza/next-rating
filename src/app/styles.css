@@ -677,8 +677,9 @@ a {
 }
 
 /*
- * The sloped arrow: one arrow pointing right, turned by its slope, so a small
- * change is a shallow arrow and a large one points straight up or down.
+ * The sloped arrow: one arrow pointing right, turned by an SVG transform
+ * (arrowAngle in change.ts), so a small change is a shallow arrow and a
+ * change of 10 or more points straight up or down.
  * Sized in em, it grows with the text.
  */
 .slope-arrow {
@@ -698,30 +699,6 @@ a {
   stroke-linejoin: round;
 }
 
-.slope-up-1 {
-  transform: rotate(-20deg);
-}
-
-.slope-up-2 {
-  transform: rotate(-45deg);
-}
-
-.slope-up-3 {
-  transform: rotate(-90deg);
-}
-
-.slope-down-1 {
-  transform: rotate(20deg);
-}
-
-.slope-down-2 {
-  transform: rotate(45deg);
-}
-
-.slope-down-3 {
-  transform: rotate(90deg);
-}
-
 .predicted {
   margin: 0;
   font-size: calc(4.5rem * var(--display-scale, 1));
@@ -734,10 +711,6 @@ a {
 .change {
   font-size: 1.2rem;
   font-weight: 700;
-}
-
-.change-arrow {
-  margin-right: 0.35em;
 }
 
 .change-up {

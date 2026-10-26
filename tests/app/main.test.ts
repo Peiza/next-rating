@@ -656,7 +656,7 @@ describe('app start', () => {
     expect(listed(100001, 'player-rating')!.textContent).toBe(predicted());
     expect(listed(100002, 'player-rating')!.textContent).toBe('1000');
     // No new rounds: the official rating, with no change.
-    expect(listed(100002, 'player-change')!.textContent).toBe('→0');
+    expect(listed(100002, 'player-change')!.textContent).toBe('0');
     expect(document.getElementById('player-100003')).not.toBeNull();
     expect(listed(100003, 'player-prediction')).toBeNull();
 
