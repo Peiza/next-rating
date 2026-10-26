@@ -248,7 +248,7 @@ values live in the git-ignored tests/fixtures/expected.json.
 Start with a plan for my approval. Ask questions as plain text in the reply:
 numbered questions, each with lettered options and your recommendation, so I
 can copy them. Don't use interactive question boxes. Changes reach main
-through pull requests that I merge; the workflow builds and tests every pull
+through pull requests; the workflow builds and tests every pull
 request and deploys every merge, so each version can be tested live on my
 phone. At the start of every new step, first run git switch main, git pull
 --ff-only and git fetch --prune, delete local branches that are already
@@ -257,8 +257,8 @@ from main. Run git branch -d with the Bash tool, not PowerShell: the
 PowerShell deny rule for git branch -D also matches -d. When a step is done, Claude pushes the branch and opens the
 pull request with gh (`C:\Program Files\GitHub CLI\gh.exe` when gh isn't
 on PATH), with the description and a checklist of what to test on the
-phones, waits for CI and reports whether it passed. Never merge: I always
-merge myself. Done so far:
+phones, waits for CI, and merges the pull request itself when CI is green.
+Done so far:
 engine, parsers, web app commits 1 and 2, Pages workflow, bookmarklet with a
 minimal setup page, fixes after phone testing, favorites, the change
 explanation, the polish after favorites, the deadline-aware prediction,
