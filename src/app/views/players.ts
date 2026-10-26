@@ -4,7 +4,7 @@ import { deviceLocale, formatAge, formatChange, formatRating } from '../format';
 import type { ListPrediction } from '../model';
 import { playerName, sortFavorites } from '../players';
 import type { PlayerOrder, StoredPlayer } from '../storage';
-import { direction } from './change';
+import { direction, slopeArrow } from './change';
 import { detailsUrl, nameSearchForm, pdgaNumberForm, type PdgaFlash } from './pdga';
 import { segmented, type Segment } from './segmented';
 
@@ -82,7 +82,7 @@ function imported(player: StoredPlayer, now: Date): string {
  * figures are hidden from screen readers, which read a sentence instead.
  */
 function predictionColumn({ rating, change }: ListPrediction): HTMLElement {
-  const [dir, arrow] = direction(change ?? 0);
+  const [dir] = direction(change ?? 0);
   const [shown, signed] = [formatRating(rating), change !== null && formatChange(change)];
   return el(
     'span',
@@ -97,7 +97,7 @@ function predictionColumn({ rating, change }: ListPrediction): HTMLElement {
       el(
         'span',
         { class: `player-change change-${dir}`, 'aria-hidden': 'true' },
-        el('span', { class: 'change-arrow' }, arrow),
+        slopeArrow(change ?? 0),
         signed,
       ),
   );

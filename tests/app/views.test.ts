@@ -7,7 +7,7 @@ import { buildModel, manualToRounds } from '../../src/app/model';
 import { bannerView, updateNotice } from '../../src/app/views/banner';
 import { GUIDE_SECTIONS, guideSectionId, guideView, type GuideProps } from '../../src/app/views/guide';
 import { ratingView, shownRounds } from '../../src/app/views/rating';
-import { slope, slopeArrow } from '../../src/app/views/change';
+import { arrowAngle, slopeArrow, strength } from '../../src/app/views/change';
 import type { ListedResult } from '../../src/app/model';
 import type { RoundStatus } from '../../src/engine';
 import { chartData } from '../../src/app/chart';
@@ -22,6 +22,12 @@ import { playersPanel, topBar, type PlayersProps } from '../../src/app/views/pla
 import { CARDS, DEFAULT_CARDS, type CardState, type StoredPlayer } from '../../src/app/storage';
 import { displayScale } from '../../src/app/text-size';
 import { setLanguage } from '../../src/i18n';
+
+/** The angle an arrow drawing is turned, in degrees up from flat, read from its SVG transform. */
+function drawnAngle(arrow: Element): number {
+  const turn = arrow.querySelector('path')!.getAttribute('transform');
+  return turn === null ? 0 : -Number(/^rotate\((-?\d+(?:\.\d+)?) 10 10\)$/.exec(turn)![1]);
+}
 import { rawDetailsRow, rawEvent, rawEventRow, rawPlayer, rawProfileEvent } from '../handoff/raw';
 
 afterEach(() => setLanguage('en'));
@@ -472,7 +478,7 @@ describe('rating view', () => {
   it('shows the prediction, the change and the official rating', () => {
     const view = ratingPage();
     expect(view.querySelector('#predicted')!.textContent).toBe('962');
-    expect(view.querySelector('.change')!.textContent).toBe('↑+12 vs official rating');
+    expect(view.querySelector('.change')!.textContent).toBe('+12 vs official rating');
     expect(view.querySelector('.official')!.textContent).toContain('950');
     expect(view.textContent).toContain('Last import:');
   });
@@ -487,17 +493,18 @@ describe('rating view', () => {
   });
 
   it.each([
-    ['950', 'up', '↑', '+12'],
-    ['970', 'down', '↓', '−8'],
-    ['962', 'none', '→', '0'],
-  ])('marks a change from an official %s with an arrow and a sign', (official, direction, arrow, sign) => {
+    ['950', 'up', 90, '+12'],
+    ['957', 'up', 45, '+5'],
+    ['970', 'down', -72, '−8'],
+    ['962', 'none', 0, '0'],
+  ])('marks a change from an official %s with a sloped arrow and a sign', (official, direction, angle, sign) => {
     const model = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001, NOW);
     const line = ratingView({ model, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.change')!;
     expect(line.classList.contains(`change-${direction}`)).toBe(true);
-    const icon = line.querySelector('.change-arrow')!;
-    expect(icon.textContent).toBe(arrow);
+    const icon = line.querySelector('svg.slope-arrow')!;
     expect(icon.getAttribute('aria-hidden')).toBe('true');
-    expect(line.textContent).toBe(`${arrow}${sign} vs official rating`);
+    expect(drawnAngle(icon)).toBe(angle);
+    expect(line.textContent).toBe(`${sign} vs official rating`);
   });
 
   it('lists rounds newest first with a text label and a symbol for each status', () => {
@@ -553,10 +560,11 @@ describe('rating view', () => {
       expect(line.textContent).toMatch(new RegExp(`^Then \\D*10\\D*: ${rating} \\+${change}$`));
       expect(line.querySelector('.following-rating')!.textContent).toBe(String(rating));
       const shown = line.querySelector('.following-change')!;
-      expect(shown.className).toBe(`following-change change-up change-strength-${slope(change!)}`);
+      expect(shown.className).toBe(`following-change change-up change-strength-${strength(change!)}`);
       const arrow = shown.querySelector('svg.slope-arrow')!;
       expect(arrow.getAttribute('aria-hidden')).toBe('true');
-      expect(arrow.classList.contains(`slope-up-${slope(change!)}`)).toBe(true);
+      expect(drawnAngle(arrow)).toBe(arrowAngle(change!));
+      expect(drawnAngle(arrow)).toBeGreaterThan(0);
       // The next update's prediction stays as it was.
       expect(page.querySelector('#predicted')!.textContent).toBe('962');
     });
@@ -565,16 +573,45 @@ describe('rating view', () => {
       const line = view([manual('2026-10-20', 800), manual('2026-10-21', 800)]).view.querySelector('#following-update')!;
       expect(line.textContent).toMatch(/^Then \D*10\D*: \d+ −\d+$/);
       expect(line.querySelector('.following-change')!.classList.contains('change-down')).toBe(true);
-      expect(line.querySelector('svg.slope-arrow')!.getAttribute('class')).toMatch(/^slope-arrow slope-down-[123]$/);
+      expect(drawnAngle(line.querySelector('svg.slope-arrow')!)).toBeLessThan(0);
     });
 
-    it('slopes the arrow by the size of the change: shallow to 2, diagonal to 9, straight from 10', () => {
-      const sizes = [0, 1, 2, 3, 9, 10, 40];
-      expect(sizes.map(slope)).toEqual([0, 1, 1, 2, 2, 3, 3]);
-      expect(sizes.map((size) => slope(-size))).toEqual([0, 1, 1, 2, 2, 3, 3]);
-      const classes = (value: number) => slopeArrow(value).getAttribute('class');
-      expect([0, 2, 5, 12].map(classes)).toEqual(['slope-arrow', 'slope-arrow slope-up-1', 'slope-arrow slope-up-2', 'slope-arrow slope-up-3']);
-      expect([-1, -9, -10].map(classes)).toEqual(['slope-arrow slope-down-1', 'slope-arrow slope-down-2', 'slope-arrow slope-down-3']);
+    it('turns the arrow linearly by the size of the change: flat at 0, 45 degrees at 5, straight from 10', () => {
+      const sizes = [0, 1, 4, 5, 7, 10, 15];
+      expect(sizes.map(arrowAngle)).toEqual([0, 9, 36, 45, 63, 90, 90]);
+      expect(sizes.map((size) => arrowAngle(-size))).toEqual([0, -9, -36, -45, -63, -90, -90]);
+      expect(sizes.map((size) => drawnAngle(slopeArrow(size)))).toEqual([0, 9, 36, 45, 63, 90, 90]);
+      expect(sizes.map((size) => drawnAngle(slopeArrow(-size)))).toEqual([0, -9, -36, -45, -63, -90, -90]);
+      // Flat needs no turn at all.
+      expect(slopeArrow(0).querySelector('path')!.hasAttribute('transform')).toBe(false);
+    });
+
+    it('rounds the size as the text shows it', () => {
+      expect([0.4, -0.4, 4.5, -4.5, 4.4, 9.6].map(arrowAngle)).toEqual([0, 0, 45, -45, 36, 90]);
+      expect([0.4, 2.5, 9.5].map(strength)).toEqual([0, 2, 3]);
+    });
+
+    it('turns the main arrow and the following update arrow alike for the same change', () => {
+      // The following update's change is from the next prediction, so a round in it moves only that line.
+      const { model, view: page } = view([manual('2026-10-20')]);
+      const change = model.following!.change!;
+      const official = String(962 - change);
+      const main = buildModel({ ...stored, player: rawPlayer({ currentRating: official }) }, 100001, NOW, manualToRounds([manual('2026-10-20')]));
+      expect(main.prediction.change).toBe(change);
+      const mainArrow = ratingView({ model: main, favorite: true, now: NOW, onAddFavorite: vi.fn() }).querySelector('.change svg.slope-arrow')!;
+      const followingArrow = page.querySelector('.following-change svg.slope-arrow')!;
+      expect(drawnAngle(mainArrow)).toBe(drawnAngle(followingArrow));
+      expect(mainArrow.outerHTML).toBe(followingArrow.outerHTML);
+      for (const value of [-15, -10, -7, -5, -4, -1, 0, 1, 4, 5, 7, 10, 15]) {
+        const line = ratingView({
+          model: { ...main, prediction: { ...main.prediction, change: value }, following: { rating: 962 + value, change: value } },
+          favorite: true,
+          now: NOW,
+          onAddFavorite: vi.fn(),
+        });
+        expect(drawnAngle(line.querySelector('.change svg.slope-arrow')!)).toBe(arrowAngle(value));
+        expect(drawnAngle(line.querySelector('.following-change svg.slope-arrow')!)).toBe(arrowAngle(value));
+      }
     });
 
     it('shows a larger change in a stronger tone', () => {
@@ -1667,7 +1704,8 @@ describe('players panel', () => {
     const column = view.querySelector('#player-100001 .player-prediction')!;
     expect(column.querySelector('.player-rating')!.textContent).toBe('985');
     const change = column.querySelector('.player-change')!;
-    expect(change.textContent).toBe('↑+7');
+    expect(change.textContent).toBe('+7');
+    expect(drawnAngle(change.querySelector('svg.slope-arrow')!)).toBe(63);
     expect(change.classList.contains('change-up')).toBe(true);
     expect([...column.querySelectorAll('.player-rating, .player-change')].every((part) => part.getAttribute('aria-hidden') === 'true')).toBe(true);
     expect(column.querySelector('.visually-hidden')!.textContent).toBe('Predicted rating 985, +7 vs official rating');
@@ -1683,11 +1721,13 @@ describe('players panel', () => {
       ]),
     });
     const drop = view.querySelector('#player-100001 .player-change')!;
-    expect(drop.textContent).toBe('↓−3');
+    expect(drop.textContent).toBe('−3');
+    expect(drawnAngle(drop.querySelector('svg.slope-arrow')!)).toBe(-27);
     expect(drop.classList.contains('change-down')).toBe(true);
     // The unsaved player gets it too.
     const same = view.querySelector('#player-100003 .player-change')!;
-    expect(same.textContent).toBe('→0');
+    expect(same.textContent).toBe('0');
+    expect(drawnAngle(same.querySelector('svg.slope-arrow')!)).toBe(0);
     expect(same.classList.contains('change-none')).toBe(true);
   });
 

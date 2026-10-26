@@ -35,6 +35,8 @@ examples out, also with manual rounds on).
   card is closed and when another player is shown.
 
 ## A2. The sloped following update arrow
+(Replaced by "One arrow angle" in docs/finished-steps.md: one linear angle
+for every change arrow, 45 degrees at 5 and straight from 10.)
 - "Then 10 Nov: 985 ↗ +3": the arrow is shallow (about 20°) for a change of
   1–2, diagonal for 3–9 and straight for 10 and more; no change keeps the
   flat arrow. `slope` and `slopeArrow` in src/app/views/change.ts; the arrow

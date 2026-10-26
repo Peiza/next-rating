@@ -15,7 +15,7 @@ import {
 import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
-import { direction, slope, slopeArrow } from './change';
+import { direction, slopeArrow, strength } from './change';
 import type { GuideSection } from './guide';
 import { manualEntry, type ManualProps } from './manual';
 import { detailsUrl, eventUrl } from './pdga';
@@ -86,12 +86,13 @@ const SOURCE: Record<ListedResult['round']['source'], MessageKey> = {
 
 const DASH = '–';
 
+/** The change from the official rating, its arrow turned like the following update's. */
 function change(value: number): HTMLElement {
-  const [dir, arrow] = direction(value);
+  const [dir] = direction(value);
   return el(
     'p',
     { class: `change change-${dir}` },
-    el('span', { class: 'change-arrow', 'aria-hidden': 'true' }, arrow),
+    slopeArrow(value),
     t('rating.change', { change: formatChange(value) }),
   );
 }
@@ -124,7 +125,7 @@ function followingUpdate({ followingUpdate: { update }, following }: Model): HTM
     const [dir] = direction(change);
     nodes.change = el(
       'span',
-      { class: `following-change change-${dir} change-strength-${slope(change)}` },
+      { class: `following-change change-${dir} change-strength-${strength(change)}` },
       slopeArrow(change),
       formatChange(change),
     );

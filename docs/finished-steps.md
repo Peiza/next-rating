@@ -994,6 +994,33 @@ Built as:
   aria-label ("Count round 985 from …").
 - How it works says so in the manual rounds paragraph.
 
+## One arrow angle
+Spec:
+1. The arrow beside the predicted rating ("+5 vs official rating"), the
+   following update's arrow and the players list's arrow are the same
+   drawing, turned the same way for the same change.
+2. The angle grows smoothly with the size of the change, in rating points
+   rounded as the text shows them: 0 is flat, 5 is 45 degrees, 10 and more
+   point straight up, linear in between (9 degrees a point). A fall mirrors
+   it downward.
+3. Green and red stay. The following update keeps its three tone strengths
+   (1–2, 3–9, 10 and more); the main change and the players list keep the
+   full colour.
+
+Built as:
+- `arrowAngle` in src/app/views/change.ts gives the angle; `slopeArrow`
+  draws the arrow and turns its path with an SVG `transform` attribute
+  (`rotate(-a 10 10)`), which the CSP allows where an inline style is
+  blocked. A flat arrow has no transform. The `slope-up-N` and
+  `slope-down-N` classes are gone.
+- `slope` became `strength`, used only for `change-strength-N`; both round
+  the size as `formatChange` does.
+- The change line under the predicted rating and `.player-change` in the
+  players list use `slopeArrow` instead of the ↑ ↓ → characters, so their
+  text holds the sign alone. Why it changed keeps its characters.
+- A test turns the main arrow and the following update's arrow for the
+  same values from −15 to 15 and expects the same angle.
+
 ## Build date after the version
 Spec: Settings > About shows the build's day after its version, such as
 "Version 1a2b3c4 · 2026-10-26", so it is clear how new the running app is:
@@ -1100,4 +1127,7 @@ Built in this order:
 - Manual rounds on and off: a Count checkbox on each manual round in the
   Rounds card, stored with the round, left out of everything that predicts
   and of the Top 8 (done)
+- One arrow angle: the main change, the following update and the players
+  list share one arrow, turned linearly with the change (45 degrees at 5,
+  straight from 10) (done)
 - Build date after the version in Settings > About (done)
