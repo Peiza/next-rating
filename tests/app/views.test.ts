@@ -1786,7 +1786,7 @@ describe('players panel', () => {
   });
 
   it("links each player to its ratings details on pdga.com", () => {
-    const links = [...panel().querySelectorAll<HTMLAnchorElement>('a.player-link')];
+    const links = [...panel().querySelectorAll<HTMLAnchorElement>('a.player-details-link')];
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       'https://www.pdga.com/player/100001/details',
       'https://www.pdga.com/player/100002/details',

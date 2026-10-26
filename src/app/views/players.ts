@@ -137,7 +137,7 @@ function detailsLink(player: StoredPlayer): HTMLElement {
   return el(
     'a',
     {
-      class: 'player-link',
+      class: 'player-details-link',
       href: detailsUrl(player.pdgaNumber),
       rel: 'noreferrer',
       'aria-label': t('players.detailsFor', { player: playerLabel(player) }),
