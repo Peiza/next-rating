@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { RANGES } from '../../src/parsers/values';
 import {
   createState,
+  credentials,
+  loginMessage,
   FOUND_TTL_MS,
   handle,
   ID_RANGE,
@@ -614,7 +616,7 @@ describe('the health check', () => {
     const text = await response.text();
     expect(JSON.parse(text)).toEqual({
       routes: ['/v1/player/:n', '/v1/players'],
-      secrets: { username: true, password: true },
+      secrets: { username: true, password: true, usernameIsEmail: false, usernameHadSpaces: false, passwordHadLineBreak: false },
       allowedOrigins: [APP, 'http://localhost:5173'],
       login: 'ok',
       lookup: 'ok',
@@ -647,5 +649,41 @@ describe('the health check', () => {
     const response = await handle(health(), { ...ENV, RATE_LIMITER: { limit } }, deps(fetch));
     expect(response.status).toBe(429);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('the login diagnostics', () => {
+  it('trims spaces around the username and a line break after the password', () => {
+    expect(credentials({ PDGA_USERNAME: ' test-user\n', PDGA_PASSWORD: 'pass word \r\n' })).toEqual({ username: 'test-user', password: 'pass word ' });
+    expect(credentials({ PDGA_USERNAME: ' ', PDGA_PASSWORD: 'x' })).toBeNull();
+  });
+
+  it('sends the trimmed secrets', async () => {
+    const { fetch, calls } = upstream({ login: [LOGIN_OK], players: [() => json({ players: [apiPlayer()] })] });
+    await handle(get('/v1/player/99999'), { ...ENV, PDGA_USERNAME: ` ${USERNAME} `, PDGA_PASSWORD: `${PASSWORD}\n` }, deps(fetch));
+    expect(JSON.parse(String(calls[0]!.init!.body))).toEqual({ username: USERNAME, password: PASSWORD });
+  });
+
+  it("reads PDGA's message without the secrets", () => {
+    expect(loginMessage('["Wrong username or password."]', [USERNAME, PASSWORD])).toBe('Wrong username or password.');
+    expect(loginMessage(JSON.stringify({ message: `No user ${USERNAME} with ${PASSWORD}` }), [USERNAME, PASSWORD])).toBe('No user *** with ***');
+    expect(loginMessage('<h1>Access denied</h1>', [])).toBe('Access denied');
+    expect(loginMessage(JSON.stringify(['x'.repeat(300)]), [])).toHaveLength(120);
+    expect(loginMessage('', [])).toBeUndefined();
+    expect(loginMessage('{"a":1}', [])).toBeUndefined();
+  });
+
+  it("shows PDGA's message and the username's shape in /health, but never in the app's errors", async () => {
+    const env = { ...ENV, PDGA_USERNAME: 'test@example.com' };
+    const reject = () => json([`Wrong username or password for test@example.com.`], 401);
+    const first = upstream({ login: [reject] });
+    const report = await (await handle(get('/health'), env, deps(first.fetch))).json();
+    expect(report.secrets).toEqual({ username: true, password: true, usernameIsEmail: true, usernameHadSpaces: false, passwordHadLineBreak: false });
+    expect(report.login).toEqual({ reason: 'login-rejected', status: 401, message: 'Wrong username or password for ***.' });
+    expect(report.hint).toMatch(/username \(not the email\)/);
+
+    const second = upstream({ login: [reject] });
+    const response = await handle(get('/v1/players?last_name=Player'), env, deps(second.fetch));
+    expect(await response.json()).toEqual({ error: 'unavailable', reason: 'login-rejected', status: 401 });
   });
 });

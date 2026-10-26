@@ -246,7 +246,7 @@ with no PDGA text: the reason says why (`not-configured`, `login-rejected`,
 `upstream-network`, `upstream-not-json`, `upstream-too-large`,
 `upstream-malformed`), and the app shows it as a code after "Could not
 search right now". `GET /health`, opened in a browser, reports whether the
-two secrets are set (true or false only), the allowed origins, whether a PDGA
+two secrets are set (true or false only, plus whether the username is an email address), the allowed origins, PDGA's own message on a turned-away login (with the secrets taken out), whether a PDGA
 login works and whether a one-player lookup answers, again as fixed words
 and statuses only. At most 20 lookups a
 minute (lookups and searches together) come from one IP address, and the Worker keeps no request logs.

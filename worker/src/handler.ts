@@ -52,6 +52,12 @@ export type Reason =
 interface Failure {
   reason: Reason;
   status?: number;
+  /**
+   * PDGA's own words on a turned-away login, such as "Wrong username or
+   * password.", with the username and password taken out. Shown by /health
+   * only, never sent to the app.
+   */
+  message?: string;
 }
 
 export interface Env {
@@ -138,7 +144,8 @@ function respond(body: string, status: number, origin: string | null, cache: 'st
 }
 
 function error(code: ErrorCode, origin: string | null, failure?: Failure): Response {
-  return respond(JSON.stringify({ error: code, ...failure }), STATUS[code], origin, 'no-store');
+  const { message: _message, ...shown } = failure ?? {};
+  return respond(JSON.stringify({ error: code, ...shown }), STATUS[code], origin, 'no-store');
 }
 
 /** The PDGA number in /v1/player/:n, or null for anything else. */
@@ -301,7 +308,7 @@ function unavailable(reason: Reason, status?: number): UpstreamError {
   return new UpstreamError('unavailable', status === undefined ? { reason } : { reason, status });
 }
 
-async function upstream(url: string, init: RequestInit, deps: Deps): Promise<{ status: number; json: unknown }> {
+async function upstream(url: string, init: RequestInit, deps: Deps): Promise<{ status: number; json: unknown; text?: string }> {
   let response: Response;
   try {
     response = await deps.fetch(url, { ...init, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
@@ -309,7 +316,10 @@ async function upstream(url: string, init: RequestInit, deps: Deps): Promise<{ s
     const timeout = e instanceof Error && e.name === 'TimeoutError';
     throw unavailable(timeout ? 'upstream-timeout' : 'upstream-network');
   }
-  if (!response.ok) return { status: response.status, json: null };
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    return { status: response.status, json: null, text: text.slice(0, 2000) };
+  }
   const text = await response.text().catch(() => '');
   if (text.length > UPSTREAM_MAX_LENGTH) throw unavailable('upstream-too-large', response.status);
   try {
@@ -321,12 +331,50 @@ async function upstream(url: string, init: RequestInit, deps: Deps): Promise<{ s
 
 const SESSION_PART = /^[A-Za-z0-9_,-]{1,200}$/;
 
+/**
+ * The secrets as they are meant: a username has no spaces around it, and a
+ * password pasted into the dashboard may carry a line break at the end.
+ */
+export function credentials(env: Env): { username: string; password: string } | null {
+  const username = env.PDGA_USERNAME?.trim() ?? '';
+  const password = env.PDGA_PASSWORD?.replace(/[\r\n]+$/, '') ?? '';
+  return username && password ? { username, password } : null;
+}
+
+/**
+ * The message in PDGA's answer to a turned-away login (Drupal answers a
+ * list of strings or an object with a message), one line of at most 120
+ * characters, with the username and password replaced by "***".
+ */
+export function loginMessage(text: string | undefined, secrets: readonly string[]): string | undefined {
+  if (!text) return undefined;
+  let value: unknown = text;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    // Plain text or HTML: used as it is, tags removed.
+  }
+  if (Array.isArray(value)) value = value.find((one) => typeof one === 'string');
+  if (typeof value === 'object' && value !== null) {
+    const fields = value as Record<string, unknown>;
+    value = [fields.message, fields.error, fields.form_errors].find((one) => typeof one === 'string');
+  }
+  if (typeof value !== 'string') return undefined;
+  let clean = value.replace(/<[^>]*>/g, ' ').replace(/[\u0000-\u001f\u007f]+/g, ' ');
+  for (const secret of secrets) {
+    if (secret) clean = clean.split(secret).join('***');
+  }
+  clean = clean.replace(/\s+/g, ' ').trim().slice(0, 120);
+  return clean || undefined;
+}
+
 /** The session cookie, or why the login failed. */
 async function login(env: Env, deps: Deps): Promise<string | Failure> {
-  const { PDGA_USERNAME: username, PDGA_PASSWORD: password } = env;
-  if (!username || !password) return { reason: 'not-configured' };
+  const secrets = credentials(env);
+  if (!secrets) return { reason: 'not-configured' };
+  const { username, password } = secrets;
   try {
-    const { status, json } = await upstream(
+    const { status, json, text } = await upstream(
       `${PDGA_API}/user/login`,
       {
         method: 'POST',
@@ -335,7 +383,10 @@ async function login(env: Env, deps: Deps): Promise<string | Failure> {
       },
       deps,
     );
-    if (status !== 200) return { reason: 'login-rejected', status };
+    if (status !== 200) {
+      const message = loginMessage(text, [username, password, env.PDGA_USERNAME ?? '', env.PDGA_PASSWORD ?? '']);
+      return message ? { reason: 'login-rejected', status, message } : { reason: 'login-rejected', status };
+    }
     if (typeof json !== 'object' || json === null) return { reason: 'login-malformed' };
     const { session_name: name, sessid } = json as Record<string, unknown>;
     if (typeof name !== 'string' || typeof sessid !== 'string') return { reason: 'login-malformed' };
@@ -429,7 +480,14 @@ async function health(request: Request, env: Env, deps: Deps): Promise<Response>
   }
   const report: Record<string, unknown> = {
     routes: ['/v1/player/:n', '/v1/players'],
-    secrets: { username: Boolean(env.PDGA_USERNAME), password: Boolean(env.PDGA_PASSWORD) },
+    secrets: {
+      username: Boolean(env.PDGA_USERNAME),
+      password: Boolean(env.PDGA_PASSWORD),
+      // An email address where PDGA may want the account's username; spaces or a line break that are taken off.
+      usernameIsEmail: (env.PDGA_USERNAME ?? '').includes('@'),
+      usernameHadSpaces: (env.PDGA_USERNAME ?? '') !== (env.PDGA_USERNAME ?? '').trim(),
+      passwordHadLineBreak: /[\r\n]$/.test(env.PDGA_PASSWORD ?? ''),
+    },
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').map((value) => value.trim()).filter(Boolean),
   };
   try {
@@ -438,6 +496,10 @@ async function health(request: Request, env: Env, deps: Deps): Promise<Response>
     report.login = hadSession ? 'ok (session kept)' : 'ok';
   } catch (e) {
     report.login = e instanceof UpstreamError ? e.failure : { reason: 'upstream-network' };
+    report.hint =
+      'A 401 means PDGA turned the login away: check that PDGA_USERNAME is the pdga.com username (not the email), ' +
+      'that the API license is signed for this account at pdga.com/dev, and that the password has no extra characters. ' +
+      'Each failed login waits 10 minutes before the next try, and many failures can lock the account for a while.';
     return respond(JSON.stringify(report, null, 2), 200, null, 'no-store');
   }
   try {
