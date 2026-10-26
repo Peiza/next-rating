@@ -118,21 +118,35 @@ describe('searchPlayers', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('says unavailable for errors, oversized and invalid answers and a network failure', async () => {
-    const answers = [
-      answer({ error: 'rate-limited' }, 429),
-      answer({ error: 'unavailable' }, 503),
-      answer(`{"players":[],"pad":"${'x'.repeat(MAX_SEARCH_ANSWER)}"}`),
-      answer('<html>'),
-      answer({ players: [{ name: 'x' }] }),
-      vi.fn(async () => {
-        throw new TypeError('Failed to fetch');
-      }),
+  it('says unavailable for errors, oversized and invalid answers and a network failure, with a code that says why', async () => {
+    const cases: [ReturnType<typeof vi.fn>, string][] = [
+      [answer({ error: 'rate-limited', reason: 'upstream-status', status: 429 }, 429), 'rate-limited upstream-status 429'],
+      [answer({ error: 'unavailable', reason: 'login-rejected', status: 401 }, 503), 'unavailable login-rejected 401'],
+      [answer({ error: 'unavailable', reason: 'not-configured' }, 503), 'unavailable not-configured'],
+      [answer({ error: '<b>x</b>', reason: 'A Long Text', status: 9999 }, 503), 'http 503'],
+      [answer('<html>Bad gateway</html>', 502), 'http 502'],
+      [answer(`{"players":[],"pad":"${'x'.repeat(MAX_SEARCH_ANSWER)}"}`), 'too-large'],
+      [answer('<html>'), 'invalid-answer'],
+      [answer({ players: [{ name: 'x' }] }), 'invalid-answer'],
+      [
+        vi.fn(async () => {
+          throw new TypeError('Failed to fetch');
+        }),
+        'network',
+      ],
+      [
+        vi.fn(async () => {
+          throw new DOMException('timed out', 'TimeoutError');
+        }),
+        'timeout',
+      ],
     ];
-    for (const fetch of answers) {
+    for (const [fetch, detail] of cases) {
       const result = await searchPlayers({ firstName: null, lastName: 'Player' }, { ...ON, fetch: fetch as unknown as typeof globalThis.fetch });
-      expect(result).toEqual({ ok: false, code: 'unavailable' });
+      expect(result).toEqual({ ok: false, code: 'unavailable', detail });
     }
+    const number = await searchPlayers({ pdgaNumber: 1 }, { ...ON, fetch: answer({ error: 'unavailable', reason: 'upstream-timeout' }, 503) as unknown as typeof fetch });
+    expect(number).toEqual({ ok: false, code: 'unavailable', detail: 'unavailable upstream-timeout' });
   });
 
   it('gives the picked player to the lookup without the location', () => {
@@ -205,6 +219,9 @@ describe('the search form', () => {
     const onPdga = vi.fn();
     const view = form({ kind: 'unavailable', query: { firstName: 'Test', lastName: 'Player' } }, { onPdga });
     expect(view.querySelector('#player-search-status')!.textContent).toBe('Could not search right now.');
+    expect(form({ kind: 'unavailable', query: { pdgaNumber: 1 }, detail: 'unavailable login-rejected 401' }).querySelector('#player-search-status')!.textContent).toBe(
+      'Could not search right now (code: unavailable login-rejected 401).',
+    );
     view.querySelector<HTMLButtonElement>('#player-search-pdga')!.click();
     expect(onPdga).toHaveBeenCalledWith('https://www.pdga.com/players?FirstName=Test&LastName=Player');
     expect(pdgaFallbackUrl({ pdgaNumber: 99999 })).toBe('https://www.pdga.com/player/99999');

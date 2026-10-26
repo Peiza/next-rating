@@ -240,7 +240,15 @@ membership and its expiry, and classification, plus the location in a
 search. It never reads www.pdga.com pages, keeps no database, and caches
 answers for a few hours only (6 hours for a player, 1 hour for "not found"
 and for a search), as the license allows.
-Errors are `{ "error": "<code>" }` with no PDGA text. At most 20 lookups a
+Errors are `{ "error": "<code>", "reason": "<word>", "status": <HTTP status> }`
+with no PDGA text: the reason says why (`not-configured`, `login-rejected`,
+`login-malformed`, `session-rejected`, `upstream-status`, `upstream-timeout`,
+`upstream-network`, `upstream-not-json`, `upstream-too-large`,
+`upstream-malformed`), and the app shows it as a code after "Could not
+search right now". `GET /health`, opened in a browser, reports whether the
+two secrets are set (true or false only), the allowed origins, whether a PDGA
+login works and whether a one-player lookup answers, again as fixed words
+and statuses only. At most 20 lookups a
 minute (lookups and searches together) come from one IP address, and the Worker keeps no request logs.
 
 The PDGA login is two Cloudflare secrets, `PDGA_USERNAME` and

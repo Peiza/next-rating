@@ -68,6 +68,7 @@
   "search.none": "PDGA found no player. Check the spelling, or search by last name only.",
   "search.invalid": "Enter a first or last name, or a PDGA number.",
   "search.unavailable": "Could not search right now.",
+  "search.unavailableCode": "Could not search right now (code: {code}).",
   "search.onPdga": "Search on pdga.com instead",
   "search.results": "Players found",
   "search.meta": "{number} · {location}",

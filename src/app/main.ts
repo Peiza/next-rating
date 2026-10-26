@@ -273,7 +273,9 @@ function runSearch(formId: string, query: SearchQuery | null): void {
     if (seq !== searchSeq || !searches.has(formId)) return;
     searches.set(formId, {
       text: searchState(formId).text,
-      status: result.ok ? { kind: 'ok', players: result.players } : { kind: 'unavailable', query },
+      status: result.ok
+        ? { kind: 'ok', players: result.players }
+        : { kind: 'unavailable', query, ...(result.detail ? { detail: result.detail } : {}) },
     });
     render();
   });

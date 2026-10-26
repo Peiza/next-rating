@@ -121,14 +121,14 @@ describe('lookupPlayer', () => {
   });
 
   it.each([
-    ['an error status', answer({ error: 'unavailable' }, 503)],
-    ['a rate limit', answer({ error: 'rate-limited' }, 429)],
-    ['an answer that fails the schema', answer({ ...player(), rating: 'high' })],
-    ['an answer over the size limit', answer({ ...player(), padding: 'x'.repeat(MAX_ANSWER) })],
-    ['text that is not JSON', answer('<html>')],
-    ['a network failure', vi.fn(async () => Promise.reject(new TypeError('offline'))) as unknown as typeof fetch],
-  ])('says unavailable for %s', async (_, fetchFn) => {
-    expect(await lookupPlayer(99999, { ...ON, fetch: fetchFn })).toEqual({ ok: false, code: 'unavailable' });
+    ['an error status', answer({ error: 'unavailable' }, 503), 'unavailable'],
+    ['a rate limit', answer({ error: 'rate-limited' }, 429), 'rate-limited'],
+    ['an answer that fails the schema', answer({ ...player(), rating: 'high' }), 'invalid-answer'],
+    ['an answer over the size limit', answer({ ...player(), padding: 'x'.repeat(MAX_ANSWER) }), 'too-large'],
+    ['text that is not JSON', answer('<html>'), 'invalid-answer'],
+    ['a network failure', vi.fn(async () => Promise.reject(new TypeError('offline'))) as unknown as typeof fetch, 'network'],
+  ])('says unavailable for %s, with a code', async (_, fetchFn, detail) => {
+    expect(await lookupPlayer(99999, { ...ON, fetch: fetchFn })).toEqual({ ok: false, code: 'unavailable', detail });
   });
 
   it('gives up after the timeout', async () => {
@@ -136,7 +136,7 @@ describe('lookupPlayer', () => {
       (_: unknown, init?: RequestInit) =>
         new Promise<Response>((_, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason))),
     ) as unknown as typeof fetch;
-    expect(await lookupPlayer(99999, { ...ON, fetch: fetchFn, timeoutMs: 10 })).toEqual({ ok: false, code: 'unavailable' });
+    expect(await lookupPlayer(99999, { ...ON, fetch: fetchFn, timeoutMs: 10 })).toEqual({ ok: false, code: 'unavailable', detail: 'timeout' });
   });
 });
 

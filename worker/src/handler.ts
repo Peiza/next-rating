@@ -32,6 +32,28 @@ const BROWSER_MAX_AGE_S = 3600;
 
 export type ErrorCode = 'bad-request' | 'forbidden' | 'not-found' | 'rate-limited' | 'unavailable';
 
+/**
+ * Why the Worker could not answer, sent with `unavailable` and
+ * `rate-limited` so a failure can be told apart from the app. Never PDGA
+ * text or a secret: a fixed word, and an HTTP status where there is one.
+ */
+export type Reason =
+  | 'not-configured'
+  | 'login-rejected'
+  | 'login-malformed'
+  | 'session-rejected'
+  | 'upstream-status'
+  | 'upstream-timeout'
+  | 'upstream-network'
+  | 'upstream-not-json'
+  | 'upstream-too-large'
+  | 'upstream-malformed';
+
+interface Failure {
+  reason: Reason;
+  status?: number;
+}
+
 export interface Env {
   PDGA_USERNAME?: string;
   PDGA_PASSWORD?: string;
@@ -51,6 +73,8 @@ export interface WorkerState {
   cookie: string | null;
   login: Promise<string | null> | null;
   loginBlockedUntil: number;
+  /** Why the last login failed, reported while new logins wait. */
+  loginFailure: Failure | null;
   memory: Map<number, CacheEntry>;
   /** Name searches, by their normalized query. */
   searches: Map<string, CacheEntry>;
@@ -71,14 +95,16 @@ export interface Deps {
 }
 
 export function createState(): WorkerState {
-  return { cookie: null, login: null, loginBlockedUntil: 0, memory: new Map(), searches: new Map() };
+  return { cookie: null, login: null, loginBlockedUntil: 0, loginFailure: null, memory: new Map(), searches: new Map() };
 }
 
 class UpstreamError extends Error {
   readonly code: ErrorCode;
-  constructor(code: ErrorCode) {
+  readonly failure: Failure;
+  constructor(code: ErrorCode, failure: Failure) {
     super(code);
     this.code = code;
+    this.failure = failure;
   }
 }
 
@@ -111,8 +137,8 @@ function respond(body: string, status: number, origin: string | null, cache: 'st
   return new Response(body, { status, headers });
 }
 
-function error(code: ErrorCode, origin: string | null): Response {
-  return respond(JSON.stringify({ error: code }), STATUS[code], origin, 'no-store');
+function error(code: ErrorCode, origin: string | null, failure?: Failure): Response {
+  return respond(JSON.stringify({ error: code, ...failure }), STATUS[code], origin, 'no-store');
 }
 
 /** The PDGA number in /v1/player/:n, or null for anything else. */
@@ -160,6 +186,7 @@ function searchParams({ firstName, lastName }: SearchQuery): URLSearchParams {
 }
 
 export async function handle(request: Request, env: Env, deps: Deps): Promise<Response> {
+  if (new URL(request.url).pathname === '/health' && request.method === 'GET') return health(request, env, deps);
   const origin = allowedOrigin(request, env);
   // Only the app may call it. Browsers enforce CORS too; this also turns
   // away callers that send no Origin at all.
@@ -211,7 +238,8 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
     return respond(body, status, origin, 'store');
   } catch (e) {
     // Upstream text is never forwarded, and nothing is logged.
-    return error(e instanceof UpstreamError ? e.code : 'unavailable', origin);
+    if (e instanceof UpstreamError) return error(e.code, origin, e.failure);
+    return error('unavailable', origin);
   }
 }
 
@@ -269,28 +297,34 @@ function writeCache(key: CacheKey, body: string, status: number, ttl: number, de
 
 /* pdga.com */
 
+function unavailable(reason: Reason, status?: number): UpstreamError {
+  return new UpstreamError('unavailable', status === undefined ? { reason } : { reason, status });
+}
+
 async function upstream(url: string, init: RequestInit, deps: Deps): Promise<{ status: number; json: unknown }> {
   let response: Response;
   try {
     response = await deps.fetch(url, { ...init, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
-  } catch {
-    throw new UpstreamError('unavailable');
+  } catch (e) {
+    const timeout = e instanceof Error && e.name === 'TimeoutError';
+    throw unavailable(timeout ? 'upstream-timeout' : 'upstream-network');
   }
   if (!response.ok) return { status: response.status, json: null };
   const text = await response.text().catch(() => '');
-  if (text.length > UPSTREAM_MAX_LENGTH) throw new UpstreamError('unavailable');
+  if (text.length > UPSTREAM_MAX_LENGTH) throw unavailable('upstream-too-large', response.status);
   try {
     return { status: response.status, json: JSON.parse(text) as unknown };
   } catch {
-    throw new UpstreamError('unavailable');
+    throw unavailable('upstream-not-json', response.status);
   }
 }
 
 const SESSION_PART = /^[A-Za-z0-9_,-]{1,200}$/;
 
-async function login(env: Env, deps: Deps): Promise<string | null> {
+/** The session cookie, or why the login failed. */
+async function login(env: Env, deps: Deps): Promise<string | Failure> {
   const { PDGA_USERNAME: username, PDGA_PASSWORD: password } = env;
-  if (!username || !password) return null;
+  if (!username || !password) return { reason: 'not-configured' };
   try {
     const { status, json } = await upstream(
       `${PDGA_API}/user/login`,
@@ -301,13 +335,14 @@ async function login(env: Env, deps: Deps): Promise<string | null> {
       },
       deps,
     );
-    if (status !== 200 || typeof json !== 'object' || json === null) return null;
+    if (status !== 200) return { reason: 'login-rejected', status };
+    if (typeof json !== 'object' || json === null) return { reason: 'login-malformed' };
     const { session_name: name, sessid } = json as Record<string, unknown>;
-    if (typeof name !== 'string' || typeof sessid !== 'string') return null;
-    if (!SESSION_PART.test(name) || !SESSION_PART.test(sessid)) return null;
+    if (typeof name !== 'string' || typeof sessid !== 'string') return { reason: 'login-malformed' };
+    if (!SESSION_PART.test(name) || !SESSION_PART.test(sessid)) return { reason: 'login-malformed' };
     return `${name}=${sessid}`;
-  } catch {
-    return null;
+  } catch (e) {
+    return e instanceof UpstreamError ? e.failure : { reason: 'upstream-network' };
   }
 }
 
@@ -316,44 +351,53 @@ async function session(env: Env, deps: Deps): Promise<string> {
   const state = deps.state;
   if (state.cookie) return state.cookie;
   if (!state.login) {
-    if (deps.now() < state.loginBlockedUntil) throw new UpstreamError('unavailable');
-    state.login = login(env, deps).then((cookie) => {
+    if (deps.now() < state.loginBlockedUntil) throw new UpstreamError('unavailable', state.loginFailure ?? { reason: 'login-rejected' });
+    state.login = login(env, deps).then((result) => {
       state.login = null;
-      state.cookie = cookie;
-      if (!cookie) state.loginBlockedUntil = deps.now() + LOGIN_BACKOFF_MS;
-      return cookie;
+      if (typeof result === 'string') {
+        state.cookie = result;
+        state.loginFailure = null;
+        return result;
+      }
+      state.cookie = null;
+      state.loginFailure = result;
+      state.loginBlockedUntil = deps.now() + LOGIN_BACKOFF_MS;
+      return null;
     });
   }
   const cookie = await state.login;
-  if (!cookie) throw new UpstreamError('unavailable');
+  if (!cookie) throw new UpstreamError('unavailable', state.loginFailure ?? { reason: 'login-rejected' });
   return cookie;
 }
 
 /** Asks api.pdga.com with the session, logging in again once when it has expired. */
 async function ask(url: string, env: Env, deps: Deps): Promise<unknown> {
+  let rejected = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
     const cookie = await session(env, deps);
     const { status, json } = await upstream(url, { headers: { Cookie: cookie, Accept: 'application/json' } }, deps);
     if (status === 401 || status === 403) {
       // The session expired: log in again, once.
       if (deps.state.cookie === cookie) deps.state.cookie = null;
+      rejected = status;
       continue;
     }
-    if (status === 429) throw new UpstreamError('rate-limited');
-    if (status !== 200) throw new UpstreamError('unavailable');
+    if (status === 429) throw new UpstreamError('rate-limited', { reason: 'upstream-status', status });
+    if (status !== 200) throw unavailable('upstream-status', status);
     return json;
   }
   // A fresh login was turned away too, so the account cannot use the API
   // now: wait before the next login.
   deps.state.loginBlockedUntil = deps.now() + LOGIN_BACKOFF_MS;
-  throw new UpstreamError('unavailable');
+  deps.state.loginFailure = { reason: 'session-rejected', status: rejected };
+  throw unavailable('session-rejected', rejected);
 }
 
 /** The player, or null when PDGA has no player with that number. */
 async function lookup(pdgaNumber: number, env: Env, deps: Deps): Promise<ApiPlayer | null> {
   const json = await ask(`${PDGA_API}/players?pdga_number=${pdgaNumber}&limit=1`, env, deps);
   const result = mapPlayer(json, pdgaNumber, new Date(deps.now()));
-  if (result === 'malformed') throw new UpstreamError('unavailable');
+  if (result === 'malformed') throw unavailable('upstream-malformed');
   return result;
 }
 
@@ -365,6 +409,42 @@ async function searchPlayers(query: SearchQuery, env: Env, deps: Deps): Promise<
   params.set('limit', String(SEARCH_LIMIT));
   const json = await ask(`${PDGA_API}/players?${params}`, env, deps);
   const result = mapSearch(json, new Date(deps.now()), SEARCH_LIMIT);
-  if (result === 'malformed') throw new UpstreamError('unavailable');
+  if (result === 'malformed') throw unavailable('upstream-malformed');
   return result;
+}
+
+/* The health check, for the owner to open in a browser. */
+
+/**
+ * GET /health: whether the secrets are set (true or false only), whether a
+ * PDGA login works and whether a one-player lookup answers, as fixed words
+ * and HTTP statuses. Never PDGA data or a secret. It is a plain page view,
+ * so it has no Origin; the per-IP limit still applies.
+ */
+async function health(request: Request, env: Env, deps: Deps): Promise<Response> {
+  if (env.RATE_LIMITER) {
+    const key = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { success } = await env.RATE_LIMITER.limit({ key });
+    if (!success) return error('rate-limited', null);
+  }
+  const report: Record<string, unknown> = {
+    routes: ['/v1/player/:n', '/v1/players'],
+    secrets: { username: Boolean(env.PDGA_USERNAME), password: Boolean(env.PDGA_PASSWORD) },
+    allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').map((value) => value.trim()).filter(Boolean),
+  };
+  try {
+    const hadSession = deps.state.cookie !== null;
+    await session(env, deps);
+    report.login = hadSession ? 'ok (session kept)' : 'ok';
+  } catch (e) {
+    report.login = e instanceof UpstreamError ? e.failure : { reason: 'upstream-network' };
+    return respond(JSON.stringify(report, null, 2), 200, null, 'no-store');
+  }
+  try {
+    await ask(`${PDGA_API}/players?pdga_number=1&limit=1`, env, deps);
+    report.lookup = 'ok';
+  } catch (e) {
+    report.lookup = e instanceof UpstreamError ? e.failure : { reason: 'upstream-network' };
+  }
+  return respond(JSON.stringify(report, null, 2), 200, null, 'no-store');
 }
