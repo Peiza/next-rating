@@ -137,7 +137,10 @@ you" and out of the prediction, chart, Why it changed, following update,
 players list, target calculator and Top 8; example rounds have none), and
 one arrow angle (the main change, the following update and the players list
 turn the same arrow, linearly: 45 degrees at 5, straight from 10), and the
-build date after the version in Settings > About.
+build date after the version in Settings > About, and the PDGA attribution
+("Player, event, and course data provided by PDGA.", linked, in English,
+then the translated unofficial line) at the bottom of every view, with the
+player's name linked to the profile on pdga.com.
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -273,7 +276,8 @@ the following update, the text size, the How it works text size, the
 large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
 target answer), manual rounds on and off, one arrow angle and the build
-date after the version (docs/finished-steps.md).
+date after the version and the PDGA attribution with the player link
+(docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait
