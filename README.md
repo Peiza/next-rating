@@ -12,7 +12,9 @@ App: https://peiza.github.io/next-rating/
 ## How it works
 
 - Your rounds are read from pdga.com in your own browser, by a bookmarklet.
-  The app has no server: nothing you enter or import leaves your browser.
+  Nothing you enter or import leaves your browser. The one exception is the
+  optional official rating lookup (below): it sends the PDGA number of the
+  player shown, and can be turned off in Settings.
 - The prediction follows the rating rules in the
   [PDGA ratings guide](https://www.pdga.com/ratings/guide): a 12-month window
   (24 months with fewer than 8 rounds), low outliers dropped (each round is
@@ -244,6 +246,27 @@ The PDGA login is two Cloudflare secrets, `PDGA_USERNAME` and
 Tests: `npm test` runs `tests/worker/` with a fake `api.pdga.com`;
 `npm run typecheck` checks `worker/`. CI never deploys the Worker.
 
+### In the app
+
+While `NEXT_RATING_API_URL` is empty (the default), the app has no lookup
+at all: no switch, no request, and a Content Security Policy that allows
+no other origin. When it is set, the build allows that origin in
+`connect-src`, and the app:
+- looks up the player the Rating tab shows, once, when it has no answer
+  younger than 12 hours, and never while offline, in the background or on
+  a schedule
+- shows the membership and when it was checked under the official rating,
+  and a notice when PDGA has published a newer rating than the imported
+  one: the prediction keeps using the imported rounds, so getting data
+  again updates it
+- confirms the player's name and rating on the start view, the name linked
+  to the profile on pdga.com
+- shows one muted line when the lookup fails, and asks again only when the
+  player is shown again
+- keeps answers in `next-rating:api-cache`, apart from the app's data,
+  deletes them after 12 hours, when the player is removed and when the
+  Settings switch "Look up the official rating online" is turned off
+
 ### One-time setup in the Cloudflare dashboard (works on a phone)
 
 1. Sign in at dash.cloudflare.com (a free account is enough).
@@ -259,6 +282,12 @@ Tests: `npm test` runs `tests/worker/` with a fake `api.pdga.com`;
    so other pushes to main do not rebuild the Worker.
 5. Copy the Worker's address from its overview, such as
    `https://next-rating-api.<your-subdomain>.workers.dev`.
+
+6. In GitHub: **Settings > Secrets and variables > Actions > Variables >
+   New repository variable**, name `NEXT_RATING_API_URL`, value the
+   address from step 5. Run the "Build and deploy" workflow again (Actions >
+   Build and deploy > Run workflow), or merge anything, to build the app
+   with it.
 
 Every merge to main that changes `worker/` then deploys it again. To stop it
 at once, open the Worker > Settings > Domains & Routes and turn off the

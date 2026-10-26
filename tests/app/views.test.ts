@@ -436,6 +436,31 @@ describe('rating view', () => {
     expect(onToggle).toHaveBeenLastCalledWith(false);
   });
 
+  it('shows the official lookup under the official line, and the imported rating stays the one used', () => {
+    const model = buildModel(stored, 100001, NOW);
+    const api = {
+      kind: 'ok',
+      player: {
+        pdgaNumber: 100001,
+        name: 'Test Player',
+        rating: 999,
+        ratingDate: '2099-01-14',
+        membership: 'current',
+        membershipExpires: '2099-12-31',
+        classification: null,
+        fetchedAt: '2026-10-04T09:00:00.000Z',
+      },
+    } as const;
+    const view = ratingView({ model, api, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const newer = view.querySelector('#api-newer')!;
+    expect(newer.previousElementSibling!.id).toBe('official');
+    expect(newer.textContent).toContain(': 999. The prediction still uses the rounds from before it.');
+    expect(view.querySelector('#api-membership')!.textContent).toContain('PDGA membership current until');
+    expect(view.querySelector('#official')!.textContent).toContain('950');
+    expect(view.querySelector('#predicted')!.textContent).toBe(ratingPage().querySelector('#predicted')!.textContent);
+    expect(ratingPage().querySelector('#api-membership')).toBeNull();
+  });
+
   it('gives the predicted number a label for screen readers', () => {
     const label = ratingPage().querySelector('#predicted')!.previousElementSibling!;
     expect(label.className).toBe('visually-hidden');

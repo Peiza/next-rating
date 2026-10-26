@@ -27,6 +27,11 @@ export interface SettingsProps {
   /** Whether the app opens on "me" or on the player shown last. */
   openWith: OpenWith;
   persistent: boolean;
+  /** Whether this build has the official rating lookup; without it (the default), Settings shows no switch. */
+  apiAvailable?: boolean;
+  /** Whether the lookup is on. */
+  apiLookup?: boolean;
+  onApiLookup?: (on: boolean) => void;
   /** The bookmarklet version of the last hand-off, or null before one. */
   bookmarklet: string | null;
   onLanguage: (language: string | null) => void;
@@ -124,6 +129,26 @@ function datePicker(dateOrder: DateOrder | null, today: PlainDate, onDateOrder: 
   );
 }
 
+export const API_LOOKUP_ID = 'api-lookup';
+
+/** The switch for the official rating lookup, with what it sends and keeps. */
+function apiSwitch(on: boolean, onApiLookup: (on: boolean) => void): HTMLElement {
+  const hintId = `${API_LOOKUP_ID}-hint`;
+  return el(
+    'div',
+    { class: 'check' },
+    el('input', {
+      id: API_LOOKUP_ID,
+      type: 'checkbox',
+      checked: on,
+      'aria-describedby': hintId,
+      onchange: (event) => onApiLookup((event.target as HTMLInputElement).checked),
+    }),
+    el('label', { for: API_LOOKUP_ID }, t('api.settings.switch')),
+    el('p', { id: hintId, class: 'check-meta' }, t('api.settings.hint')),
+  );
+}
+
 export const TEXT_SIZE_ID = 'text-size';
 
 /**
@@ -188,6 +213,8 @@ function textSizePicker(textSize: number | null, deviceTextSize: number, onTextS
 export function settingsView(props: SettingsProps): HTMLElement {
   const { language, preferred, theme, textSize, deviceTextSize, dateOrder, today, openWith, persistent, bookmarklet } = props;
   const { onLanguage, onTheme, onTextSize, onDateOrder, onOpenWith, onOpenSetup, onOpenGuide } = props;
+  const { apiAvailable = false, apiLookup = true, onApiLookup = () => {} } = props;
+  const lookup = apiAvailable && apiLookup;
   return el(
     'section',
     { class: 'view', 'aria-labelledby': 'view-title' },
@@ -199,6 +226,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
     segmented('settings.theme', 'theme', THEME_OPTIONS, theme, onTheme),
     textSizePicker(textSize, deviceTextSize, onTextSize),
     segmented('settings.openWith', 'open-with', OPEN_WITH_OPTIONS, openWith, onOpenWith),
+    apiAvailable && apiSwitch(apiLookup, onApiLookup),
     el('h2', {}, t('settings.bookmarklet')),
     bookmarkletStatus(bookmarklet),
     el(
@@ -207,7 +235,7 @@ export function settingsView(props: SettingsProps): HTMLElement {
       t('settings.openSetup'),
     ),
     el('h2', {}, t('settings.about')),
-    el('p', {}, t('app.privacy')),
+    el('p', {}, t(lookup ? 'app.privacyApi' : 'app.privacy')),
     el('button', { id: 'open-guide', class: 'button button-block', type: 'button', onclick: onOpenGuide }, t('guide.title')),
     el('p', { id: 'version', class: 'hint' }, versionText(__BUILD_ID__, __BUILD_DATE__)),
     supportLink(),

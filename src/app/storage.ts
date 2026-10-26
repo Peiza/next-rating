@@ -147,6 +147,8 @@ export interface AppData {
   me: number | null;
   /** Whether the app opens on "me" or on the player shown last. */
   openWith: OpenWith;
+  /** Whether the official rating is looked up online (api.ts), when the build has a lookup address. */
+  apiLookup: boolean;
   /** The player shown last, kept only while `openWith` is 'last'; null when unknown. */
   lastViewed: number | null;
   /** Favorites in the order they were added, and at most one unsaved player. */
@@ -169,6 +171,7 @@ export const EMPTY_DATA: AppData = {
   bookmarklet: null,
   me: null,
   openWith: 'me',
+  apiLookup: true,
   lastViewed: null,
   players: [],
 };
@@ -320,6 +323,7 @@ export function validateData(value: unknown): AppData {
     bookmarklet: isBookmarkletVersion(fields.bookmarklet) ? fields.bookmarklet : null,
     me: players.some((player) => player.favorite && player.pdgaNumber === me) ? me : null,
     openWith: OPEN_WITH.find((name) => name === fields.openWith) ?? 'me',
+    apiLookup: fields.apiLookup !== false,
     lastViewed: players.some((player) => player.pdgaNumber === lastViewed) ? lastViewed : null,
     players,
   };

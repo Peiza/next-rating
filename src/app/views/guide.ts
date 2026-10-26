@@ -1,4 +1,5 @@
 import { t, type MessageKey } from '../../i18n';
+import { API_URL } from '../api';
 import { el, textWithNodes, type Child } from '../dom';
 import { formatCount } from '../format';
 import { canStepGuide, displayScale, guideTextSize, nextGuideStep } from '../text-size';
@@ -54,7 +55,11 @@ const CONTENT: Record<GuideSection, { title: MessageKey; body: () => Child[] }> 
   },
   data: {
     title: 'guide.data.title',
-    body: () => [paragraph('guide.data.bookmarklet'), paragraph('guide.data.device')],
+    // The online lookup only where the build has one.
+    body: () =>
+      API_URL === ''
+        ? [paragraph('guide.data.bookmarklet'), paragraph('guide.data.device')]
+        : [paragraph('guide.data.bookmarklet'), paragraph('api.guide.text'), paragraph('guide.data.deviceApi')],
   },
   rules: {
     title: 'guide.rules.title',

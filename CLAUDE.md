@@ -184,19 +184,19 @@ Open, both optional:
 11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
-In progress: the official rating and membership from the PDGA REST API
-through the Worker (docs/plan-pdga-api.md; background in
-docs/pdga-api-email.md and docs/pdga-map-handoff.md). PR 1 is the Worker,
-PR 2 the app. The app part stays off until the NEXT_RATING_API_URL
-repository variable is set.
+Built, waiting for the Worker's deploy: the official rating and membership
+from the PDGA REST API through the Worker (docs/plan-pdga-api.md; background
+in docs/pdga-api-email.md and docs/pdga-map-handoff.md). The app part stays
+off until the NEXT_RATING_API_URL repository variable is set.
 
 ## Security
 - Treat all imported data (URL fragment) as untrusted: strict schema
   validation and size limits, render with textContent only. No innerHTML with
   data, no eval or new Function.
 - Strict Content Security Policy for the app, set with a meta tag since GitHub
-  Pages cannot send custom headers: default-src 'self'. No third-party
-  scripts, fonts, CDNs or analytics.
+  Pages cannot send custom headers: default-src 'self', plus connect-src
+  for the Worker's origin only when NEXT_RATING_API_URL is set. No
+  third-party scripts, fonts, CDNs or analytics.
 - Minimal, pinned dependencies with a lockfile; prefer zero runtime dependencies.
 - When adding or upgrading a dependency, pick a version that was published at
   least 14 days ago, and run npm audit afterwards.
