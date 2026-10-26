@@ -8,6 +8,7 @@ import { el } from './dom';
 import { readPages } from './handoff';
 import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
+import { startVisitCount } from './analytics';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
 import { createPredictionCache, playerModel, type ListPrediction, type Model } from './model';
 import {
@@ -1345,6 +1346,7 @@ applyLanguage();
 applyDateOrder();
 render();
 if (payload !== null) void receiveHandoff(payload);
+startVisitCount(__ANALYTICS_TOKEN__);
 registerServiceWorker(() => {
   updateReady = true;
   render();

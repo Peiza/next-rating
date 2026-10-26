@@ -198,7 +198,11 @@ off until the NEXT_RATING_API_URL repository variable is set.
 - Strict Content Security Policy for the app, set with a meta tag since GitHub
   Pages cannot send custom headers: default-src 'self', plus connect-src
   for the Worker's origin only when NEXT_RATING_API_URL is set. No
-  third-party scripts, fonts, CDNs or analytics.
+  third-party scripts, fonts, CDNs or analytics, with one exception
+  (2026-10-26): Cloudflare Web Analytics' anonymous visit count (script-src
+  static.cloudflareinsights.com, connect-src cloudflareinsights.com), loaded
+  only after the hand-off fragment is removed, with SPA tracking off
+  (docs/finished-steps.md, "Anonymous visit count").
 - Minimal, pinned dependencies with a lockfile; prefer zero runtime dependencies.
 - When adding or upgrading a dependency, pick a version that was published at
   least 14 days ago, and run npm audit afterwards.
@@ -289,8 +293,8 @@ the following update, the text size, the How it works text size, the
 large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
 target answer), manual rounds on and off, one arrow angle, the build
-date after the version and the PDGA attribution with the player link
-(docs/finished-steps.md).
+date after the version, the PDGA attribution with the player link and
+the anonymous visit count (docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait
