@@ -1,12 +1,13 @@
 /*
- * The Next Rating API Worker: one narrow route that looks up a player's
- * official rating and membership on api.pdga.com with the owner's account
- * and answers a trimmed object. Everything it needs from outside (fetch,
+ * The Next Rating API Worker: two narrow routes on api.pdga.com with the
+ * owner's account, one that looks up a player's official rating and
+ * membership by PDGA number and one that searches players by name, each
+ * answering trimmed objects. Everything it needs from outside (fetch,
  * the caches, the clock, the session state) is passed in, so tests run it
  * without Cloudflare or pdga.com.
  */
 
-import { mapPlayer, type ApiPlayer } from './player';
+import { mapPlayer, mapSearch, type ApiPlayer, type SearchPlayer } from './player';
 
 export const PDGA_API = 'https://api.pdga.com/services/json';
 
@@ -20,8 +21,13 @@ const UPSTREAM_MAX_LENGTH = 64_000;
 export const LOGIN_BACKOFF_MS = 10 * 60 * 1000;
 export const FOUND_TTL_MS = 6 * 60 * 60 * 1000;
 export const NOT_FOUND_TTL_MS = 60 * 60 * 1000;
-/** Players kept in isolate memory, so the cache stays small and temporary. */
+export const SEARCH_TTL_MS = 60 * 60 * 1000;
+/** Players and searches kept in isolate memory, so the cache stays small and temporary. */
 const MEMORY_CACHE_SIZE = 500;
+/** Players a name search answers with at most. */
+export const SEARCH_LIMIT = 10;
+/** Characters of a first or last name in a search. */
+export const SEARCH_NAME_LENGTH = 40;
 const BROWSER_MAX_AGE_S = 3600;
 
 export type ErrorCode = 'bad-request' | 'forbidden' | 'not-found' | 'rate-limited' | 'unavailable';
@@ -45,7 +51,15 @@ export interface WorkerState {
   cookie: string | null;
   login: Promise<string | null> | null;
   loginBlockedUntil: number;
-  memory: Map<number, { expires: number; body: string; status: number }>;
+  memory: Map<number, CacheEntry>;
+  /** Name searches, by their normalized query. */
+  searches: Map<string, CacheEntry>;
+}
+
+interface CacheEntry {
+  expires: number;
+  body: string;
+  status: number;
 }
 
 export interface Deps {
@@ -57,7 +71,7 @@ export interface Deps {
 }
 
 export function createState(): WorkerState {
-  return { cookie: null, login: null, loginBlockedUntil: 0, memory: new Map() };
+  return { cookie: null, login: null, loginBlockedUntil: 0, memory: new Map(), searches: new Map() };
 }
 
 class UpstreamError extends Error {
@@ -109,6 +123,42 @@ export function parseRoute(pathname: string): number | null {
   return n >= ID_RANGE[0] && n <= ID_RANGE[1] ? n : null;
 }
 
+export interface SearchQuery {
+  firstName: string | null;
+  lastName: string | null;
+}
+
+/** Letters (any script), then letters, spaces, apostrophes, dots and hyphens. */
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}'\u2019. -]*$/u;
+
+function searchName(value: string | null): string | null | undefined {
+  if (value === null) return null;
+  const clean = value.trim().replace(/\s+/g, ' ');
+  if (clean === '') return null;
+  return clean.length <= SEARCH_NAME_LENGTH && NAME_PATTERN.test(clean) ? clean : undefined;
+}
+
+/** The names in /v1/players?first_name=&last_name=, at least one; null for anything else. */
+export function parseSearch(url: URL): SearchQuery | null {
+  if (url.pathname !== '/v1/players') return null;
+  for (const key of url.searchParams.keys()) {
+    if (key !== 'first_name' && key !== 'last_name') return null;
+  }
+  if (url.searchParams.getAll('first_name').length > 1 || url.searchParams.getAll('last_name').length > 1) return null;
+  const firstName = searchName(url.searchParams.get('first_name'));
+  const lastName = searchName(url.searchParams.get('last_name'));
+  if (firstName === undefined || lastName === undefined || (firstName === null && lastName === null)) return null;
+  return { firstName, lastName };
+}
+
+/** The search's query string, the same for the same names in any case. */
+function searchParams({ firstName, lastName }: SearchQuery): URLSearchParams {
+  const params = new URLSearchParams();
+  if (firstName) params.set('first_name', firstName.toLowerCase());
+  if (lastName) params.set('last_name', lastName.toLowerCase());
+  return params;
+}
+
 export async function handle(request: Request, env: Env, deps: Deps): Promise<Response> {
   const origin = allowedOrigin(request, env);
   // Only the app may call it. Browsers enforce CORS too; this also turns
@@ -128,8 +178,10 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
   }
   if (request.method !== 'GET') return error('bad-request', origin);
 
-  const pdgaNumber = parseRoute(new URL(request.url).pathname);
-  if (pdgaNumber === null) return error('bad-request', origin);
+  const url = new URL(request.url);
+  const pdgaNumber = url.search === '' ? parseRoute(url.pathname) : null;
+  const search = pdgaNumber === null ? parseSearch(url) : null;
+  if (pdgaNumber === null && search === null) return error('bad-request', origin);
 
   if (env.RATE_LIMITER) {
     const key = request.headers.get('CF-Connecting-IP') ?? 'unknown';
@@ -137,15 +189,25 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
     if (!success) return error('rate-limited', origin);
   }
 
-  const cached = await readCache(pdgaNumber, deps);
+  const key: CacheKey =
+    pdgaNumber !== null
+      ? { map: deps.state.memory, id: pdgaNumber, path: `/v1/player/${pdgaNumber}` }
+      : { map: deps.state.searches, id: searchParams(search!).toString(), path: `/v1/players?${searchParams(search!)}` };
+  const cached = await readCache(key, deps);
   if (cached) return respond(cached.body, cached.status, origin, 'store');
 
   try {
-    const player = await lookup(pdgaNumber, env, deps);
+    if (search) {
+      const players = await searchPlayers(search, env, deps);
+      const body = JSON.stringify({ players });
+      writeCache(key, body, 200, SEARCH_TTL_MS, deps);
+      return respond(body, 200, origin, 'store');
+    }
+    const player = await lookup(pdgaNumber!, env, deps);
     const found = player !== null;
     const body = JSON.stringify(found ? player : { error: 'not-found' });
     const status = found ? 200 : STATUS['not-found'];
-    writeCache(pdgaNumber, body, status, found ? FOUND_TTL_MS : NOT_FOUND_TTL_MS, deps);
+    writeCache(key, body, status, found ? FOUND_TTL_MS : NOT_FOUND_TTL_MS, deps);
     return respond(body, status, origin, 'store');
   } catch (e) {
     // Upstream text is never forwarded, and nothing is logged.
@@ -156,20 +218,31 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
 /* The cache: isolate memory first, then the Cloudflare edge cache (which
  * only works on a custom domain, not on workers.dev). Both expire. */
 
-function cacheKey(pdgaNumber: number): Request {
-  return new Request(`https://next-rating-api.cache/v1/player/${pdgaNumber}`);
+/** Where an answer is kept: its memory map and key, and its path for the edge cache. */
+interface CacheKey {
+  map: Map<number, CacheEntry> | Map<string, CacheEntry>;
+  id: number | string;
+  path: string;
 }
 
-async function readCache(pdgaNumber: number, deps: Deps): Promise<{ body: string; status: number } | null> {
+function edgeKey(key: CacheKey): Request {
+  return new Request(`https://next-rating-api.cache${key.path}`);
+}
+
+type AnyMap = Map<number | string, CacheEntry>;
+
+async function readCache(key: CacheKey, deps: Deps): Promise<{ body: string; status: number } | null> {
   const now = deps.now();
-  for (const [key, entry] of deps.state.memory) {
-    if (entry.expires <= now) deps.state.memory.delete(key);
+  for (const map of [deps.state.memory, deps.state.searches] as AnyMap[]) {
+    for (const [id, entry] of map) {
+      if (entry.expires <= now) map.delete(id);
+    }
   }
-  const entry = deps.state.memory.get(pdgaNumber);
+  const entry = (key.map as AnyMap).get(key.id);
   if (entry) return entry;
   if (!deps.edgeCache) return null;
   try {
-    const hit = await deps.edgeCache.match(cacheKey(pdgaNumber));
+    const hit = await deps.edgeCache.match(edgeKey(key));
     if (!hit) return null;
     return { body: await hit.text(), status: hit.status };
   } catch {
@@ -177,20 +250,20 @@ async function readCache(pdgaNumber: number, deps: Deps): Promise<{ body: string
   }
 }
 
-function writeCache(pdgaNumber: number, body: string, status: number, ttl: number, deps: Deps): void {
-  const memory = deps.state.memory;
-  memory.delete(pdgaNumber);
+function writeCache(key: CacheKey, body: string, status: number, ttl: number, deps: Deps): void {
+  const memory = key.map as AnyMap;
+  memory.delete(key.id);
   if (memory.size >= MEMORY_CACHE_SIZE) {
     const oldest = memory.keys().next();
     if (!oldest.done) memory.delete(oldest.value);
   }
-  memory.set(pdgaNumber, { expires: deps.now() + ttl, body, status });
+  memory.set(key.id, { expires: deps.now() + ttl, body, status });
   if (!deps.edgeCache) return;
   const response = new Response(body, {
     status,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${Math.round(ttl / 1000)}` },
   });
-  const put = deps.edgeCache.put(cacheKey(pdgaNumber), response).catch(() => undefined);
+  const put = deps.edgeCache.put(edgeKey(key), response).catch(() => undefined);
   if (deps.waitUntil) deps.waitUntil(put);
 }
 
@@ -256,9 +329,8 @@ async function session(env: Env, deps: Deps): Promise<string> {
   return cookie;
 }
 
-/** The player, or null when PDGA has no player with that number. */
-async function lookup(pdgaNumber: number, env: Env, deps: Deps): Promise<ApiPlayer | null> {
-  const url = `${PDGA_API}/players?pdga_number=${pdgaNumber}&limit=1`;
+/** Asks api.pdga.com with the session, logging in again once when it has expired. */
+async function ask(url: string, env: Env, deps: Deps): Promise<unknown> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const cookie = await session(env, deps);
     const { status, json } = await upstream(url, { headers: { Cookie: cookie, Accept: 'application/json' } }, deps);
@@ -269,12 +341,30 @@ async function lookup(pdgaNumber: number, env: Env, deps: Deps): Promise<ApiPlay
     }
     if (status === 429) throw new UpstreamError('rate-limited');
     if (status !== 200) throw new UpstreamError('unavailable');
-    const result = mapPlayer(json, pdgaNumber, new Date(deps.now()));
-    if (result === 'malformed') throw new UpstreamError('unavailable');
-    return result;
+    return json;
   }
   // A fresh login was turned away too, so the account cannot use the API
   // now: wait before the next login.
   deps.state.loginBlockedUntil = deps.now() + LOGIN_BACKOFF_MS;
   throw new UpstreamError('unavailable');
+}
+
+/** The player, or null when PDGA has no player with that number. */
+async function lookup(pdgaNumber: number, env: Env, deps: Deps): Promise<ApiPlayer | null> {
+  const json = await ask(`${PDGA_API}/players?pdga_number=${pdgaNumber}&limit=1`, env, deps);
+  const result = mapPlayer(json, pdgaNumber, new Date(deps.now()));
+  if (result === 'malformed') throw new UpstreamError('unavailable');
+  return result;
+}
+
+/** The players PDGA finds for the names, at most SEARCH_LIMIT; an empty list when none. */
+async function searchPlayers(query: SearchQuery, env: Env, deps: Deps): Promise<SearchPlayer[]> {
+  const params = new URLSearchParams();
+  if (query.firstName) params.set('first_name', query.firstName);
+  if (query.lastName) params.set('last_name', query.lastName);
+  params.set('limit', String(SEARCH_LIMIT));
+  const json = await ask(`${PDGA_API}/players?${params}`, env, deps);
+  const result = mapSearch(json, new Date(deps.now()), SEARCH_LIMIT);
+  if (result === 'malformed') throw new UpstreamError('unavailable');
+  return result;
 }

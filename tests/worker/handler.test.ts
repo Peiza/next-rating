@@ -8,12 +8,15 @@ import {
   LOGIN_BACKOFF_MS,
   NOT_FOUND_TTL_MS,
   parseRoute,
+  parseSearch,
   PDGA_API,
+  SEARCH_LIMIT,
+  SEARCH_TTL_MS,
   type Deps,
   type EdgeCache,
   type Env,
 } from '../../worker/src/handler';
-import { mapPlayer, plainDate } from '../../worker/src/player';
+import { mapPlayer, mapSearch, plainDate } from '../../worker/src/player';
 
 /* Invented data only, shaped like the answers in the PDGA API docs. */
 
@@ -428,5 +431,141 @@ describe('mapPlayer', () => {
     expect(plainDate('2026-02-30')).toBeNull();
     expect(plainDate('14-Oct-2026')).toBeNull();
     expect(plainDate(20261014)).toBeNull();
+  });
+});
+
+describe('the name search', () => {
+  const search = (query: string) => new URL(`https://worker.example/v1/players?${query}`);
+
+  it('accepts a first name, a last name or both, in any script', () => {
+    expect(parseSearch(search('last_name=Player'))).toEqual({ firstName: null, lastName: 'Player' });
+    expect(parseSearch(search('first_name=Test&last_name=Player'))).toEqual({ firstName: 'Test', lastName: 'Player' });
+    expect(parseSearch(search('first_name=%C3%85sa&last_name=%20af%20%20Kl-int%27s%20'))).toEqual({ firstName: 'Åsa', lastName: "af Kl-int's" });
+    expect(parseSearch(search('first_name=Test&last_name='))).toEqual({ firstName: 'Test', lastName: null });
+  });
+
+  it('turns away anything else', () => {
+    for (const query of ['', 'last_name=', 'last_name=%20', 'last_name=a%26b', 'last_name=1234', 'last_name=*', `last_name=${'a'.repeat(41)}`, 'last_name=A&limit=200', 'last_name=A&last_name=B', 'pdga_number=1']) {
+      expect(parseSearch(search(query)), query).toBeNull();
+    }
+    expect(parseSearch(new URL('https://worker.example/v1/player?last_name=A'))).toBeNull();
+  });
+
+  it('answers 400 for a bad search without calling PDGA', async () => {
+    const { fetch, calls } = upstream({});
+    for (const path of ['/v1/players?last_name=%3Cb%3E', '/v1/players', '/v1/player/99999?last_name=A']) {
+      const response = await handle(get(path), ENV, deps(fetch));
+      expect(response.status, path).toBe(400);
+    }
+    expect(calls).toEqual([]);
+  });
+
+  it('asks PDGA for at most 10 players and answers the trimmed list', async () => {
+    const { fetch, calls } = upstream({
+      login: [LOGIN_OK],
+      players: [
+        () =>
+          json({
+            sessid: 'abc123',
+            status: 0,
+            players: [apiPlayer(), apiPlayer({ pdga_number: '1', rating: '', membership_status: 'expired', membership_expiration_date: '2024-12-31', city: '', state_prov: '' })],
+          }),
+      ],
+    });
+    const response = await handle(get('/v1/players?first_name=Test&last_name=Player'), ENV, deps(fetch));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(APP);
+    expect(await response.json()).toEqual({
+      players: [
+        {
+          pdgaNumber: 99999,
+          name: 'Test Player',
+          rating: 950,
+          ratingDate: '2026-10-14',
+          membership: 'current',
+          membershipExpires: '2026-12-31',
+          classification: 'amateur',
+          fetchedAt: new Date(NOW).toISOString(),
+          location: 'Test City, TS, SE',
+        },
+        {
+          pdgaNumber: 1,
+          name: 'Test Player',
+          rating: null,
+          ratingDate: null,
+          membership: 'expired',
+          membershipExpires: '2024-12-31',
+          classification: 'amateur',
+          fetchedAt: new Date(NOW).toISOString(),
+          location: 'SE',
+        },
+      ],
+    });
+    expect(calls[1]!.url).toBe(`${PDGA_API}/players?first_name=Test&last_name=Player&limit=${SEARCH_LIMIT}`);
+    expect(new Headers(calls[1]!.init!.headers).get('Cookie')).toBe('SSESStest=abc123');
+  });
+
+  it('answers an empty list when PDGA finds no one', async () => {
+    for (const answer of [{ players: [] }, { sessid: 'abc123', status: 0 }]) {
+      const { fetch } = upstream({ login: [LOGIN_OK], players: [() => json(answer)] });
+      const response = await handle(get('/v1/players?last_name=Nobody'), ENV, deps(fetch));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ players: [] });
+    }
+  });
+
+  it('maps upstream errors without upstream text and keeps nothing of them', async () => {
+    const { fetch, calls } = upstream({
+      login: [LOGIN_OK],
+      players: [() => new Response('<h1>db-host-7</h1>', { status: 500 }), () => json({ players: [] })],
+    });
+    const d = deps(fetch);
+    const response = await handle(get('/v1/players?last_name=Player'), ENV, d);
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe('{"error":"unavailable"}');
+    expect((await handle(get('/v1/players?last_name=Player'), ENV, d)).status).toBe(200);
+    expect(calls).toHaveLength(3);
+  });
+
+  it('counts against the per-IP limit', async () => {
+    const { fetch, calls } = upstream({});
+    const limit = vi.fn(async () => ({ success: false }));
+    const response = await handle(get('/v1/players?last_name=Player'), { ...ENV, RATE_LIMITER: { limit } }, deps(fetch));
+    expect(response.status).toBe(429);
+    expect(calls).toEqual([]);
+  });
+
+  it('keeps a search for 1 hour, the same in any case', async () => {
+    let now = NOW;
+    const { fetch, calls } = upstream({
+      login: [LOGIN_OK],
+      players: [() => json({ players: [apiPlayer()] }), () => json({ players: [] })],
+    });
+    const d = deps(fetch, { now: () => now });
+    await handle(get('/v1/players?first_name=Test&last_name=Player'), ENV, d);
+    now += SEARCH_TTL_MS - 1;
+    const hit = await handle(get('/v1/players?first_name=test&last_name=PLAYER'), ENV, d);
+    expect((await hit.json()).players).toHaveLength(1);
+    expect(calls).toHaveLength(2);
+    now += 1;
+    expect(await (await handle(get('/v1/players?first_name=Test&last_name=Player'), ENV, d)).json()).toEqual({ players: [] });
+    expect(calls).toHaveLength(3);
+    expect(d.state.memory.size).toBe(0);
+  });
+});
+
+describe('mapSearch', () => {
+  const now = new Date(NOW);
+
+  it('keeps at most the limit, each number once, and skips entries without a number', () => {
+    const players = Array.from({ length: 15 }, (_, i) => apiPlayer({ pdga_number: String(i + 1) }));
+    const found = mapSearch({ players: [apiPlayer({ pdga_number: '' }), players[0], ...players] }, now, SEARCH_LIMIT);
+    expect(found).toHaveLength(SEARCH_LIMIT);
+    expect((found as { pdgaNumber: number }[]).map((one) => one.pdgaNumber)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it('treats a players value that is not a list as malformed', () => {
+    expect(mapSearch({ players: 'x' }, now, SEARCH_LIMIT)).toBe('malformed');
+    expect(mapSearch(null, now, SEARCH_LIMIT)).toBe('malformed');
   });
 });

@@ -48,18 +48,12 @@ export function plainDate(value: unknown): string | null {
   return `${match[1]}-${match[2]}-${match[3]}`;
 }
 
-/** The player, null when the list is empty, or 'malformed'. */
-export function mapPlayer(json: unknown, pdgaNumber: number, now: Date): ApiPlayer | null | 'malformed' {
-  if (typeof json !== 'object' || json === null) return 'malformed';
-  const players = (json as Record<string, unknown>).players;
-  if (players === undefined || players === null) return null;
-  if (!Array.isArray(players)) return 'malformed';
-  // Only the asked number counts, whatever else the list holds.
-  const raw = players.find(
-    (entry): entry is Record<string, unknown> =>
-      typeof entry === 'object' && entry !== null && integer((entry as Record<string, unknown>).pdga_number, 1, 99_999_999) === pdgaNumber,
-  );
-  if (!raw) return null;
+/** One entry of the players list, or null when it has no valid PDGA number. */
+export function mapEntry(value: unknown, now: Date): ApiPlayer | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const raw = value as Record<string, unknown>;
+  const pdgaNumber = integer(raw.pdga_number, 1, 99_999_999);
+  if (pdgaNumber === null) return null;
 
   const first = text(raw.first_name);
   const last = text(raw.last_name);
@@ -86,4 +80,46 @@ export function mapPlayer(json: unknown, pdgaNumber: number, now: Date): ApiPlay
     classification: classification === 'P' ? 'pro' : classification === 'A' ? 'amateur' : null,
     fetchedAt: now.toISOString(),
   };
+}
+
+/** The players list of an answer, null when there is none, or 'malformed'. */
+function playersOf(json: unknown): unknown[] | null | 'malformed' {
+  if (typeof json !== 'object' || json === null) return 'malformed';
+  const players = (json as Record<string, unknown>).players;
+  if (players === undefined || players === null) return null;
+  return Array.isArray(players) ? players : 'malformed';
+}
+
+/** The player, null when the list is empty, or 'malformed'. */
+export function mapPlayer(json: unknown, pdgaNumber: number, now: Date): ApiPlayer | null | 'malformed' {
+  const players = playersOf(json);
+  if (players === null || players === 'malformed') return players;
+  // Only the asked number counts, whatever else the list holds.
+  for (const entry of players) {
+    const player = mapEntry(entry, now);
+    if (player?.pdgaNumber === pdgaNumber) return player;
+  }
+  return null;
+}
+
+/** A search result: the player and where they live, so players with the same name can be told apart. */
+export interface SearchPlayer extends ApiPlayer {
+  /** "City, State, Country" as PDGA gives them, or null. */
+  location: string | null;
+}
+
+/** The players of a name search, at most `limit`, each number once; or 'malformed'. */
+export function mapSearch(json: unknown, now: Date, limit: number): SearchPlayer[] | 'malformed' {
+  const players = playersOf(json);
+  if (players === 'malformed') return players;
+  const found: SearchPlayer[] = [];
+  for (const entry of players ?? []) {
+    const player = mapEntry(entry, now);
+    if (!player || found.some((one) => one.pdgaNumber === player.pdgaNumber)) continue;
+    const raw = entry as Record<string, unknown>;
+    const parts = [text(raw.city), text(raw.state_prov), text(raw.country)].filter(Boolean);
+    found.push({ ...player, location: parts.join(', ').slice(0, NAME_LENGTH) || null });
+    if (found.length === limit) break;
+  }
+  return found;
 }
