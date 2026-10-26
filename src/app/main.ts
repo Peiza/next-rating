@@ -1140,6 +1140,7 @@ function currentView(): HTMLElement {
     onSavePdgaNumber: savePdgaNumber,
     onSearch: searchPdga,
     search: inAppSearch(START_SEARCH_ID, (player) => savePdgaNumber(player.pdgaNumber)),
+    bookmarklet: data.bookmarklet,
     onOpenSetup: openSetup,
   });
 }
