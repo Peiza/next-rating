@@ -1123,6 +1123,31 @@ Built as:
   and an "Update bookmarklet" button to the setup. Unknown (no hand-off yet
   in this browser): the install step as before.
 
+## Shared favorites list
+Spec: Share list in the players panel makes a link that carries only the
+favorites' PDGA numbers in the fragment, `<app>#add=1001,1002`, with "me"
+first. On a touch screen it opens the share menu (`navigator.share`);
+elsewhere, or when that fails, it copies the link, and without clipboard
+access the link shows selected in a field to copy. No server is involved.
+Opening a link removes the fragment at once (`history.replaceState`),
+before anything else and before the visit count starts; reads at most 50
+numbers (digits only, in the PDGA number range, each once, anything else
+makes the whole link unreadable); skips players already favorites; and
+asks "Add the shared players?" with their numbers, how many are known and
+how many do not fit under MAX_FAVORITES. Add saves them as favorites
+without imports; Cancel adds no one. The lists are independent afterwards.
+
+Built as:
+- src/app/share.ts: `sharedNumbers`, `shareLink`, `readShared`,
+  `takeShared`, `shareOffer`, `addShared`.
+- src/app/views/share.ts: `shareSection` (under Edit list) and `offerView`
+  (above the view, like the import banner, with focus on it).
+- main.ts reads `#add=` on load and on hashchange, next to the `#d=`
+  hand-off. After Add, the names of the added players are looked up with
+  the official lookup, one at a time 3.5 seconds apart (under the Worker's
+  20 a minute), stopping at the first failure; the players list shows a
+  name from the lookup's 12-hour cache until the player's first import.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event

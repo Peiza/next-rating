@@ -9,6 +9,7 @@ import { readPages } from './handoff';
 import { setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { startVisitCount } from './analytics';
+import { addShared, shareLink, sharedNumbers, shareOffer, takeShared, type ShareOffer } from './share';
 import { layersState, readLayers, sameLayers, type Layers, type OverlayView } from './layers';
 import { createPredictionCache, playerModel, type ListPrediction, type Model } from './model';
 import {
@@ -96,6 +97,7 @@ import { TARGET_EXAMPLES_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID, type ExamplesFl
 import { API_LOOKUP_ID, DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
 import type { InAppSearch, SearchState } from './views/search';
+import { OFFER_ID, offerView, SHARE_BUTTON_ID, SHARE_LINK_ID, type ShareStatus } from './views/share';
 import { START_SEARCH_ID, startTabId, startView, type StartTab } from './views/start';
 
 /*
@@ -155,6 +157,10 @@ const scrollTops: Partial<Record<Tab, number>> = {};
 let editingPlayers = false;
 let confirmRemove: number | null = null;
 let addFlash: PdgaFlash = null;
+/** What Share list did last; cleared when the players panel opens or closes. */
+let shareStatus: ShareStatus = null;
+/** A shared link that was opened, waiting for Add or Cancel. */
+let offer: ShareOffer | null = null;
 /*
  * Which Rating tab cards are open, and the Top 8 period, are stored with the
  * settings, the same for every player. What has been typed into a card stays
@@ -472,6 +478,7 @@ function showLayers(next: Layers): void {
   if (before.menu !== next.menu) {
     editingPlayers = false;
     confirmRemove = null;
+    shareStatus = null;
   }
   menuOpen = next.menu;
   if (next.overlay === null) overlay = null;
@@ -496,6 +503,7 @@ function toggleMenu(): void {
   menuOpen = !menuOpen;
   editingPlayers = false;
   confirmRemove = null;
+  shareStatus = null;
   if (menuOpen) pushLayers();
   render(menuOpen ? panelTitleId() : MENU_BUTTON_ID);
   window.scrollTo(0, 0);
@@ -560,6 +568,117 @@ function addFromPanel(pdgaNumber: number): void {
   }
   store.update(next);
   selectPlayer(pdgaNumber);
+}
+
+/** Touch screens, where Share list opens the phone's share menu; elsewhere it copies the link. */
+const TOUCH_QUERY = '(pointer: coarse)';
+
+/**
+ * Shares the favorites as a link with their PDGA numbers only: the phone's
+ * share menu, else the clipboard, else the link shows to copy by hand.
+ */
+async function shareList(): Promise<void> {
+  const link = shareLink(location.href, sharedNumbers(store.get()));
+  const touch = window.matchMedia?.(TOUCH_QUERY).matches ?? false;
+  if (touch && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: t('share.title'), url: link });
+      shareStatus = null;
+      render(SHARE_BUTTON_ID);
+      return;
+    } catch (error) {
+      // Closed without sharing: nothing to say.
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    shareStatus = { kind: 'copied' };
+    render(SHARE_BUTTON_ID);
+  } catch {
+    // No clipboard access, as in some in-app browsers: the link shows, selected, to copy.
+    shareStatus = { kind: 'manual', link };
+    render(SHARE_LINK_ID);
+  }
+}
+
+/** A shared link was opened: asks before adding anyone, or says why there is no one to add. */
+function receiveShared(shared: number[]): void {
+  if (shared.length === 0) {
+    showBanner({ message: 'share.invalid', tone: 'error' });
+    return;
+  }
+  const next = shareOffer(store.get(), shared);
+  if (next.numbers.length > 0) {
+    offer = next;
+    showBanner(null, OFFER_ID);
+    return;
+  }
+  showBanner(
+    next.overflow > 0
+      ? { message: 'favorites.full', params: { max: MAX_FAVORITES }, tone: 'warning' }
+      : { message: 'share.allKnown', tone: 'info' },
+  );
+}
+
+function acceptOffer(): void {
+  if (!offer) return;
+  const { data, added } = addShared(store.get(), offer.numbers);
+  offer = null;
+  store.update(data);
+  if (selected === null && added[0] !== undefined) setSelected(added[0]);
+  showBanner({ message: 'share.added', params: { count: added.length }, tone: 'info' });
+  lookUpNames(added);
+}
+
+function cancelOffer(): void {
+  offer = null;
+  render(`tab-${tab}`);
+}
+
+/** Lookups one at a time, this far apart, so a long shared list stays under the Worker's limit per minute. */
+const NAME_LOOKUP_GAP_MS = 3500;
+const nameQueue: number[] = [];
+let namesRunning = false;
+
+/**
+ * Looks up the names of players added from a shared link, so the players
+ * list can show them before their first import. Once, in turn, in the
+ * lookup's temporary cache; stops at the first failure and never retries.
+ */
+function lookUpNames(numbers: readonly number[]): void {
+  nameQueue.push(...numbers);
+  if (namesRunning) return;
+  namesRunning = true;
+  void (async () => {
+    while (nameQueue.length > 0) {
+      const pdgaNumber = nameQueue.shift()!;
+      if (!apiOn() || !navigator.onLine) break;
+      if (apiCache.get(pdgaNumber) || apiStates.has(pdgaNumber) || !findPlayer(store.get(), pdgaNumber)) continue;
+      const result = await lookupPlayer(pdgaNumber, { url: API_URL, enabled: true, online: true });
+      if (result.ok) {
+        apiCache.set(result.player);
+        render();
+      } else if (result.code !== 'not-found') {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, NAME_LOOKUP_GAP_MS));
+    }
+    nameQueue.length = 0;
+    namesRunning = false;
+  })();
+}
+
+/** The names the lookup's cache knows for players without an import, for the players list. */
+function lookedUpNames(players: readonly StoredPlayer[]): Map<number, string> {
+  const names = new Map<number, string>();
+  if (!apiOn()) return names;
+  for (const player of players) {
+    if (playerName(player)) continue;
+    const name = apiCache.get(player.pdgaNumber)?.name;
+    if (name) names.set(player.pdgaNumber, name);
+  }
+  return names;
 }
 
 /** Opens or closes a Rating tab card and remembers it. Focus stays on its header, so no keyboard pops up. */
@@ -917,15 +1036,15 @@ function closeOverlay(): void {
   render(opener ?? `tab-${tab}`);
 }
 
-/** Shows the result of an import on the Rating tab, with focus on the message. */
-function showBanner(next: Banner): void {
+/** Shows the result of an import on the Rating tab, with focus on the message (or on `focusId`, such as a shared link's question). */
+function showBanner(next: Banner | null, focusId = BANNER_ID): void {
   saveScroll();
   banner = next;
   tab = 'rating';
   overlay = null;
   menuOpen = false;
   unwindLayers();
-  render(BANNER_ID);
+  render(focusId);
   window.scrollTo(0, 0);
 }
 
@@ -1209,8 +1328,7 @@ function barTitle(): string {
   return tab === 'settings' ? t('settings.title') : t('app.name');
 }
 
-/** Touch screens, where focusing a select or a date field opens its picker (iOS opens it again after a choice). */
-const TOUCH_QUERY = '(pointer: coarse)';
+/* On touch screens (TOUCH_QUERY), focusing a select or a date field opens its picker; iOS opens it again after a choice. */
 
 function opensPicker(element: HTMLElement): boolean {
   return element instanceof HTMLSelectElement || (element instanceof HTMLInputElement && element.type === 'date');
@@ -1260,6 +1378,9 @@ function render(focusId = document.activeElement?.id): void {
         order: data.playerOrder,
         now,
         predictions: predictions(data.players, now),
+        names: lookedUpNames(data.players),
+        share: shareStatus,
+        onShare: () => void shareList(),
         onOrder: setPlayerOrder,
         onSearch: searchPdga,
         search: inAppSearch(SEARCH_INPUT_ID, (player) => addFromPanel(player.pdgaNumber)),
@@ -1276,6 +1397,7 @@ function render(focusId = document.activeElement?.id): void {
         'main',
         { class: 'main' },
         updateReady && updateNotice(applyUpdate),
+        overlay === null && offer && offerView(offer, acceptOffer, cancelOffer),
         overlay === null && banner && bannerView(banner, closeBanner, openSetup),
         currentView(),
       ),
@@ -1317,6 +1439,8 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('hashchange', () => {
   const payload = takeFragment();
   if (payload !== null) void receiveHandoff(payload);
+  const shared = takeShared();
+  if (shared !== null) receiveShared(shared);
 });
 
 // The back gesture, or the app going back over a layer it closed.
@@ -1343,12 +1467,14 @@ menuOpen = restored.menu;
 overlay = restored.overlay && { view: restored.overlay, opener: `tab-${tab}` };
 
 const payload = takeFragment();
+const shared = takeShared();
 applyTheme();
 applyTextSize();
 applyLanguage();
 applyDateOrder();
 render();
 if (payload !== null) void receiveHandoff(payload);
+if (shared !== null) receiveShared(shared);
 startVisitCount(__ANALYTICS_TOKEN__);
 registerServiceWorker(() => {
   updateReady = true;

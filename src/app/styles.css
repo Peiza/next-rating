@@ -1890,6 +1890,15 @@ a {
   margin: 1rem 0 0.5rem;
 }
 
+/* Share list sits under Edit list; its hint says what the link holds. */
+.players-share {
+  margin: 0 0 1rem;
+}
+
+.players-share .field {
+  margin: 0.5rem 0 0;
+}
+
 /*
  * An empty status line takes no space in the panel, so the add form and the
  * name search sit one field gap apart; a message pushes the search down.

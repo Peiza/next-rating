@@ -177,6 +177,15 @@ follow friends as well as yourself:
   touching anyone else's data. A player who is not a favorite is kept until
   the next such import, with an "Add to favorites" button.
 - Event results go to every stored player who played the event.
+- **Share list** (under the list) makes a link with your favorites' PDGA
+  numbers only, such as `…/next-rating/#add=12345,67890`: the phone's share
+  menu on a phone, the clipboard on a computer. The numbers travel in the
+  part after `#`, which the browser never sends to a server. Opening the
+  link asks before adding anyone (at most 50 from one link, never past the
+  30 favorites the app keeps, skipping players already in the list), and
+  the two lists are independent afterwards. With the official lookup on,
+  the added players' names are looked up one at a time, a few seconds
+  apart, for the players list.
 - Data saved by earlier versions of the app is moved over the first time a
   new version opens.
 
