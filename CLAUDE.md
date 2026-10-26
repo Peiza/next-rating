@@ -275,7 +275,7 @@ history line, the bookmarklet size, the prediction in the players list,
 the following update, the text size, the How it works text size, the
 large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
-target answer), manual rounds on and off, one arrow angle and the build
+target answer), manual rounds on and off, one arrow angle, the build
 date after the version and the PDGA attribution with the player link
 (docs/finished-steps.md).
 Planned after part B is merged:
