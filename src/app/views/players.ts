@@ -5,7 +5,7 @@ import type { ListPrediction } from '../model';
 import { playerName, sortFavorites } from '../players';
 import type { PlayerOrder, StoredPlayer } from '../storage';
 import { direction, slopeArrow } from './change';
-import { detailsUrl, nameSearchForm, pdgaNumberForm, type PdgaFlash } from './pdga';
+import { detailsUrl, nameSearchForm, pdgaNumberForm, playerLink, type PdgaFlash } from './pdga';
 import { segmented, type Segment } from './segmented';
 
 /*
@@ -300,7 +300,10 @@ export function topBar({ open, onToggle, player, title }: TopBarProps): HTMLElem
       ? el(
           'h1',
           { id: TOPBAR_TITLE_ID, class: 'topbar-title' },
-          ...(player.name ? [player.name, ' ', el('span', { class: 'topbar-number' }, number)] : [number]),
+          // The name, or the number without one, links to the player's profile on pdga.com.
+          ...(player.name
+            ? [playerLink(player.pdgaNumber, player.name), ' ', el('span', { class: 'topbar-number' }, number)]
+            : [playerLink(player.pdgaNumber, number!)]),
         )
       : title && el('h1', { id: TOPBAR_TITLE_ID, class: 'topbar-title', tabindex: -1 }, title),
     el(

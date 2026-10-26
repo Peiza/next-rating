@@ -1,6 +1,6 @@
 import { t, type MessageKey } from '../../i18n';
 import { parseInteger, RANGES } from '../../parsers/values';
-import { el } from '../dom';
+import { el, textWithNodes } from '../dom';
 import { MAX_FAVORITES } from '../storage';
 
 /** What the PDGA number form says after a save. */
@@ -14,6 +14,28 @@ const FLASH: Record<NonNullable<PdgaFlash>, MessageKey> = {
 
 export const PDGA_INPUT_ID = 'pdga-number';
 export const PDGA_SAVE_ID = `${PDGA_INPUT_ID}-save`;
+
+export const PDGA_URL = 'https://www.pdga.com/';
+
+/** The player's profile on pdga.com, which the player's name links to. */
+export function playerUrl(pdgaNumber: number): string {
+  return `https://www.pdga.com/player/${pdgaNumber}`;
+}
+
+/** The player's name, or the number without one, linked to the player's pdga.com profile. */
+export function playerLink(pdgaNumber: number, text: string): HTMLElement {
+  return el('a', { class: 'player-link', href: playerUrl(pdgaNumber), rel: 'noreferrer' }, text);
+}
+
+/**
+ * The line at the bottom of each view: the attribution PDGA asks for, linked
+ * to pdga.com and always in English, then that the app is unofficial and not
+ * endorsed by the PDGA.
+ */
+export function pdgaNotice(className = 'notice'): HTMLElement {
+  const link = el('a', { href: PDGA_URL, rel: 'noreferrer' }, t('app.attributionLink'));
+  return el('p', { class: className }, ...textWithNodes(t('app.attribution'), { link }), ' ', t('app.unofficial'));
+}
 
 export function detailsUrl(pdgaNumber: number): string {
   return `https://www.pdga.com/player/${pdgaNumber}/details`;

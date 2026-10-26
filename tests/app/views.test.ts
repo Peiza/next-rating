@@ -69,7 +69,7 @@ describe('getting-started view', () => {
     const button = view.querySelector<HTMLButtonElement>('#details-link')!;
     expect(button.tagName).toBe('BUTTON');
     expect(button.disabled).toBe(true);
-    expect(view.querySelector('a[href*="pdga.com"]')).toBeNull();
+    expect(view.querySelector('a[href*="pdga.com/player"]')).toBeNull();
   });
 
   it("links to the player's ratings details", () => {
@@ -969,6 +969,20 @@ describe('rating view', () => {
 
   it('ends with the unofficial notice', () => {
     expect(ratingPage().lastElementChild!.textContent).toMatch(/not affiliated with/);
+  });
+
+  it('ends with the PDGA attribution, linked to pdga.com', () => {
+    const notice = ratingPage().lastElementChild!;
+    expect(notice.textContent).toMatch(/^Player, event, and course data provided by PDGA\. Unofficial tool/);
+    expect(notice.querySelector('a')!.getAttribute('href')).toBe('https://www.pdga.com/');
+  });
+
+  it("links the player's name in the heading to the player's pdga.com profile", () => {
+    const heading = ratingPage().querySelector('h1')!;
+    expect(heading.textContent).toBe('Test Player #100001');
+    const link = heading.querySelector('a')!;
+    expect(link.textContent).toBe('Test Player');
+    expect(link.getAttribute('href')).toBe('https://www.pdga.com/player/100001');
   });
 });
 
@@ -1899,6 +1913,15 @@ describe('top bar', () => {
     expect(unnamed.querySelector('h1')!.textContent).toBe('#100002');
     expect(unnamed.querySelector('.topbar-number')).toBeNull();
   });
+
+  it("links the shown player's name, or the number without one, to the player's pdga.com profile", () => {
+    const named = topBar({ open: false, onToggle: vi.fn(), player: { name: 'Test Player', pdgaNumber: 100001 } });
+    const link = named.querySelector('h1 a')!;
+    expect(link.textContent).toBe('Test Player');
+    expect(link.getAttribute('href')).toBe('https://www.pdga.com/player/100001');
+    const unnamed = topBar({ open: false, onToggle: vi.fn(), player: { name: '', pdgaNumber: 100002 } });
+    expect(unnamed.querySelector('h1 a')!.getAttribute('href')).toBe('https://www.pdga.com/player/100002');
+  });
 });
 
 describe('getting-started view for a player without data', () => {
@@ -1930,6 +1953,7 @@ describe('how it works', () => {
     expect(view.querySelector('#guide-about')!.parentElement!.textContent).toMatch(/not affiliated with/);
     const links = [...view.querySelectorAll<HTMLAnchorElement>('a')].map((a) => a.getAttribute('href'));
     expect(links).toEqual([
+      'https://www.pdga.com/',
       'https://www.pdga.com/ratings/guide',
       'https://www.pdga.com/faq/ratings/when-updated',
       'https://www.pdga.com/global-masters-series',

@@ -4,7 +4,8 @@ Predicts your next PDGA rating update from your rated rounds, including new
 rounds with unofficial round ratings and ratings you add yourself.
 
 **Unofficial tool. Not affiliated with or endorsed by the PDGA (Professional
-Disc Golf Association).**
+Disc Golf Association).** Player, event, and course data provided by
+[PDGA](https://www.pdga.com/).
 
 App: https://peiza.github.io/next-rating/
 

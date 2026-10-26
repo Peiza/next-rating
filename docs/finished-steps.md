@@ -1036,6 +1036,27 @@ Built as:
   day; `settings.version` stays for a build without a day. The line is the
   same quiet hint as before and wraps between words at large text.
 
+## PDGA attribution and the player link
+Spec: the line at the bottom of every view gives the attribution the PDGA
+API license asks for, "Player, event, and course data provided by PDGA.",
+with PDGA linked to pdga.com and the sentence in English in every language.
+A short "Unofficial tool, not affiliated with or endorsed by PDGA." follows
+it (translated), since the license forbids implying PDGA endorsement and the
+hard constraints keep the unofficial statement. The player's name at the
+top of the Rating tab links to the player's profile on pdga.com; the
+players list has no links.
+
+Built as:
+- `pdgaNotice` in src/app/views/pdga.ts builds the line from
+  `app.attribution` (with a `{link}` to `PDGA_URL`), `app.attributionLink`
+  and `app.unofficial`. The Rating tab, the start view, Settings and How it
+  works use it where the unofficial notice was.
+- `playerLink` links the name, or the number without one, to
+  `https://www.pdga.com/player/<number>` in the wide heading and the phone
+  top bar, in the heading's own color, opened in the same tab like the
+  other pdga.com links.
+- The README carries the attribution under its unofficial statement.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1131,3 +1152,5 @@ Built in this order:
   list share one arrow, turned linearly with the change (45 degrees at 5,
   straight from 10) (done)
 - Build date after the version in Settings > About (done)
+- PDGA attribution at the bottom of every view and the player's name
+  linked to pdga.com (done)

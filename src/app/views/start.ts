@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { el } from '../dom';
-import { detailsLink, nameSearchForm, pdgaNumberForm, type PdgaFlash } from './pdga';
+import { detailsLink, nameSearchForm, pdgaNotice, pdgaNumberForm, type PdgaFlash } from './pdga';
 import { segmented, type Segment } from './segmented';
 
 /** How the first step finds your PDGA number: typed in, or looked up by name on pdga.com. */
@@ -81,6 +81,6 @@ export function startView(props: StartProps): HTMLElement {
         detailsLink(player ? player.pdgaNumber : pdgaNumber),
       ),
     ),
-    el('p', { class: 'notice' }, t('app.unofficial')),
+    pdgaNotice(),
   );
 }
