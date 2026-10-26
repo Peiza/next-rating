@@ -302,7 +302,9 @@ deployment > Source: GitHub Actions.** The `github-pages` environment that
 this creates only accepts deployments from `main`.
 
 Settings > About in the app shows the short commit id of the build that is
-live ("dev" in a local build). The app finds a new version the next time it
+live ("dev" in a local build), followed by the day it was built, such as
+"Version 1a2b3c4 · 2026-10-26", in the app's date format. An installed app
+can keep serving a cached build, so the date tells how new it is. The app finds a new version the next time it
 loads (browsers check `sw.js` past their HTTP cache), installs it in the
 background and shows "A new version of the app is available" with a Reload
 button.

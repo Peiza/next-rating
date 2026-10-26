@@ -994,6 +994,21 @@ Built as:
   aria-label ("Count round 985 from …").
 - How it works says so in the manual rounds paragraph.
 
+## Build date after the version
+Spec: Settings > About shows the build's day after its version, such as
+"Version 1a2b3c4 · 2026-10-26", so it is clear how new the running app is:
+an installed app can keep serving a cached build until Reload.
+
+Built as:
+- `__BUILD_DATE__` is defined in vite.config.ts beside `__BUILD_ID__`: the
+  UTC day of the build, null under Vitest so tests give the same result
+  locally and in CI (Settings then shows the id alone).
+- `versionText` in src/app/views/settings.ts formats the day with
+  `formatDate`, so it follows the app's language, the device's region and
+  the date format in Settings. `settings.versionDate` carries the id and the
+  day; `settings.version` stays for a build without a day. The line is the
+  same quiet hint as before and wraps between words at large text.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1085,3 +1100,4 @@ Built in this order:
 - Manual rounds on and off: a Count checkbox on each manual round in the
   Rounds card, stored with the round, left out of everything that predicts
   and of the Top 8 (done)
+- Build date after the version in Settings > About (done)

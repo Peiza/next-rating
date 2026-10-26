@@ -84,6 +84,7 @@
   "settings.storageUnavailable": "This browser does not let the app store data, so your settings are lost when you close the page.",
   "settings.about": "About",
   "settings.version": "Version {version}",
+  "settings.versionDate": "Version {version} · {date}",
   "support.text": "Like Next Rating? {link}",
   "support.link": "Buy me a coffee on Ko-fi",
   "update.ready": "A new version of the app is available.",
