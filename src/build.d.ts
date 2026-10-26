@@ -7,6 +7,9 @@ declare const __BUILD_DATE__: string | null;
 /** The official rating lookup's origin, or '' when it is off. Set by `define` in vite.config.ts. */
 declare const __API_URL__: string;
 
+/** The Cloudflare Web Analytics token, or '' when visits are not counted. Set by `define` in vite.config.ts. */
+declare const __ANALYTICS_TOKEN__: string;
+
 /** The app's address, which the bookmarklet hands off to. Set by scripts/bookmarklet.ts, only in the bookmarklet build. */
 declare const __APP_URL__: string;
 

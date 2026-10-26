@@ -17,16 +17,25 @@ const APP_URL = process.env.NEXT_RATING_APP_URL || LIVE_APP_URL;
  * frame-ancestors is ignored in a meta tag, so it is not listed.
  */
 const API_ORIGIN = apiOrigin(process.env.NEXT_RATING_API_URL);
-const CONTENT_SECURITY_POLICY = policyFor(API_ORIGIN);
 
-function contentSecurityPolicy(): Plugin {
+/*
+ * Cloudflare Web Analytics token for peiza.github.io: an anonymous visit
+ * count, no cookies and no storage (src/app/analytics.ts). The token is
+ * public by design. Only builds for the live address count visits, so a
+ * local build with NEXT_RATING_APP_URL, the dev server and tests never do.
+ */
+const ANALYTICS_TOKEN = '102eca5feb6b48fda3b48886fa78eb60';
+const analyticsToken = (mode: string): string =>
+  mode === 'production' && !process.env.NEXT_RATING_APP_URL ? ANALYTICS_TOKEN : '';
+
+function contentSecurityPolicy(policy: string): Plugin {
   return {
     name: 'content-security-policy',
     apply: 'build',
     transformIndexHtml: () => [
       {
         tag: 'meta',
-        attrs: { 'http-equiv': 'Content-Security-Policy', content: CONTENT_SECURITY_POLICY },
+        attrs: { 'http-equiv': 'Content-Security-Policy', content: policy },
         injectTo: 'head-prepend',
       },
     ],
@@ -77,8 +86,9 @@ export default defineConfig(({ mode }) => ({
     __BUILD_DATE__: JSON.stringify(buildDate(mode)),
     // Off under Vitest, so tests never depend on the environment.
     __API_URL__: JSON.stringify(mode === 'test' ? '' : API_ORIGIN),
+    __ANALYTICS_TOKEN__: JSON.stringify(analyticsToken(mode)),
   },
-  plugins: [contentSecurityPolicy(), bookmarklet(), serviceWorker()],
+  plugins: [contentSecurityPolicy(policyFor(API_ORIGIN, analyticsToken(mode) !== '')), bookmarklet(), serviceWorker()],
   build: {
     // Small assets would become data: URIs, which the policy blocks.
     assetsInlineLimit: 0,

@@ -128,7 +128,7 @@ describe('the Settings switch', () => {
   it('is absent from a build without the lookup', () => {
     const view = settingsView(props);
     expect(view.querySelector('#api-lookup')).toBeNull();
-    expect(view.textContent).toContain('Nothing is sent to any server.');
+    expect(view.textContent).toContain('none of it is sent to any server.');
   });
 
   it('turns the lookup on and off, and says what is sent', () => {
@@ -146,7 +146,7 @@ describe('the Settings switch', () => {
   it('keeps the old privacy line when switched off', () => {
     const view = settingsView({ ...props, apiAvailable: true, apiLookup: false });
     expect(view.querySelector<HTMLInputElement>('#api-lookup')!.checked).toBe(false);
-    expect(view.textContent).toContain('Nothing is sent to any server.');
+    expect(view.textContent).toContain('none of it is sent to any server.');
   });
 });
 

@@ -1093,6 +1093,25 @@ Built as:
 - Settings' hint, the privacy line and How it works say that a searched
   name is sent too. Turning the lookup off clears the search.
 
+## Anonymous visit count
+Spec: the owner sees how many visit the app, with Cloudflare Web Analytics
+(no cookies, no storage, no individual visitors), for peiza.github.io; the
+same token counts SwimDeck, so the dashboard filters by path. The hand-off
+data never reaches Cloudflare.
+
+Built as:
+- vite.config.ts sets `__ANALYTICS_TOKEN__` only for a production build of
+  the live address (no NEXT_RATING_APP_URL); the dev server, tests and
+  local builds count nothing.
+- `startVisitCount` in src/app/analytics.ts adds Cloudflare's beacon script
+  once, after `takeFragment()` has removed any #d= hand-off, never while the
+  address has a fragment, with `spa: false` so later address changes are
+  not reported.
+- The policy (scripts/api-url.ts) adds `script-src` for
+  https://static.cloudflareinsights.com and https://cloudflareinsights.com to
+  `connect-src`, only when the count is on.
+- The privacy line in Settings says visits are counted anonymously.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1197,3 +1216,5 @@ Built in this order:
   checked, one muted line on failure) and confirms the number on the start
   view, keeps answers at most 12 hours under next-rating:api-cache, and has
   a Settings switch. Off until NEXT_RATING_API_URL is set (done)
+- Anonymous visit count with Cloudflare Web Analytics, loaded after the
+  hand-off is out of the address (done)

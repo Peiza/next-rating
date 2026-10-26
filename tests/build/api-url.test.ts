@@ -40,4 +40,14 @@ describe('contentSecurityPolicy', () => {
     expect(policy).toContain("connect-src 'self' https://next-rating-api.example.workers.dev;");
     expect(policy.match(/https:\/\//g)).toHaveLength(1);
   });
+
+  it('adds only Cloudflare Web Analytics when visits are counted', () => {
+    const policy = contentSecurityPolicy('', true);
+    expect(policy).toContain("script-src 'self' https://static.cloudflareinsights.com;");
+    expect(policy).toContain("connect-src 'self' https://cloudflareinsights.com;");
+    expect(policy.match(/https:\/\//g)).toHaveLength(2);
+    expect(contentSecurityPolicy('https://next-rating-api.example.workers.dev', true)).toContain(
+      "connect-src 'self' https://next-rating-api.example.workers.dev https://cloudflareinsights.com;",
+    );
+  });
 });

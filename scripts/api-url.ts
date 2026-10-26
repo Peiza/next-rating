@@ -24,11 +24,21 @@ export function apiOrigin(value: string | undefined): string {
   return url.origin;
 }
 
-/** The app's policy, which lets the app call the lookup's origin and nothing else. */
-export function contentSecurityPolicy(origin: string): string {
+/** Cloudflare Web Analytics: the script's origin and the origin it reports to. */
+export const ANALYTICS_SCRIPT_ORIGIN = 'https://static.cloudflareinsights.com';
+export const ANALYTICS_REPORT_ORIGIN = 'https://cloudflareinsights.com';
+
+/**
+ * The app's policy, which lets the app call the lookup's origin and nothing
+ * else, plus Cloudflare Web Analytics' script and report origins when the
+ * anonymous visit count is on.
+ */
+export function contentSecurityPolicy(origin: string, analytics = false): string {
+  const connect = [origin, analytics ? ANALYTICS_REPORT_ORIGIN : ''].filter(Boolean);
   return [
     "default-src 'self'",
-    ...(origin ? [`connect-src 'self' ${origin}`] : []),
+    ...(analytics ? [`script-src 'self' ${ANALYTICS_SCRIPT_ORIGIN}`] : []),
+    ...(connect.length ? [`connect-src 'self' ${connect.join(' ')}`] : []),
     "base-uri 'none'",
     "form-action 'none'",
     "object-src 'none'",
