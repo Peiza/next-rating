@@ -27,12 +27,12 @@ Not available: ratings history and round-by-round ratings. No rate limits are do
 
 ## License terms that shape the design
 
-From the signed agreement (paraphrased; read the full text when logged in):
+From the signed agreement (paraphrased, unverified: the agreement needs a login, and these lines were not checked against its text):
 
 - **No permanent storage.** Data may only be stored or cached temporarily, as needed to run the app and improve performance, with cache invalidation so users see current data. No database of PDGA data, no bulk downloads. Only PDGA record IDs (pdga\_number, tournament\_id, course\_id) may be kept, for back-end matching. So: no monthly snapshots, no self-built rating history.  
 - **Attribution on every screen with PDGA data:** "Player, event, and course data provided by PDGA." with a link to pdga.com. Every player, event and course name links to its page on pdga.com. "PDGA Authorized Developer" may be shown.  
 - **Account is personal and confidential.** Keep credentials server-side (Worker secrets), never in the app or the repo.  
-- **Not on behalf of others**, not implying PDGA endorsement, non-commercial.  
+- **Not on behalf of others** (section 6.c in the owner's copy), not implying PDGA endorsement, non-commercial. The dev page adds that commercial use needs contact with dev@pdga.com, and the agreement refers to a Statement of Work and an NDA; Next Rating's email asks about all three (docs/pdga-api-email.md).  
 - **PDGA may review** the app, ask for screenshots before launch, and judge whether a use is "more competitive than complementary". They can revoke access at any time, and data must be removed within 24 h on request.  
 - Contact [dev@pdga.com](mailto:dev@pdga.com) when a use is not covered, needs an exception, or a finished app should be reviewed before public launch.
 
