@@ -150,7 +150,9 @@ turn the same arrow, linearly: 45 degrees at 5, straight from 10), and the
 build date after the version in Settings > About, and the PDGA attribution
 ("Player, event, and course data provided by PDGA.", linked, in English,
 then the translated unofficial line) at the bottom of every view, with the
-player's name linked to the profile on pdga.com.
+player's name linked to the profile on pdga.com, and the shared
+favorites list (Share list makes a link with the favorites' PDGA numbers
+only, #add=..., read and removed on open, asked before adding).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -178,9 +180,9 @@ Bookmarklet rules every change keeps:
 
 Open, both optional:
 
-5. Favorites, optional, later: a transfer link that moves favorites and manual
-   rounds to another device through the same URL-fragment hand-off, without a
-   server.
+5. Favorites, optional, later: a transfer link that moves manual rounds to
+   another device through a URL-fragment hand-off, without a server (the
+   favorites themselves travel with Share list).
 11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
@@ -294,7 +296,8 @@ large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
 target answer), manual rounds on and off, one arrow angle, the build
 date after the version, the PDGA attribution with the player link and
-the anonymous visit count (docs/finished-steps.md).
+the anonymous visit count and the shared favorites list
+(docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait

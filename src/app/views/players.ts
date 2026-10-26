@@ -8,6 +8,7 @@ import { direction, slopeArrow } from './change';
 import { detailsUrl, nameSearchForm, pdgaNumberForm, playerLink, type PdgaFlash } from './pdga';
 import { playerSearchForm, type InAppSearch } from './search';
 import { segmented, type Segment } from './segmented';
+import { shareSection, type ShareStatus } from './share';
 
 /*
  * The players panel: favorites, the unsaved player, a form to add one by
@@ -39,9 +40,12 @@ export function playerButtonId(pdgaNumber: number): string {
   return `player-${pdgaNumber}`;
 }
 
-/** "Name #12345", or "#12345" before the first import. */
-export function playerLabel(player: StoredPlayer): string {
-  const name = playerName(player);
+/**
+ * "Name #12345", or "#12345" before the first import. `lookedUp` is the
+ * name the official rating lookup knows, used until there is an import.
+ */
+export function playerLabel(player: StoredPlayer, lookedUp?: string | null): string {
+  const name = playerName(player) || lookedUp;
   return name
     ? t('rating.player', { name, number: player.pdgaNumber })
     : t('rating.playerNumber', { number: player.pdgaNumber });
@@ -61,6 +65,11 @@ export interface PlayersProps {
   now: Date;
   /** Each player's prediction, by PDGA number; a player without one is left out. */
   predictions: ReadonlyMap<number, ListPrediction>;
+  /** Names the official rating lookup knows for now, for players without an import. */
+  names?: ReadonlyMap<number, string>;
+  /** What Share list did last. */
+  share?: ShareStatus;
+  onShare?: () => void;
   onOrder: (order: PlayerOrder) => void;
   /** Opens pdga.com's player search. */
   onSearch: (url: string) => void;
@@ -126,7 +135,7 @@ function selectButton(player: StoredPlayer, props: PlayersProps): HTMLElement {
         'span',
         { class: 'player-name' },
         selected && el('span', { class: 'player-check wide-only', 'aria-hidden': 'true' }, '✓ '),
-        playerLabel(player),
+        playerLabel(player, props.names?.get(player.pdgaNumber)),
         player.pdgaNumber === props.me && el('span', { class: 'badge' }, t('players.me')),
         selected && el('span', { class: 'badge menu-only' }, t('players.now')),
       ),
@@ -259,6 +268,7 @@ export function playersPanel(props: PlayersProps): HTMLElement {
         },
         t(props.editing ? 'players.editDone' : 'players.edit'),
       ),
+    favorites.length > 0 && props.onShare && shareSection(props.share ?? null, props.onShare),
     unsaved.length > 0 && el('h3', { class: 'players-unsaved' }, t('players.unsaved')),
     unsaved.length > 0 && el('ul', { class: 'player-list' }, ...unsaved.map((player) => unsavedItem(player, props))),
     pdgaNumberForm(null, props.flash, (pdgaNumber) => pdgaNumber !== null && props.onAdd(pdgaNumber), {
