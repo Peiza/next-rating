@@ -1,7 +1,7 @@
 import './styles.css';
 import bookmarklet from 'virtual:bookmarklet';
 import type { PlainDate } from '../engine';
-import { API_URL, createApiCache, lookupPlayer, type ApiState } from './api';
+import { API_URL, apiPlayerOf, createApiCache, lookupPlayer, searchPlayers, type ApiState, type SearchPlayer, type SearchQuery } from './api';
 import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus, type ImportParts } from '../handoff';
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
@@ -80,6 +80,7 @@ import {
   orderId,
   PANEL_TITLE_ID,
   playerButtonId,
+  SEARCH_INPUT_ID,
   playerLabel,
   playersPanel,
   TOPBAR_TITLE_ID,
@@ -93,7 +94,8 @@ import { roundEditId, ROUNDS_NEXT_ID, ratingView } from './views/rating';
 import { TARGET_EXAMPLES_ID, TARGET_STATUS_ID, TARGET_TOGGLE_ID, type ExamplesFlash } from './views/target';
 import { API_LOOKUP_ID, DATE_FORMAT_ID, openWithId, settingsView, TEXT_SIZE_ID, themeId } from './views/settings';
 import { guessPlatform, isOlderVersion, platformId, SETUP_ID, setupView, type Platform } from './views/setup';
-import { startTabId, startView, type StartTab } from './views/start';
+import type { InAppSearch, SearchState } from './views/search';
+import { START_SEARCH_ID, startTabId, startView, type StartTab } from './views/start';
 
 /*
  * The fragment is reserved for the bookmarklet hand-off and there is no
@@ -224,12 +226,65 @@ function lookUpShown(): void {
   });
 }
 
+/**
+ * The player search in the app, by the id of its field: what was typed and
+ * what the last search found. In memory only, so search results are never
+ * stored; a pick keeps only the picked player, in the lookup's cache.
+ */
+const searches = new Map<string, SearchState>();
+/** The latest search, so an older answer that comes later is ignored. */
+let searchSeq = 0;
+
+function searchState(formId: string): SearchState {
+  return searches.get(formId) ?? { text: '', status: { kind: 'idle' } };
+}
+
+/** The search in the app for a field, or null to search on pdga.com: the lookup is off or the device offline. */
+function inAppSearch(formId: string, onPick: (player: SearchPlayer) => void): InAppSearch | null {
+  if (!apiOn() || !navigator.onLine) return null;
+  return {
+    state: searchState(formId),
+    onText: (text) => searches.set(formId, { ...searchState(formId), text }),
+    onSearch: (query) => runSearch(formId, query),
+    onPick: (player) => {
+      // The picked player's rating shows at once, without asking again.
+      apiCache.set(apiPlayerOf(player));
+      searches.delete(formId);
+      onPick(player);
+    },
+    onPdga: searchPdga,
+  };
+}
+
+/** Asks the Worker once per search; nothing is asked while typing. */
+function runSearch(formId: string, query: SearchQuery | null): void {
+  const { text } = searchState(formId);
+  if (query === null) {
+    searches.set(formId, { text, status: { kind: 'invalid' } });
+    render(formId);
+    return;
+  }
+  const seq = ++searchSeq;
+  searches.set(formId, { text, status: { kind: 'loading' } });
+  // Focus the button rather than the field, so a phone keyboard closes and the results show.
+  render(`${formId}-submit`);
+  void searchPlayers(query, { url: API_URL, enabled: apiOn(), online: navigator.onLine }).then((result) => {
+    if (seq !== searchSeq || !searches.has(formId)) return;
+    searches.set(formId, {
+      text: searchState(formId).text,
+      status: result.ok ? { kind: 'ok', players: result.players } : { kind: 'unavailable', query },
+    });
+    render();
+  });
+}
+
 /** Turns the lookup on or off; off deletes every kept answer at once. */
 function setApiLookup(apiLookup: boolean): void {
   store.update({ apiLookup });
   if (!apiLookup) {
     apiCache.clear();
     apiStates.clear();
+    searches.clear();
   }
   render(API_LOOKUP_ID);
 }
@@ -1081,6 +1136,7 @@ function currentView(): HTMLElement {
     },
     onSavePdgaNumber: savePdgaNumber,
     onSearch: searchPdga,
+    search: inAppSearch(START_SEARCH_ID, (player) => savePdgaNumber(player.pdgaNumber)),
     onOpenSetup: openSetup,
   });
 }
@@ -1202,6 +1258,7 @@ function render(focusId = document.activeElement?.id): void {
         predictions: predictions(data.players, now),
         onOrder: setPlayerOrder,
         onSearch: searchPdga,
+        search: inAppSearch(SEARCH_INPUT_ID, (player) => addFromPanel(player.pdgaNumber)),
         onSelect: selectPlayer,
         onClose: closeMenu,
         onToggleEdit: toggleEditPlayers,

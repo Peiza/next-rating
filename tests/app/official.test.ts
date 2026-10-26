@@ -136,7 +136,7 @@ describe('the Settings switch', () => {
     const view = settingsView({ ...props, apiAvailable: true, apiLookup: true, onApiLookup });
     const box = view.querySelector<HTMLInputElement>('#api-lookup')!;
     expect(box.checked).toBe(true);
-    expect(view.querySelector('#api-lookup-hint')?.textContent).toContain('Only the PDGA number is sent');
+    expect(view.querySelector('#api-lookup-hint')?.textContent).toContain('Only the PDGA number, or the name you search for, is sent');
     expect(view.textContent).toContain('Only the PDGA number of the player shown is sent');
     box.checked = false;
     box.dispatchEvent(new Event('change'));

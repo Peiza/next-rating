@@ -186,7 +186,9 @@ Open, both optional:
 
 Built, waiting for the Worker's deploy: the official rating and membership
 from the PDGA REST API through the Worker (docs/plan-pdga-api.md; background
-in docs/pdga-api-email.md and docs/pdga-map-handoff.md). The app part stays
+in docs/pdga-api-email.md and docs/pdga-map-handoff.md), and the player
+search in the app through the same Worker, with pdga.com's search as the
+fallback (docs/finished-steps.md, "Player search in the app"). The app part stays
 off until the NEXT_RATING_API_URL repository variable is set.
 
 ## Security

@@ -1980,6 +1980,15 @@ a {
   border-radius: 0.25rem;
 }
 
+/* The search's "on pdga.com" button sits under its status line, the players found under that. */
+.player-search > .button-small {
+  margin: 0.5rem 0 0;
+}
+
+.search-results {
+  margin-top: 0.5rem;
+}
+
 .player-details-link {
   display: inline-block;
   margin: 0.25rem 0.75rem;

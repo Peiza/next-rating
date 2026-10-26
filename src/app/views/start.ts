@@ -3,6 +3,7 @@ import type { ApiState } from '../api';
 import { el } from '../dom';
 import { apiConfirm } from './official';
 import { detailsLink, nameSearchForm, pdgaNotice, pdgaNumberForm, type PdgaFlash } from './pdga';
+import { playerSearchForm, type InAppSearch } from './search';
 import { segmented, type Segment } from './segmented';
 
 /** How the first step finds your PDGA number: typed in, or looked up by name on pdga.com. */
@@ -34,11 +35,16 @@ export interface StartProps {
   onSavePdgaNumber: (pdgaNumber: number | null) => void;
   /** Opens pdga.com's player search. */
   onSearch: (url: string) => void;
+  /** The search in the app, when the official lookup is on and the device is online; null searches on pdga.com. */
+  search?: InAppSearch | null;
   onOpenSetup: () => void;
 }
 
-/** The first step: your PDGA number, or a search by name on pdga.com, where the PDGA # column shows it. */
-function numberStep({ pdgaNumber, flash, tab, onTab, onSavePdgaNumber, onSearch }: StartProps): HTMLElement {
+/**
+ * The first step: your PDGA number, or a search by name, in the app when it
+ * can or on pdga.com, where the PDGA # column shows it.
+ */
+function numberStep({ pdgaNumber, flash, tab, onTab, onSavePdgaNumber, onSearch, search }: StartProps): HTMLElement {
   return el(
     'li',
     { class: 'step' },
@@ -46,7 +52,9 @@ function numberStep({ pdgaNumber, flash, tab, onTab, onSavePdgaNumber, onSearch 
     segmented('start.findBy', 'start-tab', TABS, tab, onTab, { hideLegend: true }),
     tab === 'number'
       ? pdgaNumberForm(pdgaNumber, flash, onSavePdgaNumber)
-      : nameSearchForm(onSearch, { id: START_SEARCH_ID, label: 'start.searchLabel', hint: 'start.searchHint' }),
+      : search
+        ? playerSearchForm({ ...search, id: START_SEARCH_ID, label: 'start.searchLabelApi', hint: 'start.searchHintApi' })
+        : nameSearchForm(onSearch, { id: START_SEARCH_ID, label: 'start.searchLabel', hint: 'start.searchHint' }),
   );
 }
 

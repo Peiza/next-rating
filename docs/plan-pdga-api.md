@@ -169,7 +169,8 @@ app (GitHub Pages) ──GET /v1/player/:n──► Worker (login, edge cache 6 
 - **Abuse**: a Cloudflare rate-limit rule per IP (owner sets it in the
   dashboard, documented in the README). No PDGA data in logs (`observability`
   off or errors only).
-- No other routes (no name search, no lists) in this step.
+- No other routes (no name search, no lists) in this step. The name search
+  came later (docs/finished-steps.md, "Player search in the app").
 
 ### App
 - `src/app/api.ts`:
@@ -411,7 +412,9 @@ request when CI is green, as CLAUDE.md's Process says.
     Next Rating, with only its own route. (b) One shared Worker. → **a**:
     narrow scope, independent review and revocation.
 11. **A name search through the API in setup step 1** (it replaces the
-    pdga.com search link). (a) Not now, in ideas.md. (b) In this step. → **a**
+    pdga.com search link). (a) Not now, in ideas.md. (b) In this step. → **a**,
+    built later (docs/finished-steps.md, "Player search in the app"), with
+    pdga.com's search kept as the fallback.
 12. **"PDGA Authorized Developer"**. (a) Not shown until the API part is
     live and PDGA has answered, then as text in How it works and Settings >
     About. (b) Never. (c) Now, on every view. → **a**: it describes API use,
