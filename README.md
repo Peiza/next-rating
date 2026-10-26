@@ -186,6 +186,19 @@ follow friends as well as yourself:
   the two lists are independent afterwards. With the official lookup on,
   the added players' names are looked up one at a time, a few seconds
   apart, for the players list.
+- **Sync between devices** (Settings, when the app has the Worker below)
+  keeps one favorites list on several devices, with no account. Create sync
+  link stores the favorites' PDGA numbers and which one is you on the
+  Worker and gives a secret link, `…/next-rating/#sync=<token>`, as text
+  and as a QR code drawn in the app. Opening it on another device joins
+  (asking Merge or Replace when that device has favorites the list lacks).
+  Changes are sent a moment after they are made (the whole list, the last
+  write wins) and fetched when the app opens or comes back to the screen
+  (at most every 20 seconds) or with Sync now; nothing polls. Imports,
+  manual rounds and settings stay on each device. Stop syncing on this
+  device forgets the link here; Delete the synced list removes it for
+  every device, which then keep their own favorites. Anyone with the link
+  can read and change the list.
 - Data saved by earlier versions of the app is moved over the first time a
   new version opens.
 
@@ -259,6 +272,17 @@ two secrets are set (true or false only, plus whether the username is an email a
 login works and whether a one-player lookup answers, again as fixed words
 and statuses only. At most 20 lookups a
 minute (lookups and searches together) come from one IP address, and the Worker keeps no request logs.
+
+It also keeps the synced favorites lists (`worker/src/sync.ts`):
+`POST /v1/sync` makes one and answers a token of 24 random bytes
+(base64url); `GET`, `PUT` and `DELETE /v1/sync/<token>` read, replace and
+delete it. A list is stored in the KV namespace `next-rating-lists`
+(binding `LISTS`) under `list:` and the SHA-256 of the token, never the
+token itself, and expires 400 days after its last write. The Worker keeps
+only PDGA numbers (at most 200, each once) and which of them is "me";
+every other field is dropped, so no names, ratings or other PDGA data are
+ever stored. Bodies are at most 32 KB, and sync requests have their own
+limit of 30 a minute per IP address.
 
 The PDGA login is two Cloudflare secrets, `PDGA_USERNAME` and
 `PDGA_PASSWORD`. They are never in this repository, in GitHub or in the app.

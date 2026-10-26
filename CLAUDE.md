@@ -26,6 +26,10 @@ single build-time setting.
 - One exception (2026-10-26): the Next Rating Worker (worker/) calls the
   official REST API at api.pdga.com with my account, under the API license I
   signed. Only that host and only its documented services; never www.pdga.com.
+  The same Worker keeps the synced favorites lists in its own KV namespace
+  (next-rating-lists): PDGA numbers and "me" only, under the SHA-256 of a
+  secret token, expiring 400 days after the last write; never names,
+  ratings or other PDGA data.
   The question to dev@pdga.com about license section 6.c ("on behalf of
   others") is still open; I accepted that risk.
 - Never try to bypass bot protection: no headless browsers, proxy rotation,
@@ -152,7 +156,9 @@ build date after the version in Settings > About, and the PDGA attribution
 then the translated unofficial line) at the bottom of every view, with the
 player's name linked to the profile on pdga.com, and the shared
 favorites list (Share list makes a link with the favorites' PDGA numbers
-only, #add=..., read and removed on open, asked before adding).
+only, #add=..., read and removed on open, asked before adding), and sync
+between devices (a secret #sync= link and QR code in Settings; the Worker
+keeps the favorites' PDGA numbers and "me" only).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -296,8 +302,8 @@ large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
 target answer), manual rounds on and off, one arrow angle, the build
 date after the version, the PDGA attribution with the player link and
-the anonymous visit count and the shared favorites list
-(docs/finished-steps.md).
+the anonymous visit count, the shared favorites list and sync between
+devices (docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait

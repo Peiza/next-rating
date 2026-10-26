@@ -132,12 +132,12 @@ describe('CORS', () => {
     }
   });
 
-  it('answers the preflight with GET and OPTIONS', async () => {
+  it('answers the preflight with the methods the lookup and the sync use', async () => {
     const { fetch, calls } = upstream({});
     const response = await handle(get('/v1/player/99999', APP, 'OPTIONS'), ENV, deps(fetch));
     expect(response.status).toBe(204);
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe(APP);
-    expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET, OPTIONS');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toBe('GET, POST, PUT, DELETE, OPTIONS');
     expect(calls).toEqual([]);
   });
 });
@@ -615,7 +615,8 @@ describe('the health check', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     const text = await response.text();
     expect(JSON.parse(text)).toEqual({
-      routes: ['/v1/player/:n', '/v1/players'],
+      routes: ['/v1/player/:n', '/v1/players', '/v1/sync'],
+      sync: false,
       secrets: { username: true, password: true, usernameIsEmail: false, usernameHadSpaces: false, passwordHadLineBreak: false },
       allowedOrigins: [APP, 'http://localhost:5173'],
       login: 'ok',
