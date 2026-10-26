@@ -1,0 +1,22 @@
+# The Next Rating API Worker (see README, "The official rating lookup").
+# The PDGA login is set as two secrets in the Cloudflare dashboard,
+# PDGA_USERNAME and PDGA_PASSWORD, and is never in this file or in GitHub.
+name = "next-rating-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = false
+
+[vars]
+# The app's origin. Add http://localhost:5173 here only for local testing.
+ALLOWED_ORIGINS = "https://peiza.github.io"
+
+# At most 20 lookups per minute from one IP address.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
+
+# No request logs, so no PDGA numbers or data are kept by Cloudflare.
+[observability]
+enabled = false

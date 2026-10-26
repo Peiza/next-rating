@@ -8,8 +8,9 @@ My Google Sheets + Apps Script tool (legacy/rating-calculator.gs) predicted my
 next PDGA rating from my rated rounds, including new rounds with unofficial
 round ratings and ratings I added myself. This app never calculates a rating
 from a score. The old tool stopped working because pdga.com answers
-server-side requests with a Cloudflare challenge, and the official PDGA API
-developer program is closed. A bookmarklet runs on pdga.com and its
+server-side requests with a Cloudflare challenge. (The official PDGA API
+developer program was thought closed; registration reopened, and I signed
+the API license in October 2026, see the Worker below.) A bookmarklet runs on pdga.com and its
 same-origin fetches pass without a challenge (verified on my phone), so the
 one-tap bookmarklet flow is the primary path. Details in
 docs/finished-steps.md.
@@ -19,16 +20,25 @@ It is hard-coded in the bookmarklet, so it must not change later. Keep it as a
 single build-time setting.
 
 ## Hard constraints
-- No server-side fetching of pdga.com in any form (Apps Script, serverless
-  functions, backend or CORS proxy). It hits the same challenge. Do not propose it.
+- No server-side fetching of www.pdga.com pages in any form (Apps Script,
+  serverless functions, backend or CORS proxy). It hits the same challenge. Do
+  not propose it.
+- One exception (2026-10-26): the Next Rating Worker (worker/) calls the
+  official REST API at api.pdga.com with my account, under the API license I
+  signed. Only that host and only its documented services; never www.pdga.com.
+  The question to dev@pdga.com about license section 6.c ("on behalf of
+  others") is still open; I accepted that risk.
 - Never try to bypass bot protection: no headless browsers, proxy rotation,
   CAPTCHA solving or fingerprint spoofing.
 - pdga.com cannot be embedded (X-Frame-Options: SAMEORIGIN) and sends no CORS
   headers, so no iframes and no cross-origin fetch from the app.
-- PDGA data is read only inside the user's own browser session on pdga.com
-  (bookmarklet). Keep request volume minimal: no
-  background polling, no scheduled fetching.
-- No backend, no accounts, no secrets.
+- PDGA pages are read only inside the user's own browser session on pdga.com
+  (bookmarklet); the Worker's API lookup is the only other source. Keep
+  request volume minimal: no background polling, no scheduled fetching.
+- No backend except that Worker, no accounts. Its PDGA credentials are
+  Cloudflare secrets only, never in the app, the repo or GitHub. The API
+  license allows only temporary caching with a short expiry: no database or
+  permanent store of API data (PDGA numbers may be stored).
 - Mobile-first: must work well in Safari on iPhone and Chrome on Android.
 - The app and README state that this is an unofficial tool, not affiliated
   with the PDGA.
@@ -174,10 +184,11 @@ Open, both optional:
 11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
-Planned later, parked: the official rating and membership from the PDGA REST
-API through a Worker (docs/plan-pdga-api.md, docs/pdga-api-email.md,
-docs/pdga-map-handoff.md). Waits for PDGA's answer; the hard constraints
-above still apply until then.
+In progress: the official rating and membership from the PDGA REST API
+through the Worker (docs/plan-pdga-api.md; background in
+docs/pdga-api-email.md and docs/pdga-map-handoff.md). PR 1 is the Worker,
+PR 2 the app. The app part stays off until the NEXT_RATING_API_URL
+repository variable is set.
 
 ## Security
 - Treat all imported data (URL fragment) as untrusted: strict schema
