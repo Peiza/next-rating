@@ -168,6 +168,11 @@ Open, both optional:
 11. Optional, later: an iOS Shortcut variant (Safari share sheet, "Run JavaScript
     on Web Page") reusing the same extractor, with setup instructions in the app.
 
+Planned later, parked: the official rating and membership from the PDGA REST
+API through a Worker (docs/plan-pdga-api.md, docs/pdga-api-email.md,
+docs/pdga-map-handoff.md). Waits for PDGA's answer; the hard constraints
+above still apply until then.
+
 ## Security
 - Treat all imported data (URL fragment) as untrusted: strict schema
   validation and size limits, render with textContent only. No innerHTML with
