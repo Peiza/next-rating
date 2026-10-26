@@ -6,11 +6,12 @@ import { playerName, sortFavorites } from '../players';
 import type { PlayerOrder, StoredPlayer } from '../storage';
 import { direction, slopeArrow } from './change';
 import { detailsUrl, nameSearchForm, pdgaNumberForm, playerLink, type PdgaFlash } from './pdga';
+import { playerSearchForm, type InAppSearch } from './search';
 import { segmented, type Segment } from './segmented';
 
 /*
  * The players panel: favorites, the unsaved player, a form to add one by
- * number and a search by name on pdga.com.
+ * number and a search by name, in the app when it can or on pdga.com.
  * On wide screens it is a sidebar next to the current view; on phones the
  * menu button in the top bar shows it in place of the view.
  */
@@ -63,6 +64,8 @@ export interface PlayersProps {
   onOrder: (order: PlayerOrder) => void;
   /** Opens pdga.com's player search. */
   onSearch: (url: string) => void;
+  /** The search in the app, when the official lookup is on and the device is online; null searches on pdga.com. */
+  search?: InAppSearch | null;
   onSelect: (pdgaNumber: number) => void;
   onClose: () => void;
   onToggleEdit: () => void;
@@ -264,8 +267,10 @@ export function playersPanel(props: PlayersProps): HTMLElement {
       submit: 'players.add',
       allowEmpty: false,
     }),
-    // The user picks the player there and runs the bookmarklet.
-    nameSearchForm(props.onSearch, { id: SEARCH_INPUT_ID, label: 'players.searchLabel', hint: 'players.searchHint' }),
+    props.search
+      ? playerSearchForm({ ...props.search, id: SEARCH_INPUT_ID, label: 'players.searchLabelApi', hint: 'players.searchHintApi' })
+      : // The user picks the player there and runs the bookmarklet.
+        nameSearchForm(props.onSearch, { id: SEARCH_INPUT_ID, label: 'players.searchLabel', hint: 'players.searchHint' }),
   );
 }
 

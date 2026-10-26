@@ -1057,6 +1057,42 @@ Built as:
   other pdga.com links.
 - The README carries the attribution under its unofficial statement.
 
+## Player search in the app
+Spec: with the official lookup on (a Worker URL in the build and the
+Settings switch on) and the device online, the name search in setup step 1
+("Search by name") and in the players panel searches PDGA's player list
+through the Worker instead of opening pdga.com. It takes a name or a PDGA
+number. The players found show as a list of buttons (name, number,
+location, rating) without links; picking one does what the number forms
+do: in step 1 it becomes your number, in the panel it is added and shown.
+The picked player's name links to pdga.com where names already do. When
+the search cannot reach the Worker, a button opens pdga.com's player search
+(or the player's profile for a number) instead; with the lookup off or
+offline the old pdga.com search form shows.
+
+Built as:
+- Worker: `GET /v1/players?first_name=&last_name=` (worker/src/handler.ts
+  `parseSearch`, `searchPlayers`; worker/src/player.ts `mapSearch`). Names
+  are letters (any script), spaces, apostrophes, dots and hyphens, at most
+  40 characters each, at least one of them; other query keys are a 400. It
+  asks `/services/json/players?...&limit=10` and answers `{ players: [...] }`
+  with the lookup's fields plus `location` ("City, State, Country"), an
+  empty list when PDGA finds no one. Searches are kept in isolate memory
+  (and the edge cache) for 1 hour, keyed by the lower-cased names; errors
+  are never kept. The per-IP rate limit counts searches too.
+- App: `readSearch`, `validateSearch`, `searchPlayers` in src/app/api.ts. A
+  number is the existing player lookup (not found is an empty list). One
+  word is the last name; more words are a first name and a last name, as on
+  pdga.com. The answer is checked like the lookup's, at most 10 players and
+  16 KB.
+- `playerSearchForm` in src/app/views/search.ts; main.ts keeps what was
+  typed and found per field in memory only (`searches`), so results are
+  never stored. One request per submit, none while typing; an older answer
+  that comes after a newer search is ignored. A pick puts only the picked
+  player in the lookup's 12-hour cache, so its rating shows at once.
+- Settings' hint, the privacy line and How it works say that a searched
+  name is sent too. Turning the lookup off clears the search.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event

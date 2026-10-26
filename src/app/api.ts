@@ -4,12 +4,13 @@ import { RANGES } from '../parsers/values';
 /*
  * The official rating lookup: the app's own Worker (worker/) asks the PDGA
  * API for one player's official rating and membership. Only the PDGA
- * number is sent. The answer is untrusted like an import, so it is checked
+ * number is sent, or the typed name in a player search. The answer is untrusted like an import, so it is checked
  * field by field. It is never fed into the engine: the prediction keeps
  * using the imported rounds and rating.
  *
  * The API license allows only temporary caching, so the answers are kept
  * under their own key for at most 12 hours, apart from the app's data.
+ * Search results are never stored: they live in memory while shown.
  */
 
 /** The Worker's origin, such as https://next-rating-api.example.workers.dev; '' turns every lookup off. */
@@ -114,6 +115,98 @@ export async function lookupPlayer(pdgaNumber: number, options: LookupOptions): 
   } catch {
     return { ok: false, code: 'unavailable' };
   }
+}
+
+/* The player search. */
+
+/** A search result: the player and where they live, so players with the same name can be told apart. */
+export interface SearchPlayer extends ApiPlayer {
+  location: string | null;
+}
+
+export type SearchQuery = { pdgaNumber: number } | { firstName: string | null; lastName: string };
+
+export type SearchResult = { ok: true; players: SearchPlayer[] } | { ok: false; code: 'unavailable' | 'off' };
+
+/** Players the Worker answers a name search with at most. */
+export const SEARCH_LIMIT = 10;
+/** Characters of a search answer; ten players are about 3,500. */
+export const MAX_SEARCH_ANSWER = 16_384;
+/** The Worker's rule for a first or last name: letters (any script), spaces, apostrophes, dots and hyphens. */
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}'’. -]*$/u;
+const MAX_SEARCH_NAME = 40;
+
+/**
+ * What a typed search asks for: a PDGA number (spaces and "#" ignored), or
+ * names. One word is the last name; with more, the first word is the first
+ * name and the rest the last name, as on pdga.com. Null when it is empty
+ * or not a name the Worker accepts.
+ */
+export function readSearch(text: string): SearchQuery | null {
+  const digits = text.replace(/[\s#]/g, '');
+  if (/^[0-9]+$/.test(digits)) {
+    const pdgaNumber = Number(digits);
+    return digits[0] !== '0' && pdgaNumber >= RANGES.id[0] && pdgaNumber <= RANGES.id[1] ? { pdgaNumber } : null;
+  }
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+  const firstName = words.length > 1 ? words.shift()! : null;
+  const lastName = words.join(' ');
+  for (const name of [firstName, lastName]) {
+    if (name !== null && (name.length > MAX_SEARCH_NAME || !NAME_PATTERN.test(name))) return null;
+  }
+  return { firstName, lastName };
+}
+
+/** Reads the Worker's answer to a name search, or null when any player in it is not valid. */
+export function validateSearch(value: unknown): SearchPlayer[] | null {
+  const players = record(value)?.players;
+  if (!Array.isArray(players) || players.length > SEARCH_LIMIT) return null;
+  const valid: SearchPlayer[] = [];
+  for (const entry of players) {
+    const fields = record(entry);
+    if (!fields || !wholeIn(fields.pdgaNumber, RANGES.id)) return null;
+    const player = validateApiPlayer(fields, fields.pdgaNumber);
+    const { location } = fields;
+    if (!player || (location !== null && (typeof location !== 'string' || location.length === 0 || location.length > MAX_NAME))) return null;
+    if (valid.some((one) => one.pdgaNumber === player.pdgaNumber)) continue;
+    valid.push({ ...player, location });
+  }
+  return valid;
+}
+
+/** Asks the Worker for the players a search finds, once. Never throws; an empty list when PDGA finds no one. */
+export async function searchPlayers(query: SearchQuery, options: LookupOptions): Promise<SearchResult> {
+  const { url, enabled, online, fetch: fetchFn = fetch, timeoutMs = LOOKUP_TIMEOUT_MS } = options;
+  if (!url || !enabled || !online) return { ok: false, code: 'off' };
+  if ('pdgaNumber' in query) {
+    const result = await lookupPlayer(query.pdgaNumber, options);
+    if (result.ok) return { ok: true, players: [{ ...result.player, location: null }] };
+    return result.code === 'not-found' ? { ok: true, players: [] } : { ok: false, code: result.code };
+  }
+  const params = new URLSearchParams();
+  if (query.firstName) params.set('first_name', query.firstName);
+  params.set('last_name', query.lastName);
+  try {
+    const response = await fetchFn(`${url}/v1/players?${params}`, {
+      method: 'GET',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) return { ok: false, code: 'unavailable' };
+    const text = await response.text();
+    if (text.length > MAX_SEARCH_ANSWER) return { ok: false, code: 'unavailable' };
+    const players = validateSearch(JSON.parse(text));
+    return players ? { ok: true, players } : { ok: false, code: 'unavailable' };
+  } catch {
+    return { ok: false, code: 'unavailable' };
+  }
+}
+
+/** The player of a search result as the official rating lookup knows it. */
+export function apiPlayerOf({ location: _location, ...player }: SearchPlayer): ApiPlayer {
+  return player;
 }
 
 /**
