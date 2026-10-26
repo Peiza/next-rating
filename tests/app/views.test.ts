@@ -358,6 +358,26 @@ describe('getting-started bookmarklet steps', () => {
     expect(onOpenSetup).toHaveBeenCalled();
     expect(view.querySelector('#open-import')).toBeNull();
   });
+
+  it('leaves the install step out when the bookmarklet in this browser is up to date', () => {
+    const view = startPage(188, vi.fn(), { player: { pdgaNumber: 188, label: 'Player' }, bookmarklet: BOOKMARKLET_VERSION });
+    const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatch(/run the bookmarklet there/);
+    expect(view.querySelector('#open-setup')).toBeNull();
+  });
+
+  it('asks to update an outdated bookmarklet', () => {
+    const onOpenSetup = vi.fn();
+    const view = startPage(null, vi.fn(), { bookmarklet: '0.9.0', onOpenSetup });
+    const steps = [...view.querySelectorAll('.step-title')].map((step) => step.textContent);
+    expect(steps).toHaveLength(3);
+    expect(steps[1]).toBe(`Update the bookmarklet: this browser has version 0.9.0, the app has ${BOOKMARKLET_VERSION}.`);
+    const open = view.querySelector<HTMLButtonElement>('#open-setup')!;
+    expect(open.textContent).toBe('Update bookmarklet');
+    open.click();
+    expect(onOpenSetup).toHaveBeenCalled();
+  });
 });
 
 describe('rating view', () => {

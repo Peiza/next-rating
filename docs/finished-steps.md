@@ -1112,6 +1112,17 @@ Built as:
   `connect-src`, only when the count is on.
 - The privacy line in Settings says visits are counted anonymously.
 
+## Start steps after the bookmarklet
+Spec: a player without data (for example one picked in the player search)
+does not ask to install a bookmarklet this browser already has.
+
+Built as:
+- The start view gets the bookmarklet version of the last hand-off in this
+  browser. Up to date: no install step, so opening the player's ratings
+  details on pdga.com is step 1. Older: an update step with both versions
+  and an "Update bookmarklet" button to the setup. Unknown (no hand-off yet
+  in this browser): the install step as before.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1218,3 +1229,5 @@ Built in this order:
   a Settings switch. Off until NEXT_RATING_API_URL is set (done)
 - Anonymous visit count with Cloudflare Web Analytics, loaded after the
   hand-off is out of the address (done)
+- Start steps after the bookmarklet: no install step when this browser's
+  bookmarklet is up to date, an update step when it is older (done)

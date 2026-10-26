@@ -14,6 +14,8 @@
   "start.stepNumber": "Enter your PDGA number.",
   "start.stepInstall": "Install the bookmarklet, a bookmark that brings your rounds here from pdga.com.",
   "start.openSetup": "Install bookmarklet",
+  "start.stepUpdate": "Update the bookmarklet: this browser has version {version}, the app has {current}.",
+  "start.openSetupUpdate": "Update bookmarklet",
   "start.stepOpen": "Open your ratings details on pdga.com and run the bookmarklet there.",
   "start.stepOpenPlayer": "Open the ratings details of {player} on pdga.com and run the bookmarklet there.",
   "start.noData": "No data for this player yet.",

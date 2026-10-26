@@ -1,3 +1,4 @@
+import { BOOKMARKLET_VERSION } from '../../bookmarklet/version';
 import { t } from '../../i18n';
 import type { ApiState } from '../api';
 import { el } from '../dom';
@@ -5,6 +6,7 @@ import { apiConfirm } from './official';
 import { detailsLink, nameSearchForm, pdgaNotice, pdgaNumberForm, type PdgaFlash } from './pdga';
 import { playerSearchForm, type InAppSearch } from './search';
 import { segmented, type Segment } from './segmented';
+import { isOlderVersion } from './setup';
 
 /** How the first step finds your PDGA number: typed in, or looked up by name on pdga.com. */
 export type StartTab = 'number' | 'name';
@@ -37,6 +39,8 @@ export interface StartProps {
   onSearch: (url: string) => void;
   /** The search in the app, when the official lookup is on and the device is online; null searches on pdga.com. */
   search?: InAppSearch | null;
+  /** The bookmarklet version of the last hand-off in this browser, or null or left out before one. */
+  bookmarklet?: string | null;
   onOpenSetup: () => void;
 }
 
@@ -59,9 +63,34 @@ function numberStep({ pdgaNumber, flash, tab, onTab, onSavePdgaNumber, onSearch,
 }
 
 /**
+ * The step that opens the setup: install the bookmarklet before any
+ * hand-off in this browser, update it when the last one came from an older
+ * version, and nothing when it is up to date, so the next step comes first.
+ */
+function installStep(stored: string | null, onOpenSetup: () => void): HTMLElement | null {
+  if (stored !== null && !isOlderVersion(stored)) return null;
+  const outdated = stored !== null;
+  return el(
+    'li',
+    { class: 'step' },
+    el(
+      'p',
+      { class: 'step-title' },
+      outdated ? t('start.stepUpdate', { version: stored, current: BOOKMARKLET_VERSION }) : t('start.stepInstall'),
+    ),
+    el(
+      'button',
+      { id: 'open-setup', class: 'button button-block', type: 'button', onclick: onOpenSetup },
+      t(outdated ? 'start.openSetupUpdate' : 'start.openSetup'),
+    ),
+  );
+}
+
+/**
  * The Rating tab while there is no data yet: the steps to get some. Before
  * any player is stored, the first step asks for your own PDGA number; for a
- * player without data, the steps refer to that player.
+ * player without data, the steps refer to that player. The install step
+ * shows only while this browser's bookmarklet is unknown or outdated.
  */
 export function startView(props: StartProps): HTMLElement {
   const { pdgaNumber, player, onOpenSetup } = props;
@@ -77,16 +106,7 @@ export function startView(props: StartProps): HTMLElement {
       'ol',
       { class: 'steps' },
       !player && numberStep(props),
-      el(
-        'li',
-        { class: 'step' },
-        el('p', { class: 'step-title' }, t('start.stepInstall')),
-        el(
-          'button',
-          { id: 'open-setup', class: 'button button-block', type: 'button', onclick: onOpenSetup },
-          t('start.openSetup'),
-        ),
-      ),
+      installStep(props.bookmarklet ?? null, onOpenSetup),
       el(
         'li',
         { class: 'step' },

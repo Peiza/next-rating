@@ -14,6 +14,8 @@
   "start.stepNumber": "Ange ditt PDGA-nummer.",
   "start.stepInstall": "Installera bokmärket, ett bokmärke som hämtar dina rundor hit från pdga.com.",
   "start.openSetup": "Installera bokmärket",
+  "start.stepUpdate": "Uppdatera bokmärket: den här webbläsaren har version {version}, appen har {current}.",
+  "start.openSetupUpdate": "Uppdatera bokmärket",
   "start.stepOpen": "Öppna dina ratingdetaljer på pdga.com och kör bokmärket där.",
   "start.stepOpenPlayer": "Öppna ratingdetaljerna för {player} på pdga.com och kör bokmärket där.",
   "start.noData": "Inga data för den här spelaren ännu.",
