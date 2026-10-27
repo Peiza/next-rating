@@ -1,12 +1,24 @@
 import type { HandoffPage } from '../handoff/envelope';
-import { cleanDetails, cleanEvent, cleanHistory, cleanPlayer, cleanProfileEvents, type ImportParts } from '../handoff/records';
+import {
+  cleanCareer,
+  cleanDetails,
+  cleanEvent,
+  cleanHistory,
+  cleanPlayer,
+  cleanProfileEvents,
+  cleanWins,
+  type ImportParts,
+} from '../handoff/records';
 import {
   detectPage,
+  extractCareer,
   extractEvent,
   extractPlayer,
   extractProfileEvents,
   extractRatingsDetails,
   extractRatingsHistory,
+  extractWins,
+  normalizeCareer,
 } from '../parsers';
 import type { RawPlayer } from '../parsers/types';
 import { parseInert } from './inert';
@@ -59,6 +71,8 @@ export function readPages(pages: readonly HandoffPage[]): HandoffPages {
         } else {
           const events = extractProfileEvents(doc);
           if (events.length > 0) parts.profileEvents = [...cleanProfileEvents(events), ...(parts.profileEvents ?? [])];
+          const career = extractCareer(doc);
+          if (career) parts.career = cleanCareer(career);
         }
       } else if (kind === 'history') {
         owner ??= Number(/\/player\/(\d+)/.exec(url)![1]);
@@ -66,6 +80,15 @@ export function readPages(pages: readonly HandoffPage[]): HandoffPages {
         if (header) parts.player = header;
         const rows = extractRatingsHistory(doc);
         if (rows.length > 0) parts.history = cleanHistory(rows);
+      } else if (kind === 'wins') {
+        owner ??= Number(/\/player\/(\d+)/.exec(url)![1]);
+        const header = player(extractPlayer(doc));
+        if (header) parts.player = header;
+        const career = extractCareer(doc);
+        if (career) parts.career = cleanCareer(career);
+        const wins = extractWins(doc);
+        // A player with wins always has rows, so an empty table is one that could not be read.
+        if (wins.length > 0 || normalizeCareer(career ?? {}).wins === 0) parts.wins = cleanWins(wins);
       } else if (kind === 'season') {
         // The previous season, sent in January: its events join the profile's, for their tiers. Its header is not used.
         owner ??= Number(/\/player\/(\d+)/.exec(url)![1]);

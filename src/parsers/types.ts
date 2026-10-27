@@ -153,3 +153,34 @@ export interface EventResults {
   official: boolean | null;
   divisions: EventDivision[];
 }
+
+/** The career figures in a player page's info list. */
+export interface RawCareer {
+  /** "Career Events", the singles-format tournaments played. */
+  events: string;
+  /** "Career Wins", the singles-format tournament wins. */
+  wins: string;
+}
+
+/** One row of the career wins page (/player/<nr>/wins). */
+export interface RawWin {
+  eventId: string;
+  name: string;
+  division: string;
+  tier: string;
+  date: string;
+}
+
+export interface Career {
+  events: number | null;
+  wins: number | null;
+}
+
+export interface Win {
+  eventId: number | null;
+  name: string;
+  division: string;
+  tier: string;
+  /** For a multi-day event, the last day of the event. */
+  date: PlainDate;
+}

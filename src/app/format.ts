@@ -125,6 +125,11 @@ export function formatCount(count: number, locale = deviceLocale()): string {
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(count);
 }
 
+/** A whole percentage of a share from 0 to 1, as on the device: "15%", "15 %" in Swedish. */
+export function formatPercent(share: number, locale = deviceLocale()): string {
+  return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(share);
+}
+
 /** An average with two decimals, "976,45" in Swedish. */
 export function formatAverage(value: number, locale = deviceLocale()): string {
   return new Intl.NumberFormat(locale, {

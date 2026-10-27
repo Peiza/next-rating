@@ -874,6 +874,31 @@ describe('rating view', () => {
     for (const row of rows) expect([...row.children].map((child) => child.tagName).slice(0, 2)).toEqual(['DT', 'DD']);
   });
 
+  it('shows the career and the window events with wins and their share', () => {
+    const model = buildModel(
+      {
+        ...stored,
+        career: { events: '40', wins: '3' },
+        wins: [{ eventId: '900001', name: 'Example Open', division: 'Mixed Pro Open', tier: 'C', date: '02-Aug-2026' }],
+      },
+      100001,
+      NOW,
+    );
+    const view = ratingView({ model, cards: ALL_OPEN, favorite: true, now: NOW, onAddFavorite: vi.fn() });
+    const value = (label: string) =>
+      [...view.querySelectorAll('#stats div.stat')].find((stat) => stat.querySelector('dt')!.textContent === label)?.querySelector('dd')!
+        .textContent;
+    expect(value('Career on pdga.com')).toBe('40 events, 3 wins (8%)');
+    expect(value('In window')).toMatch(/^\d+ events, 1 win \(\d+%\)$/);
+  });
+
+  it('shows the window events alone while the wins are not known', () => {
+    const labels = [...ratingPage().querySelectorAll('#stats dt')].map((dt) => dt.textContent);
+    expect(labels).not.toContain('Career on pdga.com');
+    const row = [...ratingPage().querySelectorAll('#stats div.stat')].find((stat) => stat.querySelector('dt')!.textContent === 'In window')!;
+    expect(row.querySelector('dd')!.textContent).toMatch(/^\d+ events?$/);
+  });
+
   it('tells the weighted prediction apart from the plain averages', () => {
     const labels = [...ratingPage().querySelectorAll('#stats dt')].map((dt) => dt.textContent);
     expect(labels).toContain('Unrounded prediction (weighted average)');
@@ -1131,7 +1156,7 @@ describe('rating tab cards', () => {
       'Add round ratings that are not on pdga.com yet, or rounds you expect to play.',
       'The average round rating your next rounds need to reach a rating at the update they count in.',
       "Same idea as PDGA's Global Masters Series: the 8 highest rated rounds in the period, here for any player.",
-      'The numbers behind the prediction: the window, dropped and doubled rounds, and averages.',
+      'The numbers behind the prediction: the window, dropped and doubled rounds, averages, events and wins.',
       'The rounds that count, newest first, and how each counts in the prediction. Older rounds are a tap away, under the list.',
     ]);
   });

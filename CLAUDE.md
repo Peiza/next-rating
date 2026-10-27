@@ -158,7 +158,9 @@ player's name linked to the profile on pdga.com, and the shared
 favorites list (Share list makes a link with the favorites' PDGA numbers
 only, #add=..., read and removed on open, asked before adding), and sync
 between devices (a secret #sync= link and QR code in Settings; the Worker
-keeps the favorites' PDGA numbers and "me" only).
+keeps the favorites' PDGA numbers and "me" only), and events and wins
+(the Details card shows the career's and the rating window's events and
+wins with the share won; bookmarklet 1.4.0 also fetches the wins page).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -167,8 +169,9 @@ Bookmarklet rules every change keeps:
 - Read only page content, including content hidden behind a toggle (read with
   textContent; never click the toggle). Never read cookies, storage or form
   fields.
-- At most 10 event pages, plus the ratings history page (fetched last) and
-  the previous season's results only from 1 January to the January update,
+- At most 10 event pages, plus the career wins page (only when the profile
+  links to it, after the events), the ratings history page (fetched last)
+  and the previous season's results only from 1 January to the January update,
   sequential, about 1 second apart, one attempt per page. On a Cloudflare
   challenge or a failure, stop fetching and hand off what was collected,
   with the URLs of the pages that failed.
@@ -179,7 +182,7 @@ Bookmarklet rules every change keeps:
   and base64url-encoded in the fragment (#d=...), reserved for this hand-off.
   Never window.open after async work.
 - No text of its own: a minimal progress indicator and a status code that the
-  app translates. At most 4,200 characters as the javascript: URL, measured
+  app translates. At most 4,300 characters as the javascript: URL, measured
   with the live app URL (build test). The bookmark URL field in Chrome on
   Android keeps 5,000 characters (measured on a Pixel) and cuts off the
   rest of a paste.
@@ -302,8 +305,8 @@ large text polish and parts A and B of docs/plan-edit-and-arrows.md
 (manual round editing and the sloped arrow; example rounds under the
 target answer), manual rounds on and off, one arrow angle, the build
 date after the version, the PDGA attribution with the player link and
-the anonymous visit count, the shared favorites list and sync between
-devices (docs/finished-steps.md).
+the anonymous visit count, the shared favorites list, sync between
+devices and events and wins (docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait

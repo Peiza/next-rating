@@ -1,6 +1,6 @@
 import { cleanParts, FRAGMENT_PREFIX, hasParts, MAX_EVENTS, type ImportParts } from '../handoff';
 import { eventKeyOf, normalizeEvent, normalizePlayer, normalizeRatingsDetails } from '../parsers';
-import type { RawDetailsRow, RawEvent, RawHistoryRow, RawPlayer, RawProfileEvent } from '../parsers/types';
+import type { RawCareer, RawDetailsRow, RawEvent, RawHistoryRow, RawPlayer, RawProfileEvent, RawWin } from '../parsers/types';
 import { asRecord } from '../parsers/values';
 
 /** The imported data the app keeps: cleaned raw records, normalized again whenever they are read. */
@@ -17,6 +17,10 @@ export interface StoredImport {
   profileEvents?: RawProfileEvent[];
   /** The ratings history, newest first as on pdga.com. Missing before an import brings it. */
   history?: RawHistoryRow[];
+  /** The career events and wins. Missing before an import brings them. */
+  career?: RawCareer;
+  /** The career wins page's rows. Missing before an import brings them. */
+  wins?: RawWin[];
   /** Event pages, in the order they were imported. */
   events: RawEvent[];
 }
@@ -105,6 +109,8 @@ export function applyImport(
   }
   if (parts.profileEvents) next.profileEvents = parts.profileEvents;
   if (parts.history) next.history = parts.history;
+  if (parts.career) next.career = parts.career;
+  if (parts.wins) next.wins = parts.wins;
 
   let events = base.events;
   for (const event of (parts.events ?? []).map((event) => eventForPlayer(event, pdgaNumber))) {

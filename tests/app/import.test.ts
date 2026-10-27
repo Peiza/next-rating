@@ -94,6 +94,19 @@ describe('applyImport', () => {
     expect(validateStoredImport({ ...newer, history: [{ date: 5 }] })).toBeNull();
   });
 
+  it('stores the career and the wins, and keeps them through an import without them', () => {
+    const career = { events: '40', wins: '1' };
+    const wins = [{ eventId: '900001', name: 'Example Open', division: 'Mixed Pro Open', tier: 'C', date: '02-Aug-2026' }];
+    const withWins = applyImport(fullImport(), { player: rawPlayer(), career, wins }, LATER, PLAYER)!;
+    expect([withWins.career, withWins.wins]).toEqual([career, wins]);
+    // A hand-off from bookmarklet 1.3.0 brings neither.
+    const older = applyImport(withWins, { player: rawPlayer(), details: [rawDetailsRow()] }, LATER, PLAYER)!;
+    expect([older.career, older.wins]).toEqual([career, wins]);
+    expect(validateStoredImport(JSON.parse(JSON.stringify(older)))).toEqual(older);
+    expect(validateStoredImport({ ...older, career: { events: 40 } })).toBeNull();
+    expect(validateStoredImport({ ...older, wins: [{ eventId: 1, date: '02-Aug-2026' }] })).toBeNull();
+  });
+
   it("keeps only the player's rows of an event page", () => {
     const next = applyImport(null, { events: [rawEvent()] }, FIRST, PLAYER)!;
     const rows = next.events[0]!.divisions.flatMap((division) => division.rows);

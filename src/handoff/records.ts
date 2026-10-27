@@ -1,7 +1,25 @@
-import { normalizeEvent, normalizePlayer, normalizeProfileEvents, normalizeRatingsDetails, normalizeRatingsHistory } from '../parsers';
+import {
+  normalizeCareer,
+  normalizeEvent,
+  normalizePlayer,
+  normalizeProfileEvents,
+  normalizeRatingsDetails,
+  normalizeRatingsHistory,
+  normalizeWins,
+} from '../parsers';
 import { RAW_DETAILS_KEYS } from '../parsers/details';
 import { RAW_HISTORY_KEYS } from '../parsers/history';
-import type { RawDetailsRow, RawEvent, RawEventRound, RawHistoryRow, RawPlayer, RawProfileEvent } from '../parsers/types';
+import { RAW_CAREER_KEYS, RAW_WIN_KEYS } from '../parsers/wins';
+import type {
+  RawCareer,
+  RawDetailsRow,
+  RawEvent,
+  RawEventRound,
+  RawHistoryRow,
+  RawPlayer,
+  RawProfileEvent,
+  RawWin,
+} from '../parsers/types';
 import { LIMITS, asList, asRecord, asText } from '../parsers/values';
 
 /*
@@ -23,6 +41,10 @@ export interface ImportParts {
   events?: RawEvent[];
   /** The ratings history page's rows, newest first as on pdga.com. */
   history?: RawHistoryRow[];
+  /** The career events and wins from a player page's info list. */
+  career?: RawCareer;
+  /** The career wins page's rows. */
+  wins?: RawWin[];
 }
 
 const PLAYER_KEYS = ['pdgaNumber', 'name', 'currentRating', 'ratingDate'] as const satisfies readonly (keyof RawPlayer)[];
@@ -56,6 +78,18 @@ export function cleanHistory(value: unknown): RawHistoryRow[] {
   const rows = asList(value, LIMITS.rows, 'ratings history').map((row) => pick(row, RAW_HISTORY_KEYS, 'ratings history row'));
   normalizeRatingsHistory(rows);
   return rows;
+}
+
+export function cleanCareer(value: unknown): RawCareer {
+  const career = pick(value, RAW_CAREER_KEYS, 'career');
+  normalizeCareer(career);
+  return career;
+}
+
+export function cleanWins(value: unknown): RawWin[] {
+  const wins = asList(value, LIMITS.rows, 'wins').map((win) => pick(win, RAW_WIN_KEYS, 'win'));
+  normalizeWins(wins);
+  return wins;
 }
 
 export function cleanEvent(value: unknown): RawEvent {
@@ -94,6 +128,8 @@ export function cleanParts(record: Record<string, unknown>): ImportParts {
   if (record.profileEvents !== undefined) parts.profileEvents = cleanProfileEvents(record.profileEvents);
   if (record.events !== undefined) parts.events = asList(record.events, MAX_EVENTS, 'events').map(cleanEvent);
   if (record.history !== undefined) parts.history = cleanHistory(record.history);
+  if (record.career !== undefined) parts.career = cleanCareer(record.career);
+  if (record.wins !== undefined) parts.wins = cleanWins(record.wins);
   return parts;
 }
 
@@ -103,6 +139,8 @@ export function hasParts(parts: ImportParts): boolean {
     parts.details !== undefined ||
     parts.profileEvents !== undefined ||
     parts.events !== undefined ||
-    parts.history !== undefined
+    parts.history !== undefined ||
+    parts.career !== undefined ||
+    parts.wins !== undefined
   );
 }

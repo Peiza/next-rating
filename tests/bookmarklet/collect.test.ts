@@ -19,6 +19,7 @@ import { BOOKMARKLET_VERSION } from '../../src/bookmarklet/version';
 import { decodeHandoff, MAX_PAGES, type Envelope } from '../../src/handoff';
 import { detectPage } from '../../src/parsers/page';
 import {
+  careerLines,
   detailsRow,
   detailsTable,
   eventDivision,
@@ -31,6 +32,7 @@ import {
   playerHeader,
   profileRow,
   profileTable,
+  winsTable,
   yearLinks,
 } from '../parsers/html';
 
@@ -69,6 +71,14 @@ function eventHtml(id: string, rating = '960'): string {
     ]),
   });
 }
+
+const WINS_PATH = '/player/100001/wins';
+const WINS = ORIGIN + WINS_PATH;
+const winsHtml = page(
+  playerHeader('Test Player', '100001', '950', careerLines('12', '2')) +
+    winsTable([['900001', '02-Aug-2026'], ['800001', '10-May-2025']]),
+  WINS,
+);
 
 const historyHtml = page(
   playerHeader() + historyTable([['8-Sep-2026', '950', '20'], ['11-Aug-2026', '947', '18']]),
@@ -158,6 +168,37 @@ describe('bookmarklet on a player page', () => {
     expect(envelope.pages!.map(({ url }) => url)).toEqual([PROFILE, DETAILS, eventUrl('900003'), HISTORY]);
   });
 
+  it('fetches the wins after the events when the profile links to them', async () => {
+    const profile = page(
+      playerHeader('Test Player', '100001', '950', careerLines('12', '2')) +
+        profileTable('MA1', [profileRow('900001', 'MA1', '02-Aug-2026'), profileRow('900003', 'MA1', '05-Sep-2026')].join('')),
+      PROFILE,
+    );
+    const { deps, requests, progress } = setup({
+      '/player/100001': profile,
+      '/tour/event/900003': eventHtml('900003'),
+      [WINS_PATH]: winsHtml,
+    });
+    const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
+    expect(requests).toEqual(['/player/100001', '/tour/event/900003', WINS_PATH, HISTORY_PATH]);
+    expect(progress.map(([, planned]) => planned)).toEqual([3, 3, 5, 5, 5, 5]);
+    expect(envelope.pages!.map(({ url }) => url)).toEqual([DETAILS, PROFILE, eventUrl('900003'), WINS, HISTORY]);
+    const { parts, unreadable } = await received(envelope);
+    expect(unreadable).toEqual([]);
+    expect(parts.career).toEqual({ events: '12', wins: '2' });
+    expect(parts.wins!.map(({ eventId }) => eventId)).toEqual(['900001', '800001']);
+  });
+
+  it('fetches no wins page for a player without wins', async () => {
+    const profile = page(playerHeader('Test Player', '100001', '950', careerLines('3', null)) + profileTable('MA1', ''), PROFILE);
+    const { deps, requests } = setup({ '/player/100001': profile });
+    const envelope = await collect(parseHtml(detailsHtml()), DETAILS, deps);
+    expect(requests).toEqual(['/player/100001', HISTORY_PATH]);
+    const { parts } = await received(envelope);
+    expect(parts.career).toEqual({ events: '3', wins: '' });
+    expect(parts.wins).toBeUndefined();
+  });
+
   it('keeps the events when only the history fails', async () => {
     const { deps } = setup({
       '/player/100001': profileWithNewEvent,
@@ -200,6 +241,8 @@ describe('telling pages apart', () => {
     '/player/100001/stats/2025/MPO',
     '/player/100001/stats',
     '/player/100001/wins',
+    '/player/100001/wins/',
+    '/player/100001/videos',
     '/player/100001/Details',
     '/player/abc',
     '/tour/event/900001',
@@ -255,7 +298,7 @@ describe('picking events', () => {
     expect(ids).toHaveLength(MAX_EVENT_PAGES);
     expect(ids[0]).toBe('900111');
     expect(new Set(ids).size).toBe(ids.length);
-    expect(MAX_PAGES).toBe(MAX_EVENT_PAGES + 4);
+    expect(MAX_PAGES).toBe(MAX_EVENT_PAGES + 5);
   });
 
   it('takes every season event for a player without rated rounds', () => {
@@ -421,17 +464,29 @@ describe('other pages', () => {
     expect(parts.details).toBeUndefined();
   });
 
+  it('sends the wins page alone, without fetching anything', async () => {
+    const { deps, requests } = setup({});
+    const envelope = await collect(parseHtml(winsHtml), WINS, deps);
+    expect(requests).toEqual([]);
+    expect(envelope).toMatchObject({ status: 'ok', page: 'wins' });
+    const { parts, owner, unreadable } = await received(envelope);
+    expect(owner).toBe(100001);
+    expect(unreadable).toEqual([]);
+    expect(parts.career).toEqual({ events: '12', wins: '2' });
+    expect(parts.wins).toHaveLength(2);
+  });
+
   it('sends any other page of a player alone, for an app that can read it later', async () => {
     const { deps, requests } = setup({});
-    const wins = `${ORIGIN}/player/100001/wins`;
-    const envelope = await collect(parseHtml(page(`${playerHeader()}<script>track()</script><p>Wins</p>`, wins)), `${wins}/`, deps);
+    const videos = `${ORIGIN}/player/100001/videos`;
+    const envelope = await collect(parseHtml(page(`${playerHeader()}<script>track()</script><p>Videos</p>`, videos)), `${videos}/`, deps);
     expect(requests).toEqual([]);
     expect(envelope).toMatchObject({ status: 'ok', page: 'unknown' });
-    expect(envelope.pages![0]!.url).toBe(wins);
-    expect(envelope.pages![0]!.html).toContain('<p>Wins</p>');
+    expect(envelope.pages![0]!.url).toBe(videos);
+    expect(envelope.pages![0]!.html).toContain('<p>Videos</p>');
     expect(envelope.pages![0]!.html).not.toContain('<script');
     const { unreadable } = await received(envelope);
-    expect(unreadable).toEqual([wins]);
+    expect(unreadable).toEqual([videos]);
   });
 
   it('reports a challenge page with its address', async () => {

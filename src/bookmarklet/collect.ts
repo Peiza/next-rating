@@ -23,7 +23,7 @@ export const MAX_EVENT_PAGES = 10;
 /** Milliseconds between requests. */
 export const REQUEST_GAP = 1000;
 
-export type ContentKind = 'details' | 'profile' | 'season' | 'history' | 'event';
+export type ContentKind = 'details' | 'profile' | 'season' | 'history' | 'wins' | 'event';
 
 /** The player's results tables, on both player pages and a season. */
 const RESULTS = 'table[id^="player-results-"]';
@@ -32,13 +32,15 @@ const RESULTS = 'table[id^="player-results-"]';
  * For each kind of page: its main content, and the other parts the
  * extractors read. Without the main content, or for a kind not listed, the
  * whole body is sent. Hole counts sit in .tooltip-templates, inside
- * .leaderboard on event pages.
+ * .leaderboard on event pages. The career events and wins sit in
+ * .player-info, with .current-rating.
  */
 const PARTS: Record<ContentKind, [main: string, parts: string]> = {
   details: ['#player-results-details', '.current-rating,.tooltip-templates'],
-  profile: [RESULTS, '.current-rating'],
+  profile: [RESULTS, '.player-info'],
   season: [RESULTS, '#page-title'],
   history: ['#player-results-history', '.current-rating'],
+  wins: ['#player-wins', '.player-info'],
   event: ['.leaderboard', '.tournament-date'],
 };
 
@@ -48,8 +50,8 @@ const PARTS: Record<ContentKind, [main: string, parts: string]> = {
  */
 const PLAYER_PAGE = /^\/player\/\d+\/[a-z]{1,20}(\/\d{4})?$/;
 
-/** A player's profile, details, history and season pages, and an event, by path. */
-const KIND = /^\/(?:player\/\d+(?:\/(details|history)|\/(stats)\/\d{4})?|tour\/(event)\/\d+)\/?$/;
+/** A player's profile, details, history, wins and season pages, and an event, by path. */
+const KIND = /^\/(?:player\/\d+(?:\/(details|history|wins)|\/(stats)\/\d{4})?|tour\/(event)\/\d+)\/?$/;
 
 /**
  * The kind of pdga.com page at a path, as detectPage (src/parsers/page.ts)
@@ -232,8 +234,11 @@ export async function collect(doc: Document, url: string, deps: CollectDeps): Pr
         }
         // Without a readable details table, every event would look new.
         const ids = details.querySelector(PARTS.details[0]) ? newEventIds(details, ...seasons) : [];
-        planned += ids.length;
+        // The dates of the wins, only when the profile links to them.
+        const wins = profile.querySelector('.career-wins a');
+        planned += ids.length + (wins ? 1 : 0);
         for (const id of ids) await read(`/tour/event/${id}`, 'event');
+        if (wins) await read(`/player/${pdgaNumber}/wins`, 'wins');
       }
       // Last, so a failure here costs no event page.
       await read(`/player/${pdgaNumber}/history`, 'history');

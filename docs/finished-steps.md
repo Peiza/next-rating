@@ -68,8 +68,9 @@ manual per-page fallback.
    - Read only page content (including content hidden behind a toggle, as
      above). Never read cookies, storage or form fields.
    - Keep the minified bookmarklet small, since on phones it is pasted into
-     the bookmark URL field: at most 4,200 characters as a javascript: URL
-     (see "Bookmarklet size" below).
+     the bookmark URL field: at most 4,300 characters as a javascript: URL
+     (see "Bookmarklet size" below; raised from 4,200 for the wins page in
+     bookmarklet 1.4.0, see "Events and wins").
 4. Web app (PWA, works offline after first load). The full setup page was
    the last open part; it is built (see "Setup page" below).
    - Enter a PDGA number once (default player; the app works for any player).
@@ -1188,6 +1189,39 @@ Built as:
   only when the build has the Worker's address. The privacy lines say the
   favorites' PDGA numbers are stored online when syncing.
 
+## Events and wins
+Spec: the Details card shows the player's tournaments and wins, in the
+career and in the rating window, with the share won. The wins' dates come
+from the career wins page (/player/<nr>/wins). Agreed on 2026-10-27:
+bookmarklet fetches the wins page; two lines; the window is the rating
+window the card already shows.
+
+Built as:
+- Bookmarklet 1.4.0, 4,291 characters (limit raised to 4,300). It sends
+  the profile's whole `.player-info` list, which holds the "Career Events"
+  and "Career Wins" lines next to the current rating. When the profile's
+  Career Wins line links to the wins page, it fetches /player/<nr>/wins
+  after the event pages and before the ratings history, and sends its
+  `#player-wins` table and `.player-info`. A player without wins costs no
+  extra page. Run on the wins page itself, it sends that page alone.
+- Parser (src/parsers/wins.ts): `extractCareer` reads the numbers at the
+  end of `.career-events` and `.career-wins`; without a wins line the wins
+  are 0 when the events line is there. `extractWins` reads each row of
+  `#player-wins` (td.dates, td.tournament a, td.division, td.tier), not the
+  sticky header copy. Dates such as "17-Jul to 18-Jul-2024" use the last
+  day. Checked against a saved wins page (not committed).
+- Storage: `career` and `wins` in the stored import, replaced only by an
+  import that brings them, like the history.
+- Details card: "Career on pdga.com: 53 events, 8 wins (15%)" from PDGA's
+  own career lines (singles-format events and wins), and "In window: 42
+  events, 6 wins (14%)": the events with official or unofficial rounds in
+  the rating window (manual rounds not included), plus any win dated in
+  the window, and the wins dated in the window. Before an import brings
+  the wins page, the window line shows the events alone; before an import
+  brings the career lines, the career line is not shown. The percentage
+  goes through Intl ("15 %" on a Swedish phone). The old Events line
+  (events among all imported rounds) is replaced by these two.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1254,6 +1288,8 @@ Built in this order:
   the chart, bookmarklet 1.2.0 with the history page, and 24-hour times
   with Year first and Day first (docs/plan-rating-history.md) (done)
 - Bookmarklet size: bookmarklet 1.3.0 under 4,200 characters (done)
+- Events and wins: career and window events with wins and the share won
+  in the Details card, bookmarklet 1.4.0 with the wins page (done)
 - Prediction in the players list: each stored player's predicted rating and
   change, from stored data (done)
 - Following update: the prediction for the update after the next one when

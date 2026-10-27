@@ -19,6 +19,7 @@ export const BANNER_ID = 'import-banner';
 
 function pageLabel(url: string): string {
   if (url.endsWith('/details')) return t('import.page.details');
+  if (url.endsWith('/wins')) return t('import.page.wins');
   const event = /\/tour\/event\/(\d+)$/.exec(url);
   return event ? t('import.page.event', { id: event[1]! }) : t('import.page.profile');
 }
