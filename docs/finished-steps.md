@@ -1222,6 +1222,29 @@ Built as:
   goes through Intl ("15 %" on a Swedish phone). The old Events line
   (events among all imported rounds) is replaced by these two.
 
+## Compare players
+Spec: compare players the user picks, side by side, with head-to-head
+meetings also across divisions. Agreed on 2026-10-27: a round is decided
+by round rating; two or more players, opened from the players panel.
+
+Built as:
+- Compare players (src/app/views/compare.ts), an overlay like How it
+  works, so back closes it. Opened by a button in the players panel, shown
+  when at least two stored players have an import. Checkboxes pick the
+  players (at first me and the player shown; kept while the app is open).
+- A table with each picked player's predicted rating, events in the
+  rating window, wins with their share and the unweighted average in the
+  window, from the same model as the Rating tab (src/app/compare.ts).
+- Head-to-head for each pair, from the first player's side: rounds both
+  played in the same event (event id, or name and date) and the same
+  round label, in any division, from all imported rounds; manual and DNF
+  rounds never meet. The higher round rating wins a round, which compares
+  scores fairly also when the divisions played other layouts (the layout
+  is not in the imported data). An event is won by the higher average over
+  the rounds both played. Lines read "2 events: 1 won, 1 tied" and leave
+  out what is 0. Everything comes from data stored on the device; nothing
+  is fetched.
+
 ## Test fixtures
 Requirements (built; the tests keep them):
 - Unit tests for: the 24-month fallback, fewer than 7 / 9 rounds, the mid-event
@@ -1290,6 +1313,8 @@ Built in this order:
 - Bookmarklet size: bookmarklet 1.3.0 under 4,200 characters (done)
 - Events and wins: career and window events with wins and the share won
   in the Details card, bookmarklet 1.4.0 with the wins page (done)
+- Compare players: picked players' window figures side by side, and
+  head-to-head meetings by round rating across divisions (done)
 - Prediction in the players list: each stored player's predicted rating and
   change, from stored data (done)
 - Following update: the prediction for the update after the next one when

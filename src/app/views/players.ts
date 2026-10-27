@@ -22,6 +22,7 @@ export const PANEL_TITLE_ID = 'favorites-title';
 export const MENU_BUTTON_ID = 'players-menu';
 export const ADD_INPUT_ID = 'player-add';
 export const SEARCH_INPUT_ID = 'player-search';
+export const COMPARE_OPEN_ID = 'compare-open';
 
 const ORDER_OPTIONS: Segment<PlayerOrder>[] = [
   { value: 'name', id: 'order-name', label: 'players.orderName' },
@@ -70,6 +71,8 @@ export interface PlayersProps {
   /** What Share list did last. */
   share?: ShareStatus;
   onShare?: () => void;
+  /** Opens Compare players; only with at least two imported players. */
+  onCompare?: (() => void) | undefined;
   onOrder: (order: PlayerOrder) => void;
   /** Opens pdga.com's player search. */
   onSearch: (url: string) => void;
@@ -267,6 +270,12 @@ export function playersPanel(props: PlayersProps): HTMLElement {
           onclick: props.onToggleEdit,
         },
         t(props.editing ? 'players.editDone' : 'players.edit'),
+      ),
+    props.onCompare &&
+      el(
+        'button',
+        { id: COMPARE_OPEN_ID, class: 'button button-block', type: 'button', onclick: props.onCompare },
+        t('compare.open'),
       ),
     favorites.length > 0 && props.onShare && shareSection(props.share ?? null, props.onShare),
     unsaved.length > 0 && el('h3', { class: 'players-unsaved' }, t('players.unsaved')),
