@@ -1890,9 +1890,23 @@ a {
   margin: 1rem 0 0.5rem;
 }
 
-/* Share list sits under Edit list; its hint says what the link holds. */
+/*
+ * Share list sits to the right of Edit list, and goes under it when a narrow
+ * screen or large text leaves no room; its hint says what the link holds.
+ */
 .players-share {
   margin: 0 0 1rem;
+}
+
+.players-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.players-actions .players-edit {
+  margin: 0;
 }
 
 .players-share .field {

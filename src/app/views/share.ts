@@ -16,15 +16,20 @@ export const OFFER_ADD_ID = 'share-offer-add';
 /** What the share button did: the link was copied, or the browser let nothing copy it, so it shows to copy by hand. */
 export type ShareStatus = { kind: 'copied' } | { kind: 'manual'; link: string } | null;
 
-/** The Share list button, with what it did under it. */
-export function shareSection(status: ShareStatus, onShare: () => void): HTMLElement {
+/** The Share list button on one row after `before` (Edit list), with what it did under it. */
+export function shareSection(status: ShareStatus, onShare: () => void, before?: HTMLElement): HTMLElement {
   return el(
     'div',
     { class: 'players-share' },
     el(
-      'button',
-      { id: SHARE_BUTTON_ID, class: 'button button-small', type: 'button', onclick: onShare },
-      t('share.button'),
+      'div',
+      { class: 'players-actions' },
+      before,
+      el(
+        'button',
+        { id: SHARE_BUTTON_ID, class: 'button button-small', type: 'button', onclick: onShare },
+        t('share.button'),
+      ),
     ),
     status?.kind === 'copied' && el('p', { class: 'status', role: 'status' }, t('share.copied')),
     status?.kind === 'manual' &&
