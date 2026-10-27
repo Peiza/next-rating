@@ -34,6 +34,7 @@ describe('event results', () => {
         {
           division: 'MPO',
           holes: [18, 9],
+          layouts: ['Example Park - Main', 'Example Park - Main'],
           rows: [
             {
               pdgaNumber: 100001,

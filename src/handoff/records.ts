@@ -63,7 +63,10 @@ export function cleanPlayer(value: unknown): RawPlayer {
 }
 
 export function cleanDetails(value: unknown): RawDetailsRow[] {
-  const rows = asList(value, LIMITS.rows, 'ratings details').map((row) => pick(row, RAW_DETAILS_KEYS, 'ratings details row'));
+  const rows = asList(value, LIMITS.rows, 'ratings details').map((row): RawDetailsRow => {
+    const layout = asText(asRecord(row, 'ratings details row').layout, 'layout');
+    return { ...pick(row, RAW_DETAILS_KEYS, 'ratings details row'), ...(layout && { layout }) };
+  });
   normalizeRatingsDetails(rows);
   return rows;
 }
@@ -104,6 +107,9 @@ export function cleanEvent(value: unknown): RawEvent {
       return {
         division: asText(division.division, 'division'),
         holes: asList(division.holes, LIMITS.roundsPerRow, 'holes').map((holes) => asText(holes, 'holes')),
+        ...(division.layouts !== undefined && {
+          layouts: asList(division.layouts, LIMITS.roundsPerRow, 'layouts').map((layout) => asText(layout, 'layout')),
+        }),
         rows: asList(division.rows, LIMITS.rows, 'results').map((rowItem) => {
           const row = asRecord(rowItem, 'result');
           return {

@@ -9,6 +9,10 @@ export type ListedRound = RoundInput & {
   eventName: string;
   /** Round label as pdga.com shows it, such as "2" or "Finals". */
   roundLabel: string;
+  /** The player's score, division and the course and layout, for head-to-head; missing when unknown. */
+  score?: number;
+  division?: string;
+  layout?: string;
   /**
    * The event's tier as pdga.com shows it, such as "A" or "XA". Official
    * rounds take it from the ratings details; the app adds it to event rounds
@@ -51,6 +55,9 @@ export function detailsToRounds(rounds: readonly DetailsRound[]): ListedRound[] 
         eventName: round.eventName,
         roundLabel: round.roundLabel,
         ...(round.tier && { tier: round.tier }),
+        ...(round.score !== null && { score: round.score }),
+        ...(round.division && { division: round.division }),
+        ...(round.layout && { layout: round.layout }),
       };
     }),
   );
@@ -71,6 +78,7 @@ export function eventToRounds(results: EventResults, pdgaNumber: number): Listed
       row.rounds.forEach((round, i) => {
         if (!round.dnf && round.rating === null) return;
         const holes = division.holes[i] ?? null;
+        const layout = division.layouts?.[i];
         rounds.push({
           id: `u:${eventKey}:${division.division}:${i + 1}`,
           rating: round.rating,
@@ -82,6 +90,9 @@ export function eventToRounds(results: EventResults, pdgaNumber: number): Listed
           eventId: results.eventId,
           eventName: results.name,
           roundLabel: String(i + 1),
+          ...(round.score !== null && { score: round.score }),
+          ...(division.division && { division: division.division }),
+          ...(layout && { layout }),
         });
       });
     }

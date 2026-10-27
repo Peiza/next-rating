@@ -1244,6 +1244,18 @@ Built as:
   the rounds both played. Lines read "2 events: 1 won, 1 tied" and leave
   out what is 0. Everything comes from data stored on the device; nothing
   is fetched.
+- Show the rounds (follow-up): under each pair, a toggle lists every round
+  that counts, newest event first: the event name linked to pdga.com and
+  its date, then per round its name, the course and layout (one line when
+  both played the same, each player's otherwise) and "Name 54 (950) –
+  Name 52 (965)" with the round's winner in bold. Scores, divisions and
+  layouts now travel with each round: the layout is the text before the
+  first ";" of the layout tooltip on the ratings details and event pages,
+  stored as `layout` on details rows and `layouts` per event division,
+  both optional, so data imported before shows no layout until the next
+  import. The open toggles are kept while the app is open.
+- Back from Compare players to the players panel on phones returns to the
+  panel's scroll position.
 
 ## Test fixtures
 Requirements (built; the tests keep them):

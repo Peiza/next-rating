@@ -69,6 +69,8 @@ describe('detailsToRounds', () => {
         eventName: 'Example Open',
         roundLabel: '1',
         tier: 'C',
+        score: 54,
+        division: 'MA1',
       },
       {
         id: 'o:e:900001:MA1:2',
@@ -81,6 +83,8 @@ describe('detailsToRounds', () => {
         eventName: 'Example Open',
         roundLabel: '1',
         tier: 'C',
+        score: 54,
+        division: 'MA1',
       },
     ]);
   });
@@ -104,10 +108,10 @@ describe('detailsToRounds', () => {
 
 describe('eventToRounds', () => {
   it('takes only the given player rounds, with hole counts and DNF', () => {
-    const event = { date: '2026-09-06', eventKey: 'e:900002', source: 'unofficial', eventId: 900002, eventName: 'Example Cup' };
+    const event = { date: '2026-09-06', eventKey: 'e:900002', source: 'unofficial', eventId: 900002, eventName: 'Example Cup', division: 'MA1' };
     expect(eventToRounds(results(), 100001)).toEqual([
-      { ...event, id: 'u:e:900002:MA1:1', rating: 950, holes: 18, roundLabel: '1' },
-      { ...event, id: 'u:e:900002:MA1:2', rating: 960, holes: 9, roundLabel: '2' },
+      { ...event, id: 'u:e:900002:MA1:1', rating: 950, holes: 18, roundLabel: '1', score: 54 },
+      { ...event, id: 'u:e:900002:MA1:2', rating: 960, holes: 9, roundLabel: '2', score: 27 },
       { ...event, id: 'u:e:900002:MA1:3', rating: null, dnf: true, roundLabel: '3' },
     ]);
   });

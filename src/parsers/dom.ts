@@ -26,6 +26,19 @@ export function tooltipHoles(root: ParentNode): Map<string, string> {
   return holes;
 }
 
+/**
+ * Course and layout names from the same tooltips, such as "Example Park -
+ * Main", keyed like tooltipHoles.
+ */
+export function tooltipLayouts(root: ParentNode): Map<string, string> {
+  const layouts = new Map<string, string>();
+  for (const template of root.querySelectorAll('.tooltip-templates [id]')) {
+    const layout = cellText(template).split(';')[0]!.trim();
+    if (layout) layouts.set(`#${template.id}`, layout);
+  }
+  return layouts;
+}
+
 /** The tooltip reference of a cell, for example "#layout-details-900001-MA1-round-1". */
 export function tooltipOf(cell: Element | null | undefined): string {
   return cell?.getAttribute('data-tooltip-content') ?? '';
