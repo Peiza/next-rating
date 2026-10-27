@@ -2376,11 +2376,52 @@ a {
   list-style: none;
 }
 
-.compare-meetings li {
+.compare-meetings > li {
   padding: 0.5rem 0;
   border-bottom: 2px solid var(--border);
 }
 
-.compare-meetings p {
+.compare-meetings > li > p {
   margin: 0.25rem 0 0;
+}
+
+/* The rounds behind a head-to-head: each event, then a line per round. */
+
+.compare-rounds summary {
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compare-event-name {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+
+.compare-event ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compare-event li {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-round-name,
+.compare-round-layout,
+.compare-round-result {
+  display: block;
+}
+
+.compare-round-layout {
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.compare-round-result {
+  font-variant-numeric: tabular-nums;
 }

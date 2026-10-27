@@ -35,7 +35,30 @@ describe('head-to-head', () => {
       roundsWon: 1,
       roundsLost: 1,
       roundsTied: 1,
+      played: [
+        { mine: mine[0], theirs: theirs[0] },
+        { mine: mine[1], theirs: theirs[1] },
+        { mine: mine[2], theirs: theirs[2] },
+      ],
     });
+  });
+
+  it('lists the rounds newest event first, each event in round order', () => {
+    const mine = [
+      round('e:1', '2', 950, { date: '2026-05-01' }),
+      round('e:2', 'Finals', 990),
+      round('e:2', '2', 970),
+      round('e:1', '1', 940, { date: '2026-05-01' }),
+      round('e:2', '1', 960),
+    ];
+    const theirs = mine.map((own) => ({ ...own, id: `${own.id}-b` }));
+    expect(headToHead(mine, theirs).played.map(({ mine }) => `${mine.eventKey} ${mine.roundLabel}`)).toEqual([
+      'e:2 1',
+      'e:2 2',
+      'e:2 Finals',
+      'e:1 1',
+      'e:1 2',
+    ]);
   });
 
   it('decides an event by the rounds both played only', () => {
@@ -84,7 +107,7 @@ describe('compare players view', () => {
         {
           a: 100001,
           b: 100002,
-          result: { events: 2, eventsWon: 1, eventsLost: 0, eventsTied: 1, rounds: 5, roundsWon: 3, roundsLost: 2, roundsTied: 0 },
+          result: { events: 2, eventsWon: 1, eventsLost: 0, eventsTied: 1, rounds: 5, roundsWon: 3, roundsLost: 2, roundsTied: 0, played: [] },
         },
       ],
       onPick: vi.fn(),
@@ -107,8 +130,32 @@ describe('compare players view', () => {
     expect([...item.querySelectorAll('p')].map((p) => p.textContent)).toEqual(['2 events: 1 won, 1 tied', '5 rounds: 3 won, 2 lost']);
   });
 
+  it('lists the rounds of each pair behind a toggle, by event, with scores, ratings and layouts', () => {
+    const own = (label: string, rating: number, extra: Partial<ListedRound> = {}) =>
+      round('e:900001', label, rating, { eventId: 900001, score: 54, layout: 'Example Park - Main', ...extra });
+    const played = [
+      { mine: own('1', 960), theirs: own('1', 950, { score: 55 }) },
+      { mine: own('2', 940, { layout: 'Example Park - Long' }), theirs: own('2', 945, { score: undefined }) },
+    ];
+    const result = { events: 1, eventsWon: 0, eventsLost: 0, eventsTied: 1, rounds: 2, roundsWon: 1, roundsLost: 1, roundsTied: 0, played };
+    const onToggle = vi.fn();
+    const page = view({ meetings: [{ a: 100001, b: 100002, result }], pairOpen: () => ({ open: true, onToggle }) });
+    const list = page.querySelector<HTMLDetailsElement>('.compare-rounds')!;
+    expect(list.open).toBe(true);
+    expect(list.querySelector('summary')!.textContent).toBe('Show the rounds (2)');
+    const event = list.querySelector('.compare-event-name')!;
+    expect(event.textContent).toMatch(/^Example Open · \S+$/);
+    expect(event.querySelector('a')!.getAttribute('href')).toBe('https://www.pdga.com/tour/event/900001');
+    const lines = [...list.querySelectorAll('li')].map((li) => [...li.children].map((part) => part.textContent));
+    expect(lines).toEqual([
+      ['Round 1', 'Example Park - Main', 'Test Player 54 (960) – Other Player 55 (950)'],
+      ['Round 2', 'Test Player: Example Park - Long · Other Player: Example Park - Main', 'Test Player 54 (940) – Other Player 945'],
+    ]);
+    expect(list.querySelector('li strong')!.textContent).toBe('Test Player 54 (960)');
+  });
+
   it('says when two players never met', () => {
-    const result = { events: 0, eventsWon: 0, eventsLost: 0, eventsTied: 0, rounds: 0, roundsWon: 0, roundsLost: 0, roundsTied: 0 };
+    const result = { events: 0, eventsWon: 0, eventsLost: 0, eventsTied: 0, rounds: 0, roundsWon: 0, roundsLost: 0, roundsTied: 0, played: [] };
     const item = view({ meetings: [{ a: 100001, b: 100002, result }] }).querySelector('.compare-meetings li')!;
     expect(item.textContent).toBe('Test Player vs Other Player No rounds in common in the imported data.');
   });

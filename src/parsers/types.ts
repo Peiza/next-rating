@@ -29,6 +29,8 @@ export interface RawDetailsRow {
   score: string;
   rating: string;
   holes: string;
+  /** Course and layout, such as "Example Park - Main"; missing when the page does not show it. */
+  layout?: string;
   /** "Yes" or "No". */
   evaluated: string;
   /** "Yes" or "No". */
@@ -67,6 +69,8 @@ export interface RawEventDivision {
   division: string;
   /** Hole count per round, in round order. */
   holes: string[];
+  /** Course and layout per round, in round order; missing when the page shows none. */
+  layouts?: string[];
   rows: RawEventRow[];
 }
 
@@ -100,6 +104,8 @@ export interface DetailsRound {
   score: number | null;
   rating: number;
   holes: number | null;
+  /** Course and layout; missing when unknown. */
+  layout?: string;
   evaluated: boolean;
   included: boolean;
 }
@@ -141,6 +147,8 @@ export interface EventRow {
 export interface EventDivision {
   division: string;
   holes: (number | null)[];
+  /** Course and layout per round, '' when unknown; missing when none is known. */
+  layouts?: string[];
   rows: EventRow[];
 }
 

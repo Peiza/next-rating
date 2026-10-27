@@ -34,6 +34,7 @@ describe('ratings details', () => {
           holes: 18,
           evaluated: true,
           included: true,
+          layout: 'Example Park - Main',
         },
       ],
       skipped: 0,

@@ -43,13 +43,15 @@ export interface HeadToHead {
   roundsWon: number;
   roundsLost: number;
   roundsTied: number;
+  /** Each round both played, newest event first, then in round order. */
+  played: { mine: ListedRound; theirs: ListedRound }[];
 }
 
 /**
  * A rated round that a meeting can count: imported, not DNF. Manual rounds
  * are the user's own guesses, so they are never a meeting.
  */
-function played(round: ListedRound): boolean {
+function canMeet(round: ListedRound): boolean {
   return round.source !== 'manual' && !round.dnf && round.rating !== null;
 }
 
@@ -57,10 +59,13 @@ function played(round: ListedRound): boolean {
 function byRound(rounds: readonly ListedRound[]): Map<string, ListedRound> {
   const found = new Map<string, ListedRound>();
   for (const round of rounds) {
-    if (played(round)) found.set(`${round.eventKey}\u0000${round.roundLabel}`, round);
+    if (canMeet(round)) found.set(`${round.eventKey}\u0000${round.roundLabel}`, round);
   }
   return found;
 }
+
+/** Numbered rounds in order, then the rest, such as Finals. */
+const roundOrder = (label: string) => (/^\d+$/.test(label) ? Number(label) : Number.MAX_SAFE_INTEGER);
 
 const sign = (a: number, b: number) => (a > b ? 1 : a < b ? -1 : 0);
 
@@ -82,12 +87,14 @@ export function headToHead(a: readonly ListedRound[], b: readonly ListedRound[])
     roundsWon: 0,
     roundsLost: 0,
     roundsTied: 0,
+    played: [],
   };
   for (const [key, round] of byRound(a)) {
     const other = theirs.get(key);
     if (!other) continue;
     const [mine, their] = [round.rating!, other.rating!];
     result.rounds += 1;
+    result.played.push({ mine: round, theirs: other });
     const won = sign(mine, their);
     if (won > 0) result.roundsWon += 1;
     else if (won < 0) result.roundsLost += 1;
@@ -103,5 +110,12 @@ export function headToHead(a: readonly ListedRound[], b: readonly ListedRound[])
     else if (won < 0) result.eventsLost += 1;
     else result.eventsTied += 1;
   }
+  const order = [...events.keys()];
+  result.played.sort(
+    (x, y) =>
+      (x.mine.date < y.mine.date ? 1 : x.mine.date > y.mine.date ? -1 : 0) ||
+      order.indexOf(x.mine.eventKey) - order.indexOf(y.mine.eventKey) ||
+      roundOrder(x.mine.roundLabel) - roundOrder(y.mine.roundLabel),
+  );
   return result;
 }

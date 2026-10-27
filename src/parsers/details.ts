@@ -1,4 +1,4 @@
-import { cellText, eventIdOf, tooltipHoles, tooltipOf } from './dom';
+import { cellText, eventIdOf, tooltipHoles, tooltipLayouts, tooltipOf } from './dom';
 import type { DetailsRound, RatingsDetails, RawDetailsRow } from './types';
 import { LIMITS, RANGES, asList, asRecord, asText, parseInteger, parsePdgaDate } from './values';
 
@@ -36,6 +36,7 @@ function flagOf(row: Element, name: string): string {
  */
 export function extractRatingsDetails(root: ParentNode): RawDetailsRow[] {
   const holes = tooltipHoles(root);
+  const layouts = tooltipLayouts(root);
   for (const table of root.querySelectorAll('table')) {
     const headers = [...table.querySelectorAll('th')].map((th) => cellText(th).toLowerCase());
     if (!isDetailsHeader(headers)) continue;
@@ -45,6 +46,7 @@ export function extractRatingsDetails(root: ParentNode): RawDetailsRow[] {
       const cell = (column: DetailsColumn) => cells[headers.indexOf(column)];
       const text = (column: DetailsColumn) => cellText(cell(column));
       const tooltip = tooltipOf(cell('round'));
+      const layout = layouts.get(tooltip);
       return [
         {
           eventId: eventIdOf(cell('tournament')?.querySelector('a')?.getAttribute('href')),
@@ -59,6 +61,7 @@ export function extractRatingsDetails(root: ParentNode): RawDetailsRow[] {
           holes: holes.get(tooltip) ?? '',
           evaluated: flagOf(row, 'evaluated') || text('evaluated'),
           included: flagOf(row, 'included') || text('included'),
+          ...(layout && { layout }),
         },
       ];
     });
@@ -92,6 +95,7 @@ export function normalizeRatingsDetails(raw: unknown): RatingsDetails {
     ) as Record<keyof RawDetailsRow, string>;
     const date = parsePdgaDate(row.date);
     const rating = parseInteger(row.rating, RANGES.rating);
+    const layout = asText(record.layout, 'layout');
     if (date === null || rating === null) {
       skipped += 1;
       continue;
@@ -109,6 +113,7 @@ export function normalizeRatingsDetails(raw: unknown): RatingsDetails {
       holes: parseInteger(row.holes, RANGES.holes),
       evaluated: /^yes$/i.test(row.evaluated),
       included: /^yes$/i.test(row.included),
+      ...(layout && { layout }),
     });
   }
   return { rounds, skipped };

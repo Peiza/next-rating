@@ -1,8 +1,10 @@
 import { t } from '../../i18n';
 import type { CompareLine, HeadToHead } from '../compare';
-import { el } from '../dom';
-import { formatAverage, formatPercent, formatRating } from '../format';
-import { pdgaNotice } from './pdga';
+import type { ListedRound } from '../../parsers';
+import { disclosure, el, type Disclosure } from '../dom';
+import { formatAverage, formatDate, formatPercent, formatRating } from '../format';
+import { eventUrl, pdgaNotice } from './pdga';
+import { roundLabel } from './round-text';
 
 /*
  * Compare players: the players with imported data to pick from, each one's
@@ -11,6 +13,11 @@ import { pdgaNotice } from './pdga';
  */
 
 export const COMPARE_ID = 'compare-title';
+
+/** A pair of players, for its kept open round list. */
+export function pairKey(a: number, b: number): string {
+  return `${a}-${b}`;
+}
 
 export function compareCheckboxId(pdgaNumber: number): string {
   return `compare-${pdgaNumber}`;
@@ -34,6 +41,8 @@ export interface CompareProps {
   /** Each pair of picked players, the first one's side. */
   meetings: readonly { a: number; b: number; result: HeadToHead }[];
   onPick: (pdgaNumber: number, picked: boolean) => void;
+  /** Whether each pair's round list is open, by pairKey, kept through a re-render. */
+  pairOpen?: (key: string) => Disclosure;
   onBack: () => void;
 }
 
@@ -106,7 +115,76 @@ function tally(won: number, lost: number, tied: number): string {
     .join(', ');
 }
 
-function meeting({ a, b, result }: CompareProps['meetings'][number], names: ReadonlyMap<number, string>): HTMLElement {
+/** "Test Player 54 (950)", or the rating alone without a score; the round's winner in bold. */
+function side(name: string, round: ListedRound, won: boolean): HTMLElement {
+  const rating = formatRating(round.rating!);
+  const text =
+    round.score === undefined
+      ? t('compare.sideRating', { name, rating })
+      : t('compare.side', { name, score: formatRating(round.score), rating });
+  return el(won ? 'strong' : 'span', {}, text);
+}
+
+/** Each round both played, by event: its name, linked, and date, then a line per round. */
+function roundList(
+  played: HeadToHead['played'],
+  [nameA, nameB]: [string, string],
+  state: Disclosure | undefined,
+): HTMLElement {
+  const events: HeadToHead['played'][] = [];
+  for (const pair of played) {
+    const last = events.at(-1);
+    if (last && last[0]!.mine.eventKey === pair.mine.eventKey) last.push(pair);
+    else events.push([pair]);
+  }
+  return el(
+    'details',
+    { class: 'compare-rounds', ...disclosure(state) },
+    el('summary', {}, t('compare.showRounds', { count: played.length })),
+    ...events.map((pairs) => {
+      const { eventId, eventName, date } = pairs[0]!.mine;
+      return el(
+        'div',
+        { class: 'compare-event' },
+        el(
+          'p',
+          { class: 'compare-event-name' },
+          eventId === null ? eventName : el('a', { href: eventUrl(eventId), rel: 'noreferrer' }, eventName),
+          ` · ${formatDate(date)}`,
+        ),
+        el(
+          'ul',
+          {},
+          ...pairs.map(({ mine, theirs }) => {
+            const same = mine.layout === theirs.layout;
+            const layouts = same
+              ? (mine.layout ?? '')
+              : [mine.layout && `${nameA}: ${mine.layout}`, theirs.layout && `${nameB}: ${theirs.layout}`].filter(Boolean).join(' · ');
+            return el(
+              'li',
+              {},
+              el('span', { class: 'compare-round-name' }, roundLabel(mine.roundLabel)),
+              layouts && el('span', { class: 'compare-round-layout' }, layouts),
+              el(
+                'span',
+                { class: 'compare-round-result' },
+                side(nameA, mine, mine.rating! > theirs.rating!),
+                ' – ',
+                side(nameB, theirs, theirs.rating! > mine.rating!),
+              ),
+            );
+          }),
+        ),
+      );
+    }),
+  );
+}
+
+function meeting(
+  { a, b, result }: CompareProps['meetings'][number],
+  names: ReadonlyMap<number, string>,
+  state: Disclosure | undefined,
+): HTMLElement {
   const title = t('compare.versus', { a: names.get(a) ?? '', b: names.get(b) ?? '' });
   if (result.rounds === 0) return el('li', {}, el('strong', {}, title), ' ', t('compare.neverMet'));
   return el(
@@ -127,6 +205,7 @@ function meeting({ a, b, result }: CompareProps['meetings'][number], names: Read
       ': ',
       tally(result.roundsWon, result.roundsLost, result.roundsTied),
     ),
+    roundList(result.played, [names.get(a) ?? '', names.get(b) ?? ''], state),
   );
 }
 
@@ -144,7 +223,7 @@ export function compareView(props: CompareProps): HTMLElement {
     enough && figuresTable(props, names),
     enough && el('h2', {}, t('compare.meetings')),
     enough && el('p', { class: 'hint' }, t('compare.meetingsHint')),
-    enough && el('ul', { class: 'compare-meetings' }, ...props.meetings.map((item) => meeting(item, names))),
+    enough && el('ul', { class: 'compare-meetings' }, ...props.meetings.map((item) => meeting(item, names, props.pairOpen?.(pairKey(item.a, item.b))))),
     el('button', { id: 'compare-back', class: 'button button-block', type: 'button', onclick: props.onBack }, t('setup.back')),
     pdgaNotice(),
   );

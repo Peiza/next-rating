@@ -170,6 +170,8 @@ let setupPlatform: Platform | null = null;
 let menuOpen = false;
 /** Where each tab was scrolled when its view was last left or covered. In memory only, so a launch starts at the top. */
 const scrollTops: Partial<Record<Tab, number>> = {};
+/** The players panel's scroll position on phones when a view opened from it, such as Compare players, so back returns there. */
+let panelScroll: number | null = null;
 let editingPlayers = false;
 let confirmRemove: number | null = null;
 let addFlash: PdgaFlash = null;
@@ -500,7 +502,9 @@ function showLayers(next: Layers): void {
   if (next.overlay === null) overlay = null;
   else if (overlay?.view !== next.overlay) overlay = { view: next.overlay, opener: `tab-${tab}` };
   render(focusId);
-  if (focusId !== overlay?.opener) window.scrollTo(0, 0);
+  if (next.menu && before.overlay !== null && panelScroll !== null) window.scrollTo(0, panelScroll);
+  else if (focusId !== overlay?.opener) window.scrollTo(0, 0);
+  panelScroll = null;
 }
 
 /** The panel's heading, which gets focus when the panel opens: in the top bar on phones, where the panel's own is hidden. */
@@ -1095,6 +1099,7 @@ function overlayTitleId(view: OverlayView): string {
 /** Shows the setup or How it works over the current tab, as a new history entry. */
 function openOverlay(view: OverlayView): void {
   saveScroll();
+  panelScroll = menuOpen ? window.scrollY : null;
   overlay = { view, opener: document.activeElement?.id || `tab-${tab}` };
   menuOpen = false;
   pushLayers();
@@ -1408,6 +1413,8 @@ function comparable(data: ReturnType<typeof store.get>): StoredPlayer[] {
 
 /** The players picked in Compare players; until a pick, me and the player shown. */
 let comparePicked: number[] | null = null;
+/** The pairs whose round list is open in Compare players. */
+const openPairs = new Set<string>();
 
 function compareOf(data: ReturnType<typeof store.get>, now: Date): HTMLElement {
   const players = comparable(data);
@@ -1431,6 +1438,10 @@ function compareOf(data: ReturnType<typeof store.get>, now: Date): HTMLElement {
       comparePicked = on ? [...picked, pdgaNumber] : picked.filter((n) => n !== pdgaNumber);
       render(compareCheckboxId(pdgaNumber));
     },
+    pairOpen: (key) => ({
+      open: openPairs.has(key),
+      onToggle: (open) => (open ? openPairs.add(key) : openPairs.delete(key)),
+    }),
     onBack: closeOverlay,
   });
 }

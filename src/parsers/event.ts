@@ -1,4 +1,4 @@
-import { cellText, eventIdOf, tooltipHoles, tooltipOf } from './dom';
+import { cellText, eventIdOf, tooltipHoles, tooltipLayouts, tooltipOf } from './dom';
 import type { EventResults, EventRound, RawEvent, RawEventRound } from './types';
 import {
   DNF_SCORE,
@@ -28,6 +28,7 @@ function statusOf(root: ParentNode): string {
  */
 export function extractEvent(root: ParentNode): RawEvent {
   const holes = tooltipHoles(root);
+  const layouts = tooltipLayouts(root);
   const tables = [...root.querySelectorAll('table')].filter((table) =>
     table.querySelector('th.pdga-number'),
   );
@@ -36,26 +37,31 @@ export function extractEvent(root: ParentNode): RawEvent {
     name: cellText(root.querySelector('#page-title')),
     date: cellText(root.querySelector('.tournament-date')),
     status: statusOf(root),
-    divisions: tables.map((table) => ({
-      division: table.closest('details')?.querySelector('h3.division')?.id ?? '',
-      holes: [...table.querySelectorAll('th.round')].map((th) => holes.get(tooltipOf(th)) ?? ''),
-      rows: [...table.querySelectorAll('tr')].flatMap((row) => {
-        const player = row.querySelector('td.player');
-        if (!player) return [];
-        const rounds: RawEventRound[] = [];
-        for (const cell of row.querySelectorAll('td.round, td.round-rating')) {
-          if (cell.classList.contains('round')) rounds.push({ score: cellText(cell), rating: '' });
-          else if (rounds.length > 0) rounds[rounds.length - 1]!.rating = cellText(cell);
-        }
-        return [
-          {
-            pdgaNumber: cellText(row.querySelector('td.pdga-number')),
-            name: cellText(player),
-            rounds,
-          },
-        ];
-      }),
-    })),
+    divisions: tables.map((table) => {
+      const tooltips = [...table.querySelectorAll('th.round')].map((th) => tooltipOf(th));
+      const named = tooltips.map((tooltip) => layouts.get(tooltip) ?? '');
+      return {
+        division: table.closest('details')?.querySelector('h3.division')?.id ?? '',
+        holes: tooltips.map((tooltip) => holes.get(tooltip) ?? ''),
+        ...(named.some(Boolean) && { layouts: named }),
+        rows: [...table.querySelectorAll('tr')].flatMap((row) => {
+          const player = row.querySelector('td.player');
+          if (!player) return [];
+          const rounds: RawEventRound[] = [];
+          for (const cell of row.querySelectorAll('td.round, td.round-rating')) {
+            if (cell.classList.contains('round')) rounds.push({ score: cellText(cell), rating: '' });
+            else if (rounds.length > 0) rounds[rounds.length - 1]!.rating = cellText(cell);
+          }
+          return [
+            {
+              pdgaNumber: cellText(row.querySelector('td.pdga-number')),
+              name: cellText(player),
+              rounds,
+            },
+          ];
+        }),
+      };
+    }),
   };
 }
 
@@ -78,12 +84,17 @@ export function normalizeEvent(raw: unknown): EventResults {
     const division = asRecord(item, 'division');
     const rows = asList(division.rows, LIMITS.rows, 'results');
     totalRows += rows.length;
+    const layouts =
+      division.layouts === undefined
+        ? undefined
+        : asList(division.layouts, LIMITS.roundsPerRow, 'layouts').map((layout) => asText(layout, 'layout'));
     if (totalRows > LIMITS.rows) throw new ParseError('too-large', `event has more than ${LIMITS.rows} results`);
     return {
       division: asText(division.division, 'division'),
       holes: asList(division.holes, LIMITS.roundsPerRow, 'holes').map((holes) =>
         parseInteger(asText(holes, 'holes'), RANGES.holes),
       ),
+      ...(layouts && { layouts }),
       rows: rows.map((rowItem) => {
         const row = asRecord(rowItem, 'result');
         return {
