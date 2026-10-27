@@ -10,10 +10,11 @@ import {
   formatDateTime,
   formatDayMonth,
   formatEffect,
+  formatPercent,
   formatRating,
 } from '../format';
 import type { ApiState } from '../api';
-import { STALE_DAYS, type ListedChange, type ListedResult, type Model } from '../model';
+import { STALE_DAYS, type ListedChange, type ListedResult, type Model, type WinsSummary } from '../model';
 import { DEFAULT_CARDS, type CardName, type CardState } from '../storage';
 import { card, cardIntro } from './card';
 import { direction, slopeArrow, strength } from './change';
@@ -473,7 +474,17 @@ function whyBody(model: Model, changes: ListedChange[]): Child[] {
   ];
 }
 
-function statsList(stats: RatingStats, exact: number | null): HTMLElement {
+/** A line of the Details card: its label, value and a detail below. */
+type StatRow = [MessageKey, string, string?];
+
+/** "53 events, 8 wins (15%)", or only the events while the wins are not known. */
+function eventsAndWins(events: number, wins: number | null): string {
+  const eventsText = t('stats.events', { count: events });
+  if (wins === null || events === 0) return eventsText;
+  return t('stats.eventsWins', { events: eventsText, wins: t('stats.wins', { count: wins }), percent: formatPercent(wins / events) });
+}
+
+function statsList(stats: RatingStats, exact: number | null, { career, periodEvents, periodWins }: WinsSummary): HTMLElement {
   const count = (value: number) => formatRating(value);
   const average = (value: number | null) => (value === null ? DASH : formatAverage(value));
   const hasWindow = stats.windowMonths !== null && stats.windowStart !== null && stats.windowEnd !== null;
@@ -484,11 +495,12 @@ function statsList(stats: RatingStats, exact: number | null): HTMLElement {
         t('stats.windowRange', { start: formatDate(stats.windowStart!), end: formatDate(stats.windowEnd!) }),
       ]
     : [DASH];
-  const rows: [MessageKey, string, string?][] = [
+  const rows: StatRow[] = [
     ['stats.exact', average(exact)],
     ['stats.totalRounds', count(stats.totalRounds)],
     ['stats.dnfRounds', count(stats.dnfRounds)],
-    ['stats.careerEvents', count(stats.careerEvents)],
+    ...(career?.events != null ? [['stats.career', eventsAndWins(career.events, career.wins)] satisfies StatRow] : []),
+    ...(periodEvents !== null ? [['stats.inWindow', eventsAndWins(periodEvents, periodWins)] satisfies StatRow] : []),
     ['stats.window', ...window],
     ['stats.roundsInWindow', count(stats.roundsInWindow)],
     ['stats.roundsOutsideWindow', count(stats.roundsOutsideWindow)],
@@ -708,7 +720,7 @@ export function ratingView(props: RatingProps): HTMLElement {
     target && section('target', 'target.toggle', () => [t('target.intro')], () => [targetCalculator(target)]),
     top8 && section('top8', 'top8.title', top8Intro, () => top8Panel(top8), top8Teaser(top8.top)),
     section('stats', 'stats.title', () => [t('stats.intro')], () => [
-      statsList(model.prediction.stats, model.prediction.exact),
+      statsList(model.prediction.stats, model.prediction.exact, model.wins),
     ]),
     (model.rows.length > 0 || model.eventsWithoutRounds.length > 0) &&
       section('rounds', 'rating.rounds', () => [t('rating.roundsIntro')], () => roundsBody(model, props)),

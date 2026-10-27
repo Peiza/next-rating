@@ -20,6 +20,9 @@ import {
   normalizeProfileEvents,
   normalizeRatingsDetails,
   normalizeRatingsHistory,
+  normalizeCareer,
+  normalizeWins,
+  type Career,
   type HistoryEntry,
   type ListedRound,
   type PlayerInfo,
@@ -171,6 +174,40 @@ export interface Model {
   eventsWithoutRounds: { name: string; date: PlainDate | null }[];
   /** The unofficial events, newest first. */
   unofficialEvents: UnofficialEvent[];
+  /** Tournaments and wins, in the career and in the rating window. */
+  wins: WinsSummary;
+}
+
+export interface WinsSummary {
+  /** PDGA's career events and wins, from the player page; null before an import brings them. */
+  career: Career | null;
+  /**
+   * Events in the rating window: those with imported rounds in it, and the
+   * wins dated in it. Null without a window.
+   */
+  periodEvents: number | null;
+  /** The wins dated in the rating window; null without a window or before the wins page is imported. */
+  periodWins: number | null;
+}
+
+/**
+ * The career figures, and the events and wins in the rating window. A win
+ * is in the window by its date on the wins page. A player whose career
+ * shows no wins has none in the window either, without the wins page.
+ */
+export function winsSummary(stored: StoredImport, rounds: readonly ListedRound[], prediction: Prediction): WinsSummary {
+  const career = stored.career ? normalizeCareer(stored.career) : null;
+  const { windowStart, windowEnd } = prediction.stats;
+  if (windowStart === null || windowEnd === null) return { career, periodEvents: null, periodWins: null };
+  const events = new Set(
+    rounds
+      .filter((round, i) => round.source !== 'manual' && ['included', 'dropped'].includes(prediction.rounds[i]!.status))
+      .map((round) => round.eventKey),
+  );
+  const list = stored.wins ? normalizeWins(stored.wins) : career?.wins === 0 ? [] : null;
+  const inWindow = list?.filter((win) => compareDates(win.date, windowStart) >= 0 && compareDates(win.date, windowEnd) <= 0);
+  for (const win of inWindow ?? []) events.add(eventKeyOf(win.eventId, win.name, win.date));
+  return { career, periodEvents: events.size, periodWins: inWindow?.length ?? null };
 }
 
 export interface FollowingPrediction {
@@ -333,6 +370,7 @@ export function buildModel(
     stale: now.getTime() - Date.parse(stored.at) > STALE_DAYS * DAY_MS,
     eventsWithoutRounds,
     unofficialEvents: unofficialEvents(rounds, prediction, predict, leaveOut),
+    wins: winsSummary(stored, rounds, prediction),
   };
 }
 

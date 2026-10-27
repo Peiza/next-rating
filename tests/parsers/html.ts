@@ -12,11 +12,32 @@ export function page(body: string, canonical = '', title = 'Example | Profession
   return `<!doctype html><html><head><title>${title}</title>${link}</head><body>${body}</body></html>`;
 }
 
-export function playerHeader(name = 'Test Player', pdgaNumber = '100001', rating = '950'): string {
+export function playerHeader(name = 'Test Player', pdgaNumber = '100001', rating = '950', info = ''): string {
   return `<h1 class="title" id="page-title">${name} #${pdgaNumber}</h1>
     <ul class="player-info info-list"><li class="current-rating"> <strong>Current Rating:</strong> ${rating}
     <a class="rating-difference gain" href="/player/${pdgaNumber}/history">+3</a>
-    <small class="rating-date">(as of 08-Sep-2026)</small> </li></ul>`;
+    <small class="rating-date">(as of 08-Sep-2026)</small> </li>${info}</ul>`;
+}
+
+/** The career lines of the player info list; without wins, no wins line, as an assumption for players with none. */
+export function careerLines(events: string, wins: string | null, pdgaNumber = '100001'): string {
+  return `<li class="career-events disclaimer" title="Singles-format tournaments played."><strong>Career Events:</strong> ${events}</li>${
+    wins === null
+      ? ''
+      : `<li class="career-wins disclaimer" title="Singles-format tournament wins."><strong>Career Wins:</strong> <a href="https://www.pdga.com/player/${pdgaNumber}/wins">${wins}</a></li>`
+  }`;
+}
+
+/** The career wins table, as on /player/<nr>/wins. */
+export function winsTable(rows: [eventId: string, date: string][]): string {
+  const cells = rows.map(
+    ([eventId, date], i) =>
+      `<tr class="${i % 2 ? 'even' : 'odd'}"><td data-text="0" class="dates">${date}</td><td class="tournament"><a href="https://www.pdga.com/tour/event/${eventId}#MA1">Example Open</a></td><td class="division">Mixed Pro Open</td><td data-text="500" class="tier">C</td><td class="prize"></td> </tr>`,
+  );
+  return `<table class="sticky-header"><thead><tr><th class="dates">Dates</th><th class="tournament">Tournament</th></tr></thead></table>
+    <table id="player-wins" class="sticky-enabled">
+    <thead><tr><th class="dates">Dates</th><th class="tournament">Tournament</th><th class="division">Division</th><th class="tier">Tier</th><th class="prize">Prize</th> </tr></thead>
+    <tbody>${cells.join('')}</tbody></table>`;
 }
 
 export function layoutTooltip(id: string, holes: number): string {

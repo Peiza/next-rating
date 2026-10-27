@@ -488,3 +488,35 @@ describe('the prediction in the players list', () => {
     expect(predict(player(), new Date('2026-10-02T10:00:00.000Z'))).not.toBe(reimported);
   });
 });
+
+describe('events and wins', () => {
+  const win = (eventId: string, date: string) => ({ eventId, name: 'Example Open', division: 'Mixed Pro Open', tier: 'C', date });
+  const wins = [win('900001', '02-Aug-2026'), win('900009', '01-Jul-2026'), win('800001', '01-Jun-2024')];
+
+  it('counts the events in the window, and the wins dated in it, an event without rounds there included', () => {
+    const model = buildModel(stored({ player: rawPlayer(), details, career: { events: '40', wins: '3' }, wins }), 100001, NOW);
+    expect(model.prediction.stats.windowStart).toBe('2024-08-02');
+    expect(model.wins).toEqual({ career: { events: 40, wins: 3 }, periodEvents: 3, periodWins: 2 });
+  });
+
+  it('leaves manual rounds out of the events', () => {
+    const manual = manualToRounds([
+      { id: 'm1', rating: 990, date: '2026-07-20', eventName: 'Club round', holes: null, example: false, leftOut: false },
+    ]);
+    const model = buildModel(stored({ details }), 100001, NOW, manual);
+    expect(model.wins).toEqual({ career: null, periodEvents: 2, periodWins: null });
+  });
+
+  it('has no wins in the window for a player without career wins, and unknown wins before the wins page', () => {
+    expect(buildModel(stored({ details, career: { events: '12', wins: '' } }), 100001, NOW).wins.periodWins).toBe(0);
+    expect(buildModel(stored({ details, career: { events: '12', wins: '3' } }), 100001, NOW).wins.periodWins).toBeNull();
+  });
+
+  it('has no window figures without rated rounds', () => {
+    expect(buildModel(stored({ career: { events: '12', wins: '1' }, wins }), 100001, NOW).wins).toEqual({
+      career: { events: 12, wins: 1 },
+      periodEvents: null,
+      periodWins: null,
+    });
+  });
+});

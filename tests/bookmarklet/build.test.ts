@@ -15,7 +15,7 @@ const APP_URL = LIVE_APP_URL;
  * (measured on a Pixel); the rest of a paste is cut off. The limit leaves
  * room under it for later changes.
  */
-const MAX_LENGTH = 4200;
+const MAX_LENGTH = 4300;
 const FORBIDDEN = ['cookie', 'Storage', 'indexedDB', 'innerText', '.click(', 'window.open', '.value', 'eval', 'Function(', 'import('];
 
 describe('built bookmarklet', async () => {

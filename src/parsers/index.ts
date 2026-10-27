@@ -10,9 +10,14 @@ export {
   parsePlayer,
   parseProfileEvents,
 } from './player';
+export { extractCareer, extractWins, normalizeCareer, normalizeWins } from './wins';
 export { detailsToRounds, eventKeyOf, eventToRounds, mergeRounds, type ListedRound } from './rounds';
 export { LIMITS, ParseError, parsePdgaDate, type ParseErrorCode } from './values';
 export type {
+  Career,
+  RawCareer,
+  RawWin,
+  Win,
   DetailsRound,
   EventDivision,
   EventResults,

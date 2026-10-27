@@ -20,14 +20,14 @@ export const STATUSES = ['ok', 'partial', 'challenge', 'unsupported-page', 'erro
  */
 export type HandoffStatus = (typeof STATUSES)[number];
 
-const PAGE_KINDS = ['details', 'profile', 'season', 'history', 'event', 'challenge', 'unknown'] as const satisfies readonly PageKind[];
+const PAGE_KINDS = ['details', 'profile', 'season', 'history', 'wins', 'event', 'challenge', 'unknown'] as const satisfies readonly PageKind[];
 
 /**
  * Pages in one hand-off: the current page, the other player page, the
- * previous season's results in January, up to 10 event pages and the
- * ratings history.
+ * previous season's results in January, up to 10 event pages, the career
+ * wins and the ratings history.
  */
-export const MAX_PAGES = 14;
+export const MAX_PAGES = 15;
 /** Pages that could not be fetched, at most this many. */
 export const MAX_FAILED = 20;
 
