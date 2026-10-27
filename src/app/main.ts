@@ -6,7 +6,7 @@ import { decodeHandoff, HandoffError, type HandoffErrorCode, type HandoffStatus,
 import { resolveLanguage, setLanguage, t, type MessageKey } from '../i18n';
 import { el } from './dom';
 import { readPages } from './handoff';
-import { setDateOrder, today } from './format';
+import { deviceLocale, setDateOrder, today } from './format';
 import { takeFragment } from './import';
 import { startVisitCount } from './analytics';
 import { createSyncController, syncLink, takeSyncToken, type JoinChoice } from './sync';
@@ -29,6 +29,7 @@ import {
   setLeftOut,
   setManualLeftOut,
   setMe,
+  sortFavorites,
   updateManualRound,
   type ManualRoundInput,
   type Routed,
@@ -59,6 +60,7 @@ import {
   type TargetQuery,
 } from './target';
 import { chartData } from './chart';
+import { compareLine, headToHead } from './compare';
 import { exampleRounds } from './examples';
 import { topEight, type TopPeriod } from './top8';
 import { BANNER_ID, bannerView, updateNotice, type Banner } from './views/banner';
@@ -91,6 +93,7 @@ import {
   WIDE_QUERY,
 } from './views/players';
 import { cardToggleId } from './views/card';
+import { COMPARE_ID, compareCheckboxId, compareView } from './views/compare';
 import { CHART_FULL_TITLE_ID, chartFullView, setChartTextScale, type ChartProps } from './views/chart';
 import { GUIDE_ID, guideSectionId, guideView, type GuideSection } from './views/guide';
 import { roundEditId, ROUNDS_NEXT_ID, ratingView } from './views/rating';
@@ -1086,7 +1089,7 @@ function overlayTitleId(view: OverlayView): string {
   // The full-screen chart covers the top bar and has its own heading.
   if (view === 'chart') return CHART_FULL_TITLE_ID;
   if (!isWide()) return TOPBAR_TITLE_ID;
-  return view === 'setup' ? SETUP_ID : GUIDE_ID;
+  return view === 'setup' ? SETUP_ID : view === 'compare' ? COMPARE_ID : GUIDE_ID;
 }
 
 /** Shows the setup or How it works over the current tab, as a new history entry. */
@@ -1100,6 +1103,12 @@ function openOverlay(view: OverlayView): void {
 function openSetup(): void {
   openOverlay('setup');
   render(overlayTitleId('setup'));
+  window.scrollTo(0, 0);
+}
+
+function openCompare(): void {
+  openOverlay('compare');
+  render(overlayTitleId('compare'));
   window.scrollTo(0, 0);
 }
 
@@ -1229,6 +1238,7 @@ function currentView(): HTMLElement {
       onBack: closeOverlay,
     });
   }
+  if (overlay?.view === 'compare') return compareOf(data, new Date());
   if (overlay?.view === 'setup') {
     return setupView({
       bookmarklet,
@@ -1386,6 +1396,45 @@ function modelOf(player: StoredPlayer, now: Date): Model {
   return playerModel(player, player.import!, now);
 }
 
+/** The stored players with an import, which Compare players can pick, in the players panel's order. */
+function comparable(data: ReturnType<typeof store.get>): StoredPlayer[] {
+  return sortFavorites(
+    data.players.filter((player) => player.import),
+    data.me,
+    data.playerOrder,
+    deviceLocale(),
+  );
+}
+
+/** The players picked in Compare players; until a pick, me and the player shown. */
+let comparePicked: number[] | null = null;
+
+function compareOf(data: ReturnType<typeof store.get>, now: Date): HTMLElement {
+  const players = comparable(data);
+  const numbers = players.map((player) => player.pdgaNumber);
+  comparePicked ??= [...new Set([data.me, selected])].filter((n): n is number => n !== null);
+  const picked = comparePicked.filter((n) => numbers.includes(n));
+  const shown = players.filter((player) => picked.includes(player.pdgaNumber));
+  const models = shown.map((player) => modelOf(player, now));
+  return compareView({
+    players: players.map((player) => ({
+      pdgaNumber: player.pdgaNumber,
+      label: playerLabel(player),
+      name: playerName(player) || playerLabel(player),
+    })),
+    picked,
+    lines: models.map(compareLine),
+    meetings: models.flatMap((a, i) =>
+      models.slice(i + 1).map((b) => ({ a: a.pdgaNumber, b: b.pdgaNumber, result: headToHead(a.rounds, b.rounds) })),
+    ),
+    onPick: (pdgaNumber, on) => {
+      comparePicked = on ? [...picked, pdgaNumber] : picked.filter((n) => n !== pdgaNumber);
+      render(compareCheckboxId(pdgaNumber));
+    },
+    onBack: closeOverlay,
+  });
+}
+
 const predictionOf = createPredictionCache();
 
 /** Every stored player's prediction for the players panel, by PDGA number. */
@@ -1442,6 +1491,7 @@ function barTitle(): string {
   if (menuOpen) return t('players.switch');
   if (overlay?.view === 'guide') return t('guide.title');
   if (overlay?.view === 'setup') return t('setup.title');
+  if (overlay?.view === 'compare') return t('compare.title');
   return tab === 'settings' ? t('settings.title') : t('app.name');
 }
 
@@ -1498,6 +1548,7 @@ function render(focusId = document.activeElement?.id): void {
         names: lookedUpNames(data.players),
         share: shareStatus,
         onShare: () => void shareList(),
+        onCompare: comparable(data).length >= 2 ? openCompare : undefined,
         onOrder: setPlayerOrder,
         onSearch: searchPdga,
         search: inAppSearch(SEARCH_INPUT_ID, (player) => addFromPanel(player.pdgaNumber)),

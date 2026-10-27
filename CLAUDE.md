@@ -160,7 +160,10 @@ only, #add=..., read and removed on open, asked before adding), and sync
 between devices (a secret #sync= link and QR code in Settings; the Worker
 keeps the favorites' PDGA numbers and "me" only), and events and wins
 (the Details card shows the career's and the rating window's events and
-wins with the share won; bookmarklet 1.4.0 also fetches the wins page).
+wins with the share won; bookmarklet 1.4.0 also fetches the wins page),
+and Compare players (from the players panel: the picked players' window
+figures, and head-to-head meetings in the same event and round across
+divisions, decided by round rating).
 
 Bookmarklet rules every change keeps:
 - Fully self-contained: it never loads remote code, so no external code runs
@@ -306,7 +309,7 @@ large text polish and parts A and B of docs/plan-edit-and-arrows.md
 target answer), manual rounds on and off, one arrow angle, the build
 date after the version, the PDGA attribution with the player link and
 the anonymous visit count, the shared favorites list, sync between
-devices and events and wins (docs/finished-steps.md).
+devices, events and wins and Compare players (docs/finished-steps.md).
 Planned after part B is merged:
 part C, dragging the chart through history with a long-press for the
 value. The open items under Architecture are optional and wait

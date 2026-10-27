@@ -2304,3 +2304,69 @@ a {
   margin: 0.5rem 0 1rem;
   border-radius: 0.5rem;
 }
+
+/* Compare players: the picker as the event choices, the figures as the chart table. */
+
+.compare-picker {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.compare-picker legend {
+  padding: 0;
+  font-weight: 700;
+}
+
+.compare-table {
+  margin: 0 0 1rem;
+}
+
+.compare-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.compare-table caption {
+  text-align: left;
+  font-weight: 700;
+  padding: 0 0 0.5rem;
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-table thead th,
+.compare-table .compare-number {
+  white-space: nowrap;
+}
+
+.compare-table .compare-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Names wrap whole words, as in the chart table. */
+.compare-table .compare-name {
+  overflow-wrap: break-word;
+}
+
+.compare-meetings {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.compare-meetings li {
+  padding: 0.5rem 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.compare-meetings p {
+  margin: 0.25rem 0 0;
+}

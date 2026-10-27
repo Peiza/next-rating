@@ -1768,6 +1768,15 @@ describe('players panel', () => {
     expect(other!.querySelector('.player-meta')!.textContent).toBe('Not imported yet');
   });
 
+  it('offers Compare players only when it can compare', () => {
+    expect(panel().querySelector('#compare-open')).toBeNull();
+    const onCompare = vi.fn();
+    const button = panel({ onCompare }).querySelector<HTMLButtonElement>('#compare-open')!;
+    expect(button.textContent).toBe('Compare players');
+    button.click();
+    expect(onCompare).toHaveBeenCalled();
+  });
+
   it('is headed "Players" on wide screens only, with the shown player marked as now on phones', () => {
     const view = panel();
     const heading = view.querySelector('#favorites-title')!;
