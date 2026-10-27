@@ -233,6 +233,20 @@ function unsavedItem(player: StoredPlayer, props: PlayersProps): HTMLElement {
   );
 }
 
+function editButton(props: PlayersProps): HTMLElement {
+  return el(
+    'button',
+    {
+      id: 'players-edit',
+      class: 'button button-small players-edit',
+      type: 'button',
+      'aria-pressed': props.editing ? 'true' : 'false',
+      onclick: props.onToggleEdit,
+    },
+    t(props.editing ? 'players.editDone' : 'players.edit'),
+  );
+}
+
 export function playersPanel(props: PlayersProps): HTMLElement {
   const favorites = sortFavorites(
     props.players.filter((player) => player.favorite),
@@ -260,24 +274,13 @@ export function playersPanel(props: PlayersProps): HTMLElement {
       ? el('ul', { class: 'player-list' }, ...favorites.map((player) => favoriteItem(player, props)))
       : el('p', { class: 'hint' }, t('players.none')),
     favorites.length > 0 &&
-      el(
-        'button',
-        {
-          id: 'players-edit',
-          class: 'button button-small players-edit',
-          type: 'button',
-          'aria-pressed': props.editing ? 'true' : 'false',
-          onclick: props.onToggleEdit,
-        },
-        t(props.editing ? 'players.editDone' : 'players.edit'),
-      ),
+      (props.onShare ? shareSection(props.share ?? null, props.onShare, editButton(props)) : editButton(props)),
     props.onCompare &&
       el(
         'button',
         { id: COMPARE_OPEN_ID, class: 'button button-block', type: 'button', onclick: props.onCompare },
         t('compare.open'),
       ),
-    favorites.length > 0 && props.onShare && shareSection(props.share ?? null, props.onShare),
     unsaved.length > 0 && el('h3', { class: 'players-unsaved' }, t('players.unsaved')),
     unsaved.length > 0 && el('ul', { class: 'player-list' }, ...unsaved.map((player) => unsavedItem(player, props))),
     pdgaNumberForm(null, props.flash, (pdgaNumber) => pdgaNumber !== null && props.onAdd(pdgaNumber), {
